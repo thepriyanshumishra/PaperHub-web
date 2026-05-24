@@ -179,6 +179,4 @@ npx tsx scripts/clearCache.ts
 
 ---
 
-## 📝 License
 
-MIT — built with ❤️ by [Priyanshu Mishra](https://github.com/thepriyanshumishra)
