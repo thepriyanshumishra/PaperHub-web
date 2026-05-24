@@ -93,7 +93,7 @@ function PracticeSolveContent() {
   const [explainingStep, setExplainingStep] = useState<number | null>(null);
   const [stepExplanation, setStepExplanation] = useState<string | null>(null);
   const [stepExplanationLoading, setStepExplanationLoading] = useState(false);
-  const [popoverPosition, setPopoverPosition] = useState<{ top: number; left: number } | null>(null);
+  const [explainingStepText, setExplainingStepText] = useState<string | null>(null);
   const stepRefs = useRef<{[key: number]: HTMLDivElement | null}>({});
 
   // Ask AI states
@@ -189,42 +189,71 @@ function PracticeSolveContent() {
     const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
 
     if (isLocalFallback) {
-      // Simulate local Groq resolution
-      setTimeout(() => {
-        clearInterval(interval);
-        setSolutionProgress(100);
-        
+      if (currentQuestion.cachedSolution) {
         setTimeout(() => {
-          // If mock question already contains cachedSolution, use it
-          if (currentQuestion.cachedSolution) {
-            setActiveSolution(currentQuestion.cachedSolution);
-          } else {
-            // Generate standard mock solution step-by-step
-            setActiveSolution({
-              content: `To solve: **${currentQuestion.questionText}**.\n\nHere is the step-by-step university exam resolution.`,
-              steps: [
-                {
-                  stepNumber: 1,
-                  heading: "Identify Given Parameters",
-                  content: `Let's analyze the given question text for **${currentQuestion.topic}**. Identify the core functions or matrices from the text:\n\n$$X = \\text{Target topic: } ${currentQuestion.topic}$$\n\nSet up the initial equations matching the university syllabus requirements.`
-                },
-                {
-                  stepNumber: 2,
-                  heading: "Perform Core Differentiation / Steps",
-                  content: "Differentiating the variables or applying the core equations step-by-step:\n\n$$y_{n} = D^n [ f(x) ]$$\n\nEnsure mathematical notations are clearly tracked. Substitute standard values into the theorem."
-                },
-                {
-                  stepNumber: 3,
-                  heading: "Verify and Simplify",
-                  content: "Simplify the expression to match the final expected target outcome:\n\n$$\\text{Final solution is verified for } \\tan u \\text{ or corresponding proof.}$$"
-                }
-              ]
-            });
-          }
-          setSolutionLoading(false);
-          setSolutionVisible(true);
-        }, 300);
-      }, 1500); // 1.5s simulated generation time
+          clearInterval(interval);
+          setSolutionProgress(100);
+          setTimeout(() => {
+            setActiveSolution(currentQuestion.cachedSolution!);
+            setSolutionLoading(false);
+            setSolutionVisible(true);
+          }, 300);
+        }, 800);
+      } else {
+        const subjectName = localStorage.getItem('selectedSubjectName') || 'Engineering Mathematics-I';
+        fetch('/api/ai/solve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionText: currentQuestion.questionText,
+            topic: currentQuestion.topic,
+            unit: currentQuestion.unit,
+            subjectName: subjectName,
+            syllabus: []
+          })
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error();
+            return res.json();
+          })
+          .then((data) => {
+            clearInterval(interval);
+            setSolutionProgress(100);
+            setTimeout(() => {
+              setActiveSolution(data.solution);
+              setSolutionLoading(false);
+              setSolutionVisible(true);
+            }, 300);
+          })
+          .catch(() => {
+            clearInterval(interval);
+            setSolutionProgress(100);
+            setTimeout(() => {
+              setActiveSolution({
+                content: `To solve: **${currentQuestion.questionText}**.\n\nHere is the step-by-step university exam resolution (Offline mode).`,
+                steps: [
+                  {
+                    stepNumber: 1,
+                    heading: "Identify Given Parameters",
+                    content: `Let's analyze the given question text for **${currentQuestion.topic}**. Identify the core functions or matrices from the text:\n\n$$X = \\text{Target topic: } ${currentQuestion.topic}$$\n\nSet up the initial equations matching the university syllabus requirements.`
+                  },
+                  {
+                    stepNumber: 2,
+                    heading: "Perform Core Differentiation / Steps",
+                    content: "Differentiating the variables or applying the core equations step-by-step:\n\n$$y_{n} = D^n [ f(x) ]$$\n\nEnsure mathematical notations are clearly tracked. Substitute standard values into the theorem."
+                  },
+                  {
+                    stepNumber: 3,
+                    heading: "Verify and Simplify",
+                    content: "Simplify the expression to match the final expected target outcome:\n\n$$\\text{Final solution is verified for } \\tan u \\text{ or corresponding proof.}$$"
+                  }
+                ]
+              });
+              setSolutionLoading(false);
+              setSolutionVisible(true);
+            }, 300);
+          });
+      }
     } else {
       // Real API fetch
       fetch(`/api/ai/solve?questionId=${currentQuestion._id}`)
@@ -259,25 +288,43 @@ function PracticeSolveContent() {
 
   const handleExplainStep = (stepNumber: number, stepText: string, event: React.MouseEvent) => {
     if (stepExplanationLoading) return;
-    
-    // Get mouse position relative to window for rendering floating popover
-    const rect = event.currentTarget.getBoundingClientRect();
-    setPopoverPosition({
-      top: rect.bottom + window.scrollY + 10,
-      left: Math.max(10, Math.min(rect.left + window.scrollX - 50, window.innerWidth - 320))
-    });
+    event.stopPropagation();
 
     setExplainingStep(stepNumber);
+    setExplainingStepText(stepText);
     setStepExplanationLoading(true);
     setStepExplanation(null);
 
     const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
 
     if (isLocalFallback) {
-      setTimeout(() => {
-        setStepExplanation(`**Concept Explanation:**\nThis step differentiates the product of two functions. According to Leibnitz's theorem:\n\n$$D^n(uv) = u_n v + n u_{n-1} v_1 + \\dots$$\n\nHere we substitute $u = y_2$ and $v = (1-x^2)$ and solve recursively.`);
-        setStepExplanationLoading(false);
-      }, 800);
+      const subjectName = localStorage.getItem('selectedSubjectName') || 'Engineering Mathematics-I';
+      fetch('/api/ai/explain-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: 'mock-question',
+          stepNumber,
+          stepText,
+          subjectId,
+          fallbackContext: {
+            questionText: currentQuestion.questionText,
+            subjectName: subjectName
+          }
+        })
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((data) => {
+          setStepExplanation(data.explanation);
+          setStepExplanationLoading(false);
+        })
+        .catch(() => {
+          setStepExplanation(`**Concept Explanation (Offline):**\nThis step resolves the calculation of Step ${stepNumber} for topic **${currentQuestion.topic}**.\n\nIt applies standard mathematical substitutions matching your university syllabus. Ensure to review the formulas for this unit.`);
+          setStepExplanationLoading(false);
+        });
     } else {
       fetch('/api/ai/explain-step', {
         method: 'POST',
@@ -326,16 +373,43 @@ function PracticeSolveContent() {
     const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
 
     if (isLocalFallback) {
-      setTimeout(() => {
+      const subjectName = localStorage.getItem('selectedSubjectName') || 'Engineering Mathematics-I';
+      try {
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: localStorage.getItem('anonymousUserId') || 'guest',
+            questionId: 'mock-question',
+            message: userMsg,
+            history: chatMessages,
+            fallbackContext: {
+              questionText: currentQuestion.questionText,
+              topic: currentQuestion.topic,
+              unit: currentQuestion.unit,
+              subjectName: subjectName,
+              syllabus: [],
+              cachedSolution: activeSolution || currentQuestion.cachedSolution
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.reply) {
+          setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+        } else {
+          throw new Error();
+        }
+      } catch {
         setChatMessages((prev) => [
           ...prev,
           {
             role: 'assistant',
-            content: `Regarding your query about **${currentQuestion.topic}**: To solve this university-style, we apply the standard syllabus formulas. \n\nIf you swap the coefficients, remember to keep track of the sign of the discriminant ($b^2 - 4ac$). Let me know if you want me to write down the exact code syntax swaps!`
+            content: `Regarding your query about **${currentQuestion.topic}**: (Offline Mode) To solve this university-style, we apply the standard syllabus formulas. \n\nIf you swap the coefficients, remember to keep track of the sign of the discriminant ($b^2 - 4ac$).`
           }
         ]);
+      } finally {
         setChatLoading(false);
-      }, 1200);
+      }
     } else {
       try {
         const res = await fetch('/api/ai/chat', {
@@ -541,41 +615,93 @@ function PracticeSolveContent() {
         </div>
       </main>
 
-      {/* Floating Explain Step Popover */}
+      {/* ── Explain This Step Modal ─────────────────────────────────────── */}
       <AnimatePresence>
-        {explainingStep !== null && popoverPosition && (
+        {explainingStep !== null && (
           <>
-            {/* Click-away backdrop */}
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => { setExplainingStep(null); setStepExplanation(null); }}
-            />
-            {/* Popover content card */}
+            {/* Backdrop + flex centering wrapper */}
             <motion.div
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
-              className="absolute z-50 w-80 p-4 rounded-xl border border-accent/20 bg-bg-secondary shadow-lg text-xs leading-relaxed"
-              style={{ top: popoverPosition.top, left: popoverPosition.left }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-6 p-0"
+              onClick={() => { setExplainingStep(null); setStepExplanation(null); setExplainingStepText(null); }}
             >
-              <div className="flex items-center justify-between border-b border-border-primary pb-2 mb-2">
-                <span className="font-bold text-accent">Step {explainingStep} Concept Breakdown</span>
-                <button 
-                  onClick={() => { setExplainingStep(null); setStepExplanation(null); }}
-                  className="p-1 rounded hover:bg-bg-tertiary text-text-muted"
+            {/* Modal Panel — stop clicks propagating to the backdrop */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 24 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:w-[760px] lg:w-[880px] max-h-[88vh] sm:max-h-[80vh] rounded-t-2xl sm:rounded-2xl overflow-hidden border border-accent/20 bg-bg-secondary shadow-2xl flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex-none flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border-b border-border-primary">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center">
+                    <HelpCircle className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-text-muted uppercase tracking-widest leading-none mb-0.5">AI Concept Breakdown</p>
+                    <p className="text-sm font-bold text-accent leading-none">Step {explainingStep} — Deep Explanation</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setExplainingStep(null); setStepExplanation(null); setExplainingStepText(null); }}
+                  className="p-1.5 rounded-lg hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-colors"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {stepExplanationLoading ? (
-                <div className="flex items-center justify-center py-4 space-x-2 text-text-secondary">
-                  <Loader2 className="w-4 h-4 text-accent animate-spin" />
-                  <span>Analysing step context...</span>
+              {/* Body — side-by-side on md+, stacked on mobile */}
+              <div className="flex-1 overflow-hidden flex flex-col md:flex-row min-h-0">
+
+                {/* LEFT COLUMN: Step context preview */}
+                <div className="md:w-56 lg:w-64 flex-none bg-bg-primary border-b md:border-b-0 md:border-r border-border-primary p-4 flex flex-col space-y-3 overflow-y-auto max-h-36 md:max-h-none">
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">Step Content</p>
+                  <div className="text-xs text-text-secondary leading-relaxed line-clamp-[12] md:line-clamp-none">
+                    <MathMarkdown content={explainingStepText || ''} />
+                  </div>
                 </div>
-              ) : (
-                <MathMarkdown content={stepExplanation || 'Explanation missing.'} />
-              )}
+
+                {/* RIGHT COLUMN: AI Explanation */}
+                <div className="flex-1 overflow-y-auto p-5 min-w-0">
+                  {stepExplanationLoading ? (
+                    <div className="h-full flex flex-col items-center justify-center space-y-4 text-text-secondary py-10">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin" />
+                        <Sparkles className="w-4 h-4 text-accent absolute inset-0 m-auto" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-sm font-medium text-text-primary">Analysing step context…</p>
+                        <p className="text-xs text-text-muted">Groq Llama is generating a tailored explanation</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-sm leading-relaxed">
+                      <MathMarkdown content={stepExplanation || 'Explanation not available.'} />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex-none flex items-center justify-between px-5 py-3 border-t border-border-primary bg-bg-primary/50 text-[10px] text-text-muted">
+                <span className="flex items-center space-x-1">
+                  <Sparkles className="w-3 h-3 text-accent" />
+                  <span>Powered by Groq · Llama 3.3 70B</span>
+                </span>
+                <button
+                  onClick={() => { setExplainingStep(null); setStepExplanation(null); setExplainingStepText(null); }}
+                  className="px-3 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-accent font-semibold transition-colors text-[10px]"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
             </motion.div>
           </>
         )}

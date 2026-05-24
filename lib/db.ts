@@ -30,6 +30,7 @@ async function dbConnect(): Promise<mongoose.Connection> {
   if (cached && !cached.promise) {
     const opts = {
       bufferCommands: false,
+      autoSelectFamily: false,
     };
 
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((m) => m.connection);

@@ -3,15 +3,16 @@ import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import Subject from '@/models/subject';
 import { groq, isAiEnabled } from '@/lib/groq';
+import mongoose from 'mongoose';
 
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { questionId, stepNumber, stepText, subjectId } = body;
+    const { questionId, stepNumber, stepText, subjectId, fallbackContext } = body;
 
-    if (!questionId || !stepNumber || !stepText) {
-      return NextResponse.json({ error: 'Missing required parameters: questionId, stepNumber, stepText' }, { status: 400 });
+    if ((!questionId && !fallbackContext) || !stepNumber || !stepText) {
+      return NextResponse.json({ error: 'Missing required parameters: questionId/fallbackContext, stepNumber, stepText' }, { status: 400 });
     }
 
     // Fallback if Groq API is not active
@@ -21,12 +22,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const question = await Question.findById(questionId);
-    const subject = await Subject.findById(subjectId || question?.subjectId);
+    let subjectName = 'this subject';
+    let questionText = '';
 
-    const prompt = `You are a helpful university professor teaching "${subject?.name || 'this subject'}".
+    const isMock = !questionId || String(questionId).startsWith('mock') || !mongoose.Types.ObjectId.isValid(questionId);
+
+    if (!isMock) {
+      const question = await Question.findById(questionId);
+      const subject = await Subject.findById(subjectId || question?.subjectId);
+      subjectName = subject?.name || 'this subject';
+      questionText = question?.questionText || '';
+    } else if (fallbackContext) {
+      subjectName = fallbackContext.subjectName || 'this subject';
+      questionText = fallbackContext.questionText || '';
+    }
+
+    const prompt = `You are a helpful university professor teaching "${subjectName}".
 A student is practicing this question:
-"${question?.questionText}"
+"${questionText}"
 
 In the generated step-by-step solution, they are confused about Step ${stepNumber}:
 "${stepText}"

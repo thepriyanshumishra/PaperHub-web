@@ -83,6 +83,7 @@ Instructions:
      - "content": detailed mathematical/algorithmic text explaining the derivation. Use standard LaTeX enclosed in $$ for equations.
 2. The explanation must resemble a university exam answer. Use clear, step-by-step reasoning. Do NOT use olympiad shortcuts or off-syllabus tricks. Focus on step-oriented grading points.
 3. Keep all LaTeX equations mathematically sound.
+4. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.
 
 Output must be ONLY valid JSON matching this schema:
 {
@@ -111,6 +112,90 @@ Output must be ONLY valid JSON matching this schema:
     return NextResponse.json({ solution: question.cachedSolution });
   } catch (error) {
     console.error('API Error in /api/ai/solve:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { questionText, topic, unit, subjectName, syllabus } = body;
+
+    if (!questionText) {
+      return NextResponse.json({ error: 'Missing questionText parameter' }, { status: 400 });
+    }
+
+    // Fallback if Groq API is not active
+    if (!isAiEnabled()) {
+      return NextResponse.json({
+        solution: {
+          content: `Step-by-step resolution for: ${questionText} (Running in local preview mode without Groq API key).`,
+          steps: [
+            {
+              stepNumber: 1,
+              heading: "Initialize Mathematical Model",
+              content: `For target topic **${topic || 'General'}**, we set up the initial boundary conditions:\n\n$$y(x) = f(x)$$\n\nIdentify the parameters from the syllabus context of **${subjectName || 'the subject'}**.`
+            },
+            {
+              stepNumber: 2,
+              heading: "Perform Core Steps",
+              content: "Applying the appropriate mathematical theorem or algorithm step-by-step:\n\n$$D^n [ f(x) ] = u_{n}v + n u_{n-1}v_1 + \\dots$$\n\nSubstitute the parameters and simplify the terms."
+            },
+            {
+              stepNumber: 3,
+              heading: "Obtain Final Result",
+              content: "Solve the remaining equations to prove the relation:\n\n$$Q.E.D.$$\n\nThis yields the final simplified relation as expected in the university examinations."
+            }
+          ]
+        }
+      });
+    }
+
+    const prompt = `You are a university mathematics and computer science professor teaching "${subjectName || 'the subject'}". 
+Generate a clear, step-by-step solution for the following university exam question:
+"${questionText}"
+
+The question is from Unit ${unit || 1}, Topic: "${topic || 'General'}".
+Syllabus detail: ${JSON.stringify(syllabus || [])}
+
+Instructions:
+1. Provide the response as a JSON object containing:
+   - "content": A brief introductory paragraph about the problem approach.
+   - "steps": A list of steps. Each step must have:
+     - "stepNumber": integer starting from 1
+     - "heading": brief 2-5 word title of what the step does (e.g. "Differentiate Both Sides")
+     - "content": detailed mathematical/algorithmic text explaining the derivation. Use standard LaTeX enclosed in $$ for equations.
+2. The explanation must resemble a university exam answer. Use clear, step-by-step reasoning. Do NOT use olympiad shortcuts or off-syllabus tricks. Focus on step-oriented grading points.
+3. Keep all LaTeX equations mathematically sound.
+4. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.
+
+Output must be ONLY valid JSON matching this schema:
+{
+  "content": "string",
+  "steps": [
+    { "stepNumber": number, "heading": "string", "content": "string" }
+  ]
+}`;
+
+    const completion = await groq!.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' }
+    });
+
+    const responseText = completion.choices[0]?.message?.content || '{}';
+    const parsedSolution = JSON.parse(responseText);
+
+    return NextResponse.json({
+      solution: {
+        content: parsedSolution.content || 'Generated Solution:',
+        steps: parsedSolution.steps || [],
+        generatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('API Error in POST /api/ai/solve:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
