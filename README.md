@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📄 PaperHub-web
 
-## Getting Started
+> **"A premium university exam preparation environment."** — Designed to feel like VS Code for exam prep.
 
-First, run the development server:
+PaperHub is a university-focused, structured exam preparation platform specifically designed for descriptive/written university examinations. It transforms scattered PDFs, WhatsApp past year papers (PYQs), and random Drives into a topic-wise, structured, syllabus-aware preparation hub with AI-assisted step-by-step solutions.
 
+---
+
+## ✨ Features
+
+- **🎓 Syllabus-Aware Topic Structure**: No more searching through giant files. Prep is mapped directly to semesters, branches, subjects, units, and specific concepts.
+- **✍️ Descriptive Exam Workflows**: Built specifically for written, descriptive, and step-oriented university examinations (not just MCQs).
+- **💡 Step-by-Step AI Solutions**: Solutions are generated to match university standards using Llama-3.3-70b via the Groq API.
+- **🔍 "Explain This Step" Interaction**: Hover over complex derivations or logical jumps to view contextual micro-explanations in clean popovers without losing your place.
+- **📝 Exam/Test Mode**: A distraction-free, full-screen environment with a timer and subtle tab-switching (focus interruption) alerts.
+- **🌗 Cozy Design System**: Warm peach off-white backgrounds in Light Mode (`#FFF8F4`) and clean dark charcoal colors in Dark Mode (`#121212`), tailored for long study sessions.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
+- **Styling & UI**: [Tailwind CSS](https://tailwindcss.com/), [Framer Motion](https://www.framer.com/motion/), [Lucide React](https://lucide.dev/)
+- **Database**: [MongoDB Atlas](https://www.mongodb.com/atlas) with [Mongoose ODM](https://mongoosejs.com/)
+- **AI Core**: [Groq SDK](https://github.com/groq/groq-typescript) (`llama-3.3-70b-versatile`)
+- **Formatting**: [React Markdown](https://github.com/remarkjs/react-markdown), [KaTeX](https://katex.org/) (for mathematical formulas/equations)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+Ensure you have [Node.js](https://nodejs.org/) (v18+ recommended) and a running [MongoDB](https://www.mongodb.com/) instance (local or Atlas cluster).
+
+### 2. Clone and Install
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/thepriyanshumishra/PaperHub-web.git
+cd PaperHub-web
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Environment Variables
+Create a `.env.local` file in the root directory:
+```env
+MONGODB_URI=your_mongodb_connection_string
+GROQ_API_KEY=your_groq_api_key
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Seed the Database
+Seed the database with sample university colleges, branches, subjects, and past year questions:
+```bash
+npm run db:seed
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 5. Start Development Server
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 📂 Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+├── app/                  # Next.js App Router (pages & API endpoints)
+│   ├── api/              # API routes (solving, explanation, chat, onboarding, sessions)
+│   ├── onboarding/       # Onboarding flow pages
+│   ├── subjects/         # Subject preparation, practice, and test modes
+│   └── globals.css       # Global styles & theme colors
+├── components/           # Reusable UI components (Theme, Math Markdown renderers)
+├── lib/                  # Database connections, Groq client, seed dataset
+├── models/               # Mongoose Schema models (College, Branch, Subject, Question, Session, Chat)
+├── scripts/              # Seed utility scripts
+├── tailwind.config.ts    # Tailwind styling configurations
+└── tsconfig.json         # TypeScript configuration
+```
