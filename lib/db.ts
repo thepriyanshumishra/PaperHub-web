@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
 
+// Pre-register all models to prevent Schema hasn't been registered populate errors
+import '../models/college';
+import '../models/branch';
+import '../models/subject';
+import '../models/question';
+import '../models/session';
+import '../models/chat';
+
 const MONGODB_URI = process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {

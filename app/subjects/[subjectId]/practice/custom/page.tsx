@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { seedColleges } from '@/lib/seedData';
-import { ArrowLeft, Play, Layers, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, Check, Loader2 } from 'lucide-react';
 
 interface SubjectDetail {
   _id: string;
@@ -30,7 +30,6 @@ export default function CustomPracticeBuilder() {
   // Selection state
   const [selectedUnits, setSelectedUnits] = useState<number[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
-  const [questionCount, setQuestionCount] = useState<number>(5);
 
   useEffect(() => {
     const college = localStorage.getItem('selectedCollege') || 'MMMUT';
@@ -102,7 +101,7 @@ export default function CustomPracticeBuilder() {
     if (isLocalFallback) {
       const unitsQuery = selectedUnits.join(',');
       const topicsQuery = encodeURIComponent(selectedTopics.join(','));
-      router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}&count=${questionCount}`);
+      router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}`);
     } else {
       try {
         const res = await fetch('/api/sessions', {
@@ -115,8 +114,7 @@ export default function CustomPracticeBuilder() {
             subType: 'custom',
             config: {
               units: selectedUnits,
-              topics: selectedTopics,
-              questionCount
+              topics: selectedTopics
             }
           })
         });
@@ -126,12 +124,12 @@ export default function CustomPracticeBuilder() {
         } else {
           const unitsQuery = selectedUnits.join(',');
           const topicsQuery = encodeURIComponent(selectedTopics.join(','));
-          router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}&count=${questionCount}`);
+          router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}`);
         }
       } catch {
         const unitsQuery = selectedUnits.join(',');
         const topicsQuery = encodeURIComponent(selectedTopics.join(','));
-        router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}&count=${questionCount}`);
+        router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}`);
       }
     }
   };
@@ -198,37 +196,8 @@ export default function CustomPracticeBuilder() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Left panel: General configurations */}
-          <div className="md:col-span-1 space-y-6">
-            <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary">
-              <h3 className="font-display font-semibold text-text-primary mb-4 flex items-center space-x-2">
-                <Layers className="w-4 h-4 text-accent" />
-                <span>Question Count</span>
-              </h3>
-              <div className="grid grid-cols-4 gap-2">
-                {[3, 5, 10, 15].map((count) => (
-                  <button
-                    key={count}
-                    onClick={() => setQuestionCount(count)}
-                    className={`py-3 rounded-lg border text-center font-bold text-sm transition-all duration-200 ${
-                      questionCount === count 
-                        ? 'border-accent bg-accent/5 text-accent' 
-                        : 'border-border-primary bg-bg-primary text-text-secondary hover:bg-bg-tertiary'
-                    }`}
-                  >
-                    {count}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[10px] text-text-muted mt-3 leading-relaxed">
-                Choose the count of questions to dynamically pull into this practice session.
-              </p>
-            </div>
-          </div>
-
-          {/* Right panel: Syllabus selectors */}
-          <div className="md:col-span-2 space-y-6">
+        <div className="max-w-3xl space-y-6">
+          <div className="space-y-6">
             <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary">
               <h3 className="font-display font-semibold text-text-primary mb-6">Select Units & Topics</h3>
               <div className="space-y-6">

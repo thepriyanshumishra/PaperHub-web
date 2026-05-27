@@ -184,7 +184,7 @@ export default function TestSummary() {
       </main>
 
       <footer className="border-t border-border-primary/50 bg-bg-secondary/20 py-6 text-center text-xs text-text-secondary">
-        <p>PaperHub Chapter • Mapped Syllabus and Exam Patterns</p>
+        <p>PaperHub • Mapped Syllabus and Exam Patterns</p>
       </footer>
     </div>
   );

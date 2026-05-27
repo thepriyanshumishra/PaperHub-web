@@ -3,8 +3,12 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { MathMarkdown } from '@/components/math-markdown';
-import { seedQuestions } from '@/lib/seedData';
+import dynamic from 'next/dynamic';
+
+const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mod) => mod.MathMarkdown), {
+  ssr: false,
+  loading: () => <div className="animate-pulse h-12 bg-bg-secondary rounded-lg border border-border-primary/50 w-full" />,
+});
 import { 
   Clock, 
   ShieldAlert, 
@@ -40,7 +44,6 @@ function TestSolveContent() {
   // URL parameters
   const sessionId = searchParams.get('sessionId');
   const durationParam = parseInt(searchParams.get('duration') || '90', 10);
-  const countParam = parseInt(searchParams.get('count') || '5', 10);
 
   interface TestQuestion {
     _id?: string;
@@ -49,6 +52,7 @@ function TestSolveContent() {
     questionText: string;
     difficulty: string;
     repetitionFrequency: number;
+    marks?: number;
     sourcePapers?: { year: number; examType: string }[];
   }
 
@@ -72,38 +76,65 @@ function TestSolveContent() {
 
   // Load questions
   useEffect(() => {
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
-
-    if (isLocalFallback) {
-      const subjectCode = subjectId.replace('mock-', '');
-      const filtered = seedQuestions.filter((q) => q.subjectCode === subjectCode);
-      const shuffled = [...filtered].sort(() => 0.5 - Math.random());
-      setQuestions(shuffled.slice(0, countParam));
-      setLoading(false);
-    } else {
-      fetch(`/api/sessions/${sessionId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.session && data.session.questions) {
-            setQuestions(data.session.questions);
-            setCurrentIdx(data.session.currentQuestionIndex || 0);
-          } else {
-            router.push(`/subjects/${subjectId}`);
-          }
-        })
-        .catch(() => {
-          router.push(`/subjects/${subjectId}`);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+    if (!sessionId) {
+      router.push(`/subjects/${subjectId}`);
+      return;
     }
-  }, [subjectId, sessionId, countParam, router]);
+
+    fetch(`/api/sessions/${sessionId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load session');
+        return res.json();
+      })
+      .then((data) => {
+        if (data.session && data.session.questions) {
+          setQuestions(data.session.questions);
+          setCurrentIdx(data.session.currentQuestionIndex || 0);
+        } else {
+          router.push(`/subjects/${subjectId}`);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading test session:', err);
+        router.push(`/subjects/${subjectId}`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [subjectId, sessionId, router]);
+
+  // Intercept browser back/navigation and close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Push dummy state to handle browser back button
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = () => {
+      const confirm = window.confirm("Are you sure you want to leave the exam? Your progress will not be saved.");
+      if (confirm) {
+        router.push(`/subjects/${subjectId}`);
+      } else {
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [router, subjectId]);
 
   // Timer countdown
   useEffect(() => {
     if (timeLeft <= 0) {
-      handleSubmitExam();
+      handleSubmitExam(true);
       return;
     }
 
@@ -172,20 +203,13 @@ function TestSolveContent() {
   };
 
   const syncAntiCheatState = async (payload: { tabSwitches?: number; focusLosses?: number; fullscreenExits?: number }) => {
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
-    if (isLocalFallback) {
-      // Save in session storage to display in local mock summary
-      const saved = JSON.parse(sessionStorage.getItem('localTestAnalytics') || '{"tabSwitches":0,"focusLosses":0,"fullscreenExits":0}');
-      const merged = { ...saved, ...payload };
-      sessionStorage.setItem('localTestAnalytics', JSON.stringify(merged));
-    } else {
-      // PUT API updates to database
-      fetch(`/api/sessions/${sessionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ testAnalytics: payload })
-      }).catch((e) => console.error(e));
-    }
+    if (!sessionId) return;
+    // PUT API updates to database
+    fetch(`/api/sessions/${sessionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testAnalytics: payload })
+    }).catch((e) => console.error(e));
   };
 
   // Toggle fullscreen mode
@@ -220,20 +244,38 @@ function TestSolveContent() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmitExam = async () => {
+  const handleSubmitExam = async (isAutoSubmit = false) => {
+    if (!isAutoSubmit) {
+      const confirm = window.confirm("Are you sure you want to submit your exam sheet and end this session?");
+      if (!confirm) return;
+    }
+
     // Exit fullscreen if active
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
-
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
     
     // Save attempts stats
     const totalQuestions = questions.length;
     const attemptedCount = Object.keys(userNotes).filter((k) => userNotes[k].trim().length > 0).length;
     const timeSpentSeconds = durationParam * 60 - timeLeft;
 
-    if (isLocalFallback) {
+    if (!sessionId) {
+      router.push(`/subjects/${subjectId}`);
+      return;
+    }
+
+    // Submit session updates to DB
+    try {
+      await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'completed',
+          testAnalytics: { tabSwitches, focusLosses, fullscreenExits }
+        })
+      });
+      
       sessionStorage.setItem('localTestSummary', JSON.stringify({
         totalQuestions,
         attemptedCount,
@@ -242,32 +284,11 @@ function TestSolveContent() {
         focusLosses,
         fullscreenExits
       }));
+      
+      router.push(`/subjects/${subjectId}/test/summary?sessionId=${sessionId}`);
+    } catch (err) {
+      console.error('Error submitting exam:', err);
       router.push(`/subjects/${subjectId}/test/summary`);
-    } else {
-      // Submit session updates to DB
-      try {
-        await fetch(`/api/sessions/${sessionId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            status: 'completed',
-            testAnalytics: { tabSwitches, focusLosses, fullscreenExits }
-          })
-        });
-        
-        sessionStorage.setItem('localTestSummary', JSON.stringify({
-          totalQuestions,
-          attemptedCount,
-          timeSpentSeconds,
-          tabSwitches,
-          focusLosses,
-          fullscreenExits
-        }));
-        
-        router.push(`/subjects/${subjectId}/test/summary?sessionId=${sessionId}`);
-      } catch {
-        router.push(`/subjects/${subjectId}/test/summary`);
-      }
     }
   };
 
@@ -334,7 +355,7 @@ function TestSolveContent() {
           </button>
 
           <button
-            onClick={handleSubmitExam}
+            onClick={() => handleSubmitExam(false)}
             className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold text-xs hover:bg-red-700 transition-colors shadow-sm"
           >
             Submit Exam
@@ -350,10 +371,10 @@ function TestSolveContent() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-border-primary text-text-secondary">
-                Descriptive Written Question
+                Descriptive Written Question • Unit {currentQuestion.unit}
               </span>
               <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                10 Marks
+                {currentQuestion.marks ? `${currentQuestion.marks} Marks` : '10 Marks'}
               </span>
             </div>
             

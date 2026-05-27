@@ -14,13 +14,8 @@ export async function GET(req: NextRequest) {
     const branchCode = searchParams.get('branchCode');
     const semesterStr = searchParams.get('semester');
 
-    if (!collegeCode || !branchCode || !semesterStr) {
-      return NextResponse.json({ error: 'Missing required parameters: collegeCode, branchCode, semester' }, { status: 400 });
-    }
-
-    const semester = parseInt(semesterStr, 10);
-    if (isNaN(semester)) {
-      return NextResponse.json({ error: 'Invalid semester parameter' }, { status: 400 });
+    if (!collegeCode || !branchCode) {
+      return NextResponse.json({ error: 'Missing required parameters: collegeCode, branchCode' }, { status: 400 });
     }
 
     // Find the college
@@ -35,11 +30,18 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Branch not found for this college' }, { status: 404 });
     }
 
-    // Find all subjects mapped to this branch and semester
-    const subjects = await Subject.find({
-      branchIds: branch._id,
-      semester: semester
-    }).sort({ name: 1 });
+    const query: Record<string, unknown> = { branchIds: branch._id };
+
+    if (semesterStr) {
+      const semester = parseInt(semesterStr, 10);
+      if (isNaN(semester)) {
+        return NextResponse.json({ error: 'Invalid semester parameter' }, { status: 400 });
+      }
+      query.semester = semester;
+    }
+
+    // Find all subjects mapped to this branch (and optionally semester)
+    const subjects = await Subject.find(query).sort({ name: 1 });
 
     return NextResponse.json({ subjects });
   } catch (error) {

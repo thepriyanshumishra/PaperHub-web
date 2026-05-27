@@ -18,14 +18,17 @@ export interface ICachedSolution {
 }
 
 export interface IQuestion extends Document {
+  questionId: string;
   subjectId: mongoose.Types.ObjectId;
   unit: number;
   topic: string;
   questionText: string; // Markdown/LaTeX content
   difficulty: 'easy' | 'medium' | 'hard';
   repetitionFrequency: number;
+  marks: number;
   sourcePapers: ISourcePaper[];
   cachedSolution?: ICachedSolution;
+  humanVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,14 +52,17 @@ const CachedSolutionSchema = new Schema<ICachedSolution>({
 
 const QuestionSchema = new Schema<IQuestion>(
   {
+    questionId: { type: String, required: true, unique: true },
     subjectId: { type: Schema.Types.ObjectId, ref: 'Subject', required: true },
     unit: { type: Number, required: true },
     topic: { type: String, required: true, trim: true },
     questionText: { type: String, required: true },
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true },
     repetitionFrequency: { type: Number, default: 1 },
+    marks: { type: Number, required: true },
     sourcePapers: [SourcePaperSchema],
     cachedSolution: CachedSolutionSchema,
+    humanVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

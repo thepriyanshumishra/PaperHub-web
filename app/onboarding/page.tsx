@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { seedColleges } from '@/lib/seedData';
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -23,12 +22,22 @@ interface OnboardingSubject {
   _id: string;
   name: string;
   code: string;
+  semester: number;
   syllabus?: {
     unitNumber: number;
     unitTitle: string;
     topics: string[];
   }[];
 }
+
+const branchIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  CSE: Code,
+  IT: Cpu,
+  ECE: Cpu,
+  EE: Settings,
+  ME: Wrench,
+  CE: Layers
+};
 
 export default function Onboarding() {
   return (
@@ -58,58 +67,85 @@ function OnboardingContent() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedSubject, setSelectedSubject] = useState<{ id: string; name: string; code: string } | null>(null);
 
-  // Dynamic loading states
-  const [subjects, setSubjects] = useState<OnboardingSubject[]>([]);
+  // Dynamic state hooks for DB-driven onboarding
+  const [colleges, setColleges] = useState<{ _id: string; name: string; code: string; isActive: boolean }[]>([]);
+  const [branches, setBranches] = useState<{ _id: string; name: string; code: string; isActive: boolean }[]>([]);
+  const [allSubjects, setAllSubjects] = useState<OnboardingSubject[]>([]);
+  const [activeSemesters, setActiveSemesters] = useState<number[]>([]);
+  
+  const [loadingColleges, setLoadingColleges] = useState(false);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [usingFallback, setUsingFallback] = useState(false);
 
-  // Fetch subjects dynamically when college, branch, and semester are selected
+  const subjectsToDisplay = allSubjects.filter((sub) => sub.semester === selectedSemester);
+  const usingFallback = false;
+
+  // Restore onboarding state from localStorage if available
   useEffect(() => {
-    if (selectedCollege && selectedBranch && selectedSemester) {
-      setLoadingSubjects(true);
-      setUsingFallback(false);
-      
-      // Attempt to fetch from real API
-      fetch(`/api/subjects?collegeCode=${selectedCollege}&branchCode=${selectedBranch}&semester=${selectedSemester}`)
+    const college = localStorage.getItem('selectedCollege');
+    const branch = localStorage.getItem('selectedBranch');
+    const semester = localStorage.getItem('selectedSemester');
+    
+    if (college && branch && semester) {
+      setSelectedCollege(college);
+      setSelectedBranch(branch);
+      setSelectedSemester(parseInt(semester, 10));
+      setStep('subject');
+    }
+  }, []);
+
+  // Load colleges dynamically on mount
+  useEffect(() => {
+    setLoadingColleges(true);
+    fetch('/api/onboarding?step=colleges')
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => {
+        if (data.colleges) setColleges(data.colleges);
+      })
+      .catch((err) => console.error('Failed to load colleges:', err))
+      .finally(() => setLoadingColleges(false));
+  }, []);
+
+  // Fetch branches dynamically when college is selected
+  useEffect(() => {
+    if (selectedCollege) {
+      setLoadingBranches(true);
+      fetch(`/api/onboarding?step=branches&collegeCode=${selectedCollege}`)
         .then((res) => {
-          if (!res.ok) throw new Error('API failed');
+          if (!res.ok) throw new Error();
           return res.json();
         })
         .then((data) => {
-          if (data.subjects && data.subjects.length > 0) {
-            setSubjects(data.subjects);
-          } else {
-            loadFallbackSubjects();
+          if (data.branches) setBranches(data.branches);
+        })
+        .catch((err) => console.error('Failed to load branches:', err))
+        .finally(() => setLoadingBranches(false));
+    }
+  }, [selectedCollege]);
+
+  // Fetch all subjects for the selected college & branch to determine active semesters
+  useEffect(() => {
+    if (selectedCollege && selectedBranch) {
+      setLoadingSubjects(true);
+      fetch(`/api/subjects?collegeCode=${selectedCollege}&branchCode=${selectedBranch}`)
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((data) => {
+          if (data.subjects) {
+            setAllSubjects(data.subjects);
+            const activeSems = Array.from(new Set(data.subjects.map((s: OnboardingSubject) => s.semester))) as number[];
+            setActiveSemesters(activeSems);
           }
         })
-        .catch(() => {
-          // If API fails (e.g. no DB connected yet), use fallback mock subjects
-          loadFallbackSubjects();
-        })
-        .finally(() => {
-          setLoadingSubjects(false);
-        });
+        .catch((err) => console.error('Failed to load subjects:', err))
+        .finally(() => setLoadingSubjects(false));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCollege, selectedBranch, selectedSemester]);
-
-  const loadFallbackSubjects = () => {
-    setUsingFallback(true);
-    // Find the college, branch, and semester in our seedData definition
-    const col = seedColleges.find((c) => c.code === selectedCollege);
-    const br = col?.branches.find((b) => b.code === selectedBranch);
-    const subjs = br?.subjects.filter((s) => s.semester === selectedSemester) || [];
-    
-    // Map them to include a mock string id for client navigation
-    const mapped = subjs.map((s) => ({
-      _id: `mock-${s.code}`,
-      name: s.name,
-      code: s.code,
-      syllabus: s.syllabus
-    }));
-    
-    setSubjects(mapped);
-  };
+  }, [selectedCollege, selectedBranch]);
 
   const handleCollegeSelect = (code: string) => {
     setSelectedCollege(code);
@@ -136,13 +172,7 @@ function OnboardingContent() {
     localStorage.setItem('selectedSubjectId', id);
     localStorage.setItem('selectedSubjectName', name);
     localStorage.setItem('selectedSubjectCode', code);
-    
-    // If it's a fallback subject, we also cache it to simulate DB locally
-    if (usingFallback) {
-      localStorage.setItem('useLocalFallback', 'true');
-    } else {
-      localStorage.setItem('useLocalFallback', 'false');
-    }
+    localStorage.setItem('useLocalFallback', 'false');
 
     // Go to subject dashboard
     router.push(`/subjects/${id}`);
@@ -219,10 +249,10 @@ function OnboardingContent() {
                 <ArrowLeft className="w-4 h-4" />
               </Link>
             )}
-            <div className="flex items-center space-x-2">
+            <Link href="/" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
               <span className="font-display font-bold text-lg">PaperHub</span>
               <span className="text-xs px-2 py-0.5 rounded bg-border-primary text-text-secondary font-medium">Onboarding</span>
-            </div>
+            </Link>
           </div>
           <ThemeToggle />
         </div>
@@ -269,48 +299,54 @@ function OnboardingContent() {
                   exit="exit"
                   className="grid grid-cols-1 gap-4"
                 >
-                  {/* MMMUT */}
-                  <button
-                    onClick={() => handleCollegeSelect('MMMUT')}
-                    className="p-6 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex items-start space-x-4 group"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-                      <GraduationCap className="w-5 h-5" />
+                  {loadingColleges ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                      <Loader2 className="w-8 h-8 text-accent animate-spin" />
+                      <p className="text-xs text-text-secondary">Fetching universities...</p>
                     </div>
-                    <div className="flex-grow">
-                      <h3 className="font-display font-semibold text-text-primary mb-1">Madan Mohan Malaviya University of Tech</h3>
-                      <p className="text-xs text-text-secondary">MMMUT Gorakhpur • Mapped Syllabi & PYQs</p>
+                  ) : colleges.length > 0 ? (
+                    colleges.map((col) => {
+                      if (col.isActive) {
+                        return (
+                          <button
+                            key={col._id}
+                            onClick={() => handleCollegeSelect(col.code)}
+                            className="p-6 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex items-start space-x-4 group"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
+                              <GraduationCap className="w-5 h-5" />
+                            </div>
+                            <div className="flex-grow">
+                              <h3 className="font-display font-semibold text-text-primary mb-1">{col.name}</h3>
+                              <p className="text-xs text-text-secondary">{col.code} • Mapped Syllabi & PYQs</p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-text-muted mt-2 group-hover:translate-x-1 transition-transform" />
+                          </button>
+                        );
+                      }
+                      return (
+                        <div
+                          key={col._id}
+                          className="p-6 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex items-start space-x-4 cursor-not-allowed"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
+                            <GraduationCap className="w-5 h-5" />
+                          </div>
+                          <div className="flex-grow">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h3 className="font-display font-semibold text-text-primary">{col.name}</h3>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                            </div>
+                            <p className="text-xs text-text-secondary">{col.code} • Under indexing</p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-sm text-text-secondary">No colleges found in database.</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-text-muted mt-2 group-hover:translate-x-1 transition-transform" />
-                  </button>
-
-                  {/* AKTU - Disabled */}
-                  <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex items-start space-x-4 cursor-not-allowed">
-                    <div className="w-10 h-10 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
-                      <GraduationCap className="w-5 h-5" />
-                    </div>
-                    <div className="flex-grow">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="font-display font-semibold text-text-primary">Dr. A.P.J. Abdul Kalam Technical University</h3>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
-                      </div>
-                      <p className="text-xs text-text-secondary">AKTU Lucknow • Under indexing</p>
-                    </div>
-                  </div>
-
-                  {/* HBTU - Disabled */}
-                  <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex items-start space-x-4 cursor-not-allowed">
-                    <div className="w-10 h-10 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
-                      <GraduationCap className="w-5 h-5" />
-                    </div>
-                    <div className="flex-grow">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className="font-display font-semibold text-text-primary">Harcourt Butler Technical University</h3>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
-                      </div>
-                      <p className="text-xs text-text-secondary">HBTU Kanpur • Under indexing</p>
-                    </div>
-                  </div>
+                  )}
                 </motion.div>
               )}
 
@@ -323,57 +359,54 @@ function OnboardingContent() {
                   exit="exit"
                   className="grid grid-cols-1 sm:grid-cols-2 gap-4"
                 >
-                  {/* CSE */}
-                  <button
-                    onClick={() => handleBranchSelect('CSE')}
-                    className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex flex-col justify-between h-36 group"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-                      <Code className="w-4 h-4" />
+                  {loadingBranches ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-2">
+                      <Loader2 className="w-8 h-8 text-accent animate-spin" />
+                      <p className="text-xs text-text-secondary">Fetching branches...</p>
                     </div>
-                    <div className="w-full">
-                      <h3 className="font-display font-semibold text-text-primary text-sm leading-tight mb-1">Computer Science & Engineering</h3>
-                      <p className="text-[11px] text-text-secondary">Fully Indexed</p>
-                    </div>
-                  </button>
-
-                  {/* IT */}
-                  <button
-                    onClick={() => handleBranchSelect('IT')}
-                    className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex flex-col justify-between h-36 group"
-                  >
-                    <div className="w-9 h-9 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-                      <Cpu className="w-4 h-4" />
-                    </div>
-                    <div className="w-full">
-                      <h3 className="font-display font-semibold text-text-primary text-sm leading-tight mb-1">Information Technology</h3>
-                      <p className="text-[11px] text-text-secondary">Fully Indexed</p>
-                    </div>
-                  </button>
-
-                  {/* Other Branches (Coming Soon) */}
-                  {[
-                    { name: 'ECE (IoT)', icon: Cpu },
-                    { name: 'Electrical Engineering', icon: Settings },
-                    { name: 'Mechanical Engineering', icon: Wrench },
-                    { name: 'Chemical/Civil Eng', icon: Layers }
-                  ].map((b, idx) => (
-                    <div
-                      key={idx}
-                      className="p-5 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex flex-col justify-between h-36 cursor-not-allowed"
-                    >
-                      <div className="w-9 h-9 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
-                        <b.icon className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-1.5 mb-1">
-                          <h3 className="font-display font-semibold text-text-primary text-sm leading-tight">{b.name}</h3>
-                          <span className="text-[8px] px-1 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                  ) : branches.length > 0 ? (
+                    branches.map((b) => {
+                      const IconComponent = branchIconMap[b.code] || Layers;
+                      if (b.isActive) {
+                        return (
+                          <button
+                            key={b._id}
+                            onClick={() => handleBranchSelect(b.code)}
+                            className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex flex-col justify-between h-36 group"
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
+                              <IconComponent className="w-4 h-4" />
+                            </div>
+                            <div className="w-full">
+                              <h3 className="font-display font-semibold text-text-primary text-sm leading-tight mb-1">{b.name}</h3>
+                              <p className="text-[11px] text-text-secondary">Fully Indexed</p>
+                            </div>
+                          </button>
+                        );
+                      }
+                      return (
+                        <div
+                          key={b._id}
+                          className="p-5 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex flex-col justify-between h-36 cursor-not-allowed"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
+                            <IconComponent className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center space-x-1.5 mb-1">
+                              <h3 className="font-display font-semibold text-text-primary text-sm leading-tight">{b.name}</h3>
+                              <span className="text-[8px] px-1 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                            </div>
+                            <p className="text-[10px] text-text-secondary">Mapping syllabus...</p>
+                          </div>
                         </div>
-                        <p className="text-[10px] text-text-secondary">Mapping syllabus...</p>
-                      </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-12 col-span-2">
+                      <p className="text-sm text-text-secondary">No branches found for this college.</p>
                     </div>
-                  ))}
+                  )}
                 </motion.div>
               )}
 
@@ -386,31 +419,39 @@ function OnboardingContent() {
                   exit="exit"
                   className="grid grid-cols-3 gap-3"
                 >
-                  {/* Semester cards */}
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
-                    const active = sem === 1; // Only sem 1 is active for MVP demo seeding
-                    if (active) {
+                  {loadingSubjects ? (
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-3">
+                      <Loader2 className="w-8 h-8 text-accent animate-spin" />
+                      <p className="text-xs text-text-secondary">Analyzing active semesters...</p>
+                    </div>
+                  ) : (
+                    [1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
+                      const isActive = activeSemesters.includes(sem);
+                      if (isActive) {
+                        return (
+                          <button
+                            key={sem}
+                            onClick={() => handleSemesterSelect(sem)}
+                            className="py-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary hover:border-accent/40 text-center transition-all duration-200 group flex flex-col items-center justify-center space-y-2"
+                          >
+                            <span className="font-display font-bold text-xl text-accent group-hover:scale-110 transition-transform">Sem {sem}</span>
+                            <span className="text-[10px] text-text-secondary uppercase font-semibold tracking-wider">
+                              {sem <= 2 ? '1st Year' : sem <= 4 ? '2nd Year' : sem <= 6 ? '3rd Year' : '4th Year'}
+                            </span>
+                          </button>
+                        );
+                      }
                       return (
-                        <button
+                        <div
                           key={sem}
-                          onClick={() => handleSemesterSelect(sem)}
-                          className="py-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary hover:border-accent/40 text-center transition-all duration-200 group flex flex-col items-center justify-center space-y-2"
+                          className="py-5 rounded-xl border border-border-primary bg-bg-secondary/40 text-center opacity-60 cursor-not-allowed flex flex-col items-center justify-center space-y-2"
                         >
-                          <span className="font-display font-bold text-xl text-accent group-hover:scale-110 transition-transform">Sem {sem}</span>
-                          <span className="text-[10px] text-text-secondary uppercase font-semibold tracking-wider">1st Year</span>
-                        </button>
+                          <span className="font-display font-bold text-xl text-text-muted">Sem {sem}</span>
+                          <span className="text-[8px] px-1 py-0.5 rounded bg-border-primary text-text-secondary font-medium">COMING SOON</span>
+                        </div>
                       );
-                    }
-                    return (
-                      <div
-                        key={sem}
-                        className="py-5 rounded-xl border border-border-primary bg-bg-secondary/40 text-center opacity-60 cursor-not-allowed flex flex-col items-center justify-center space-y-2"
-                      >
-                        <span className="font-display font-bold text-xl text-text-muted">Sem {sem}</span>
-                        <span className="text-[8px] px-1 py-0.5 rounded bg-border-primary text-text-secondary font-medium">COMING SOON</span>
-                      </div>
-                    );
-                  })}
+                    })
+                  )}
                 </motion.div>
               )}
 
@@ -423,13 +464,8 @@ function OnboardingContent() {
                   exit="exit"
                   className="grid grid-cols-1 gap-4"
                 >
-                  {loadingSubjects ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                      <Loader2 className="w-8 h-8 text-accent animate-spin" />
-                      <p className="text-xs text-text-secondary">Fetching subject catalog...</p>
-                    </div>
-                  ) : subjects.length > 0 ? (
-                    subjects.map((sub) => (
+                  {subjectsToDisplay.length > 0 ? (
+                    subjectsToDisplay.map((sub) => (
                       <button
                         key={sub._id}
                         onClick={() => handleSubjectSelect(sub._id, sub.name, sub.code)}

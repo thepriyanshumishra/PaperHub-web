@@ -59,7 +59,7 @@ export default function PracticeSelection() {
   const startFullSyllabusPractice = async () => {
     const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true';
     if (isLocalFallback) {
-      router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all&count=5`);
+      router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all`);
     } else {
       try {
         const res = await fetch('/api/sessions', {
@@ -81,10 +81,10 @@ export default function PracticeSelection() {
         if (data.session) {
           router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}`);
         } else {
-          router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all&count=5`);
+          router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all`);
         }
       } catch {
-        router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all&count=5`);
+        router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all`);
       }
     }
   };

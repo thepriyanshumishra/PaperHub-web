@@ -40,12 +40,6 @@ export default function RootLayout({
             `,
           }}
         />
-        {/* Load KaTeX stylesheet for LaTeX math notation rendering */}
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css"
-          crossOrigin="anonymous"
-        />
       </head>
       <body className="font-sans antialiased min-h-screen bg-bg-primary text-text-primary">
         <ThemeProvider>

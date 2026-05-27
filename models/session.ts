@@ -54,7 +54,7 @@ const SessionSchema = new Schema<ISession>(
     config: {
       units: [{ type: Number }],
       topics: [{ type: String }],
-      questionCount: { type: Number, required: true },
+      questionCount: { type: Number },
     },
     questions: [{ type: Schema.Types.ObjectId, ref: 'Question', required: true }],
     currentQuestionIndex: { type: Number, default: 0 },

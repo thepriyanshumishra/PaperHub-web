@@ -60,7 +60,7 @@ export default function Home() {
           </nav>
           
           <div className="flex items-center space-x-4">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded border border-border-primary text-text-secondary hidden sm:inline-block bg-bg-secondary/40">MMMUT Chapter</span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded border border-border-primary text-text-secondary hidden sm:inline-block bg-bg-secondary/40">Syllabus Mapped</span>
             <ThemeToggle />
           </div>
         </div>
@@ -318,8 +318,8 @@ export default function Home() {
           </div>
           <div className="max-w-3xl mx-auto space-y-4">
             <FaqItem 
-              question="What is MMMUT Chapter?" 
-              answer="PaperHub is localized and syllabus-mapped. The MMMUT Chapter is explicitly aligned with the Madan Mohan Malaviya University of Technology syllabus, including standard minor and major descriptive exam formats, repeated questions, and grading styles."
+              question="What is PaperHub?" 
+              answer="PaperHub is localized and syllabus-mapped. It is explicitly aligned with the Madan Mohan Malaviya University of Technology syllabus, including standard minor and major descriptive exam formats, repeated questions, and grading styles."
             />
             <FaqItem 
               question="Is PaperHub free for students?" 

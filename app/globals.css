@@ -51,12 +51,27 @@
   background: hsl(var(--text-muted));
 }
 
-/* KaTeX custom responsive wrap */
-.katex-display {
+/* MathJax — display (block) equations */
+mjx-container[display="true"] {
+  display: block !important;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px 0;
+  padding: 20px 16px;
+  margin: 24px 0 !important;
+  text-align: center;
+  font-size: 1.15em;
+  background-color: rgba(0, 0, 0, 0.025);
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border-primary) / 0.5);
 }
-.katex {
+
+.dark mjx-container[display="true"] {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* MathJax — general inline */
+mjx-container:not([display="true"]) {
   font-size: 1.05em;
+  padding: 0 3px;
+  color: hsl(var(--accent)); /* Slightly highlight inline variables */
 }

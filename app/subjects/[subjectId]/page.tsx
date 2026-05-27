@@ -27,12 +27,20 @@ interface SubjectDetail {
   }[];
 }
 
+interface SubjectStats {
+  mostImportantUnit: number | null;
+  importantUnits: number[];
+  importantTopics: string[];
+  topicStats: Record<string, { totalRepetition: number; count: number; maxMarks: number }>;
+}
+
 export default function SubjectDashboard() {
   const params = useParams();
   const router = useRouter();
   const subjectId = params.subjectId as string;
 
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
+  const [stats, setStats] = useState<SubjectStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
 
@@ -60,6 +68,17 @@ export default function SubjectDashboard() {
           code: sub.code,
           syllabus: sub.syllabus
         });
+        // Seed mock stats for fallback mode
+        setStats({
+          mostImportantUnit: 1,
+          importantUnits: [1, 2],
+          importantTopics: ["Responsive Web Designing", "Static and Dynamic Websites", "CSS Styling", "Introduction to JavaScript"],
+          topicStats: {
+            "Responsive Web Designing": { totalRepetition: 3, count: 2, maxMarks: 5 },
+            "Static and Dynamic Websites": { totalRepetition: 2, count: 2, maxMarks: 4 },
+            "CSS Styling": { totalRepetition: 2, count: 2, maxMarks: 5 }
+          }
+        });
       }
       setLoading(false);
     } else {
@@ -72,6 +91,9 @@ export default function SubjectDashboard() {
         .then((data) => {
           if (data.subject) {
             setSubject(data.subject);
+            if (data.stats) {
+              setStats(data.stats);
+            }
           } else {
             // Fallback if not found
             router.push('/onboarding');
@@ -232,30 +254,66 @@ export default function SubjectDashboard() {
             <span>Syllabus Mapping ({subject.syllabus?.length || 0} Units)</span>
           </h3>
           <div className="space-y-4">
-            {subject.syllabus?.map((unit) => (
-              <div key={unit.unitNumber} className="border-b border-border-primary/50 last:border-0 pb-3 last:pb-0">
-                <h4 className="text-xs font-bold text-text-primary mb-1">
-                  Unit {unit.unitNumber}: {unit.unitTitle}
-                </h4>
-                <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {unit.topics.map((topic: string, tIdx: number) => (
-                    <span 
-                      key={tIdx} 
-                      className="text-[10px] px-2 py-0.5 rounded bg-bg-primary border border-border-primary text-text-secondary hover:text-accent hover:border-accent/20 cursor-default transition-colors duration-150"
-                    >
-                      {topic}
-                    </span>
-                  ))}
+            {subject.syllabus?.map((unit) => {
+              const isMostImportant = stats?.mostImportantUnit === unit.unitNumber;
+              const isHighYield = stats?.importantUnits?.includes(unit.unitNumber) && !isMostImportant;
+
+              return (
+                <div key={unit.unitNumber} className="border-b border-border-primary/50 last:border-0 pb-3 last:pb-0">
+                  <div className="flex items-center flex-wrap gap-2 mb-1">
+                    <h4 className="text-xs font-bold text-text-primary">
+                      Unit {unit.unitNumber}: {unit.unitTitle}
+                    </h4>
+                    {isMostImportant && (
+                      <span className="text-[8px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 inline-flex items-center">
+                        🏆 Max Weightage
+                      </span>
+                    )}
+                    {isHighYield && (
+                      <span className="text-[8px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 border border-purple-500/20 inline-flex items-center">
+                        ⭐ High Yield
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {unit.topics.map((topic: string, tIdx: number) => {
+                      const isImportantTopic = stats?.importantTopics?.includes(topic.trim());
+                      const topicDetail = stats?.topicStats?.[topic.trim()];
+
+                      if (isImportantTopic) {
+                        return (
+                          <span 
+                            key={tIdx} 
+                            className="text-[10px] px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 cursor-default transition-colors duration-150 inline-flex items-center space-x-1 font-semibold"
+                          >
+                            <span>🔥 {topic}</span>
+                            {topicDetail?.maxMarks && (
+                              <span className="text-[8px] opacity-75 font-bold">({topicDetail.maxMarks}M Max)</span>
+                            )}
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <span 
+                          key={tIdx} 
+                          className="text-[10px] px-2 py-0.5 rounded bg-bg-primary border border-border-primary text-text-secondary hover:text-accent hover:border-accent/20 cursor-default transition-colors duration-150"
+                        >
+                          {topic}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </main>
 
       {/* Footer */}
       <footer className="border-t border-border-primary/50 bg-bg-secondary/20 py-6 text-center text-xs text-text-secondary transition-colors duration-300">
-        <p>PaperHub Chapter • Mapped Syllabus and Exam Patterns</p>
+        <p>PaperHub • Mapped Syllabus and Exam Patterns</p>
       </footer>
     </div>
   );

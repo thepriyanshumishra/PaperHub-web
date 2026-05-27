@@ -22,8 +22,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { userId, questionId, message, history, fallbackContext } = body;
 
-    if (!userId || !message) {
-      return NextResponse.json({ error: 'Missing required parameters: userId, message' }, { status: 400 });
+    if (!userId || typeof userId !== 'string' || !message || typeof message !== 'string' || message.trim().length === 0) {
+      return NextResponse.json({ error: 'Missing or invalid parameters: userId, message' }, { status: 400 });
+    }
+
+    if (message.length > 2000) {
+      return NextResponse.json({ error: 'message parameter is too long (max 2000 characters)' }, { status: 400 });
+    }
+
+    if (questionId && !String(questionId).startsWith('mock') && !mongoose.Types.ObjectId.isValid(questionId)) {
+      return NextResponse.json({ error: 'Invalid questionId format' }, { status: 400 });
     }
 
     // Fallback if Groq API is not active
@@ -59,7 +67,18 @@ Instructions:
 1. Help the student clarify doubts, understand concepts, or guide them through their solving approach.
 2. If they ask for hints, do NOT give the full answer immediately. Guide them step-by-step.
 3. Keep all answers aligned with standard university syllabus methods.
-4. Format math formulas using LaTeX enclosed in $$ for block and $ for inline.
+4. Formatting and Layout Guidelines:
+   - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
+     * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
+     * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in $$ ... $$.
+     * Use inline math (enclosed in $ ... $) ONLY for single variables (like $x$) or very short references (like $f(x)$). NEVER use inline math for actual equations or steps.
+     * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
+     * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
+     * Use bullet points to list properties or assumptions clearly.
+   - For all other subjects (Computer Science, Web Development, Electronics, etc.):
+     * Make explanations highly structured, readable, and neat.
+     * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
+     * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
 5. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.`;
         dbChatLogAllowed = true;
       }
@@ -68,21 +87,32 @@ Instructions:
     if (!systemPrompt && fallbackContext) {
       const { questionText, subjectName, syllabus, cachedSolution } = fallbackContext;
       systemPrompt = `You are a helpful, syllabus-aware university exam assistant for "${subjectName || 'the subject'}". 
-The student is currently practicing this question:
-"${questionText || 'this question'}"
+      The student is currently practicing this question:
+      "${questionText || 'this question'}"
 
-Their syllabus constraints for this subject:
-${JSON.stringify(syllabus || [])}
+      Their syllabus constraints for this subject:
+      ${JSON.stringify(syllabus || [])}
 
-You have access to the cached solution for reference:
-${JSON.stringify(cachedSolution || 'No solution cached yet.')}
+      You have access to the cached solution for reference:
+      ${JSON.stringify(cachedSolution || 'No solution cached yet.')}
 
-Instructions:
-1. Help the student clarify doubts, understand concepts, or guide them through their solving approach.
-2. If they ask for hints, do NOT give the full answer immediately. Guide them step-by-step.
-3. Keep all answers aligned with standard university syllabus methods.
-4. Format math formulas using LaTeX enclosed in $$ for block and $ for inline.
-5. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.`;
+      Instructions:
+      1. Help the student clarify doubts, understand concepts, or guide them through their solving approach.
+      2. If they ask for hints, do NOT give the full answer immediately. Guide them step-by-step.
+      3. Keep all answers aligned with standard university syllabus methods.
+      4. Formatting and Layout Guidelines:
+         - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
+           * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
+           * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in $$ ... $$.
+           * Use inline math (enclosed in $ ... $) ONLY for single variables (like $x$) or very short references (like $f(x)$). NEVER use inline math for actual equations or steps.
+           * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
+           * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
+           * Use bullet points to list properties or assumptions clearly.
+         - For all other subjects (Computer Science, Web Development, Electronics, etc.):
+           * Make explanations highly structured, readable, and neat.
+           * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
+           * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
+      5. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.`;
     }
 
     if (!systemPrompt) {

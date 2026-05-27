@@ -37,14 +37,18 @@ export async function POST(req: NextRequest) {
 
     // Shuffle and slice
     const shuffled = candidates.sort(() => 0.5 - Math.random());
-    const selectedQuestions = shuffled.slice(0, questionCount || 5).map((q) => q._id);
+    const limit = type === 'practice' ? shuffled.length : (questionCount || 5);
+    const selectedQuestions = shuffled.slice(0, limit).map((q) => q._id);
 
     const session = await Session.create({
       userId,
       subjectId,
       type,
       subType,
-      config,
+      config: {
+        ...config,
+        questionCount: limit
+      },
       questions: selectedQuestions,
       currentQuestionIndex: 0,
       history: selectedQuestions.map((qId) => ({

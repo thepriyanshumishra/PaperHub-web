@@ -4,8 +4,12 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { MathMarkdown } from '@/components/math-markdown';
-import { seedQuestions } from '@/lib/seedData';
+import dynamic from 'next/dynamic';
+
+const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mod) => mod.MathMarkdown), {
+  ssr: false,
+  loading: () => <div className="animate-pulse h-12 bg-bg-secondary rounded-lg border border-border-primary/50 w-full" />,
+});
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -48,9 +52,6 @@ function PracticeSolveContent() {
   
   // URL Params
   const sessionId = searchParams.get('sessionId');
-  const unitsParam = searchParams.get('units') || 'all';
-  const topicsParam = searchParams.get('topics') || '';
-  const countParam = parseInt(searchParams.get('count') || '5', 10);
 
   interface PracticeQuestion {
     _id?: string;
@@ -59,6 +60,7 @@ function PracticeSolveContent() {
     questionText: string;
     difficulty: 'easy' | 'medium' | 'hard';
     repetitionFrequency: number;
+    marks?: number;
     sourcePapers?: { year: number; examType: string }[];
     cachedSolution?: {
       content: string;
@@ -102,6 +104,7 @@ function PracticeSolveContent() {
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const [isCompleted, setIsCompleted] = useState(false);
 
   // Load configuration and filter questions
   useEffect(() => {
@@ -110,57 +113,66 @@ function PracticeSolveContent() {
     const semester = localStorage.getItem('selectedSemester') || '1';
     setBreadcrumbs([college, branch, `Sem ${semester}`]);
 
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
-
-    if (isLocalFallback) {
-      // Local fallback question compiler
-      const subjectCode = subjectId.replace('mock-', '');
-      let filtered = seedQuestions.filter((q) => q.subjectCode === subjectCode);
-
-      // Filter by units if requested
-      if (unitsParam !== 'all') {
-        const targetUnits = unitsParam.split(',').map(Number);
-        filtered = filtered.filter((q) => targetUnits.includes(q.unit));
-      }
-
-      // Filter by topics if requested
-      if (topicsParam) {
-        const targetTopics = decodeURIComponent(topicsParam).split(',');
-        filtered = filtered.filter((q) => targetTopics.includes(q.topic));
-      }
-
-      // Shuffle and slice
-      const shuffled = [...filtered].sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, countParam);
-      
-      setQuestions(selected.length > 0 ? selected : filtered.slice(0, countParam));
-      setLoading(false);
-    } else {
-      // Fetch session details from real MongoDB API
-      fetch(`/api/sessions/${sessionId}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.session && data.session.questions) {
-            setQuestions(data.session.questions);
-            setCurrentIdx(data.session.currentQuestionIndex || 0);
-          } else {
-            router.push(`/subjects/${subjectId}`);
-          }
-        })
-        .catch(() => {
-          // Local fallback in case database fetch fails
-          router.push(`/subjects/${subjectId}`);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+    if (!sessionId) {
+      router.push(`/subjects/${subjectId}`);
+      return;
     }
-  }, [subjectId, sessionId, unitsParam, topicsParam, countParam, router]);
+
+    // Fetch session details from real MongoDB API
+    fetch(`/api/sessions/${sessionId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch session');
+        return res.json();
+      })
+      .then((data) => {
+        if (data.session && data.session.questions) {
+          setQuestions(data.session.questions);
+          setCurrentIdx(data.session.currentQuestionIndex || 0);
+        } else {
+          router.push(`/subjects/${subjectId}`);
+        }
+      })
+      .catch((err) => {
+        console.error('Error loading session:', err);
+        router.push(`/subjects/${subjectId}`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [subjectId, sessionId, router]);
 
   // Scroll to bottom of chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  // Intercept browser back/navigation and close
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Push dummy state to handle browser back button
+    window.history.pushState(null, '', window.location.href);
+
+    const handlePopState = () => {
+      const confirm = window.confirm("Are you sure you want to finish this practice session? Your progress will be lost.");
+      if (confirm) {
+        router.push(`/subjects/${subjectId}`);
+      } else {
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [router, subjectId]);
 
   const currentQuestion = questions[currentIdx];
 
@@ -186,104 +198,33 @@ function PracticeSolveContent() {
       });
     }, 100);
 
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
-
-    if (isLocalFallback) {
-      if (currentQuestion.cachedSolution) {
+    // Real API fetch
+    fetch(`/api/ai/solve?questionId=${currentQuestion._id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => {
+        clearInterval(interval);
+        setSolutionProgress(100);
         setTimeout(() => {
-          clearInterval(interval);
-          setSolutionProgress(100);
-          setTimeout(() => {
-            setActiveSolution(currentQuestion.cachedSolution!);
-            setSolutionLoading(false);
-            setSolutionVisible(true);
-          }, 300);
-        }, 800);
-      } else {
-        const subjectName = localStorage.getItem('selectedSubjectName') || 'Engineering Mathematics-I';
-        fetch('/api/ai/solve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            questionText: currentQuestion.questionText,
-            topic: currentQuestion.topic,
-            unit: currentQuestion.unit,
-            subjectName: subjectName,
-            syllabus: []
-          })
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error();
-            return res.json();
-          })
-          .then((data) => {
-            clearInterval(interval);
-            setSolutionProgress(100);
-            setTimeout(() => {
-              setActiveSolution(data.solution);
-              setSolutionLoading(false);
-              setSolutionVisible(true);
-            }, 300);
-          })
-          .catch(() => {
-            clearInterval(interval);
-            setSolutionProgress(100);
-            setTimeout(() => {
-              setActiveSolution({
-                content: `To solve: **${currentQuestion.questionText}**.\n\nHere is the step-by-step university exam resolution (Offline mode).`,
-                steps: [
-                  {
-                    stepNumber: 1,
-                    heading: "Identify Given Parameters",
-                    content: `Let's analyze the given question text for **${currentQuestion.topic}**. Identify the core functions or matrices from the text:\n\n$$X = \\text{Target topic: } ${currentQuestion.topic}$$\n\nSet up the initial equations matching the university syllabus requirements.`
-                  },
-                  {
-                    stepNumber: 2,
-                    heading: "Perform Core Differentiation / Steps",
-                    content: "Differentiating the variables or applying the core equations step-by-step:\n\n$$y_{n} = D^n [ f(x) ]$$\n\nEnsure mathematical notations are clearly tracked. Substitute standard values into the theorem."
-                  },
-                  {
-                    stepNumber: 3,
-                    heading: "Verify and Simplify",
-                    content: "Simplify the expression to match the final expected target outcome:\n\n$$\\text{Final solution is verified for } \\tan u \\text{ or corresponding proof.}$$"
-                  }
-                ]
-              });
-              setSolutionLoading(false);
-              setSolutionVisible(true);
-            }, 300);
+          setActiveSolution(data.solution);
+          setSolutionLoading(false);
+          setSolutionVisible(true);
+        }, 300);
+      })
+      .catch(() => {
+        clearInterval(interval);
+        setSolutionProgress(100);
+        setTimeout(() => {
+          setActiveSolution({
+            content: "Error loading solution from server.",
+            steps: [{ stepNumber: 1, heading: "Notice", content: "MongoDB/Groq API server returned an error. Please verify your connection configuration." }]
           });
-      }
-    } else {
-      // Real API fetch
-      fetch(`/api/ai/solve?questionId=${currentQuestion._id}`)
-        .then((res) => {
-          if (!res.ok) throw new Error();
-          return res.json();
-        })
-        .then((data) => {
-          clearInterval(interval);
-          setSolutionProgress(100);
-          setTimeout(() => {
-            setActiveSolution(data.solution);
-            setSolutionLoading(false);
-            setSolutionVisible(true);
-          }, 300);
-        })
-        .catch(() => {
-          // Fallback if API fails
-          clearInterval(interval);
-          setSolutionProgress(100);
-          setTimeout(() => {
-            setActiveSolution({
-              content: "Error loading solution from server. Falling back to local template.",
-              steps: [{ stepNumber: 1, heading: "Notice", content: "MongoDB/Groq API server returned an error. Please verify your connection configuration." }]
-            });
-            setSolutionLoading(false);
-            setSolutionVisible(true);
-          }, 300);
-        });
-    }
+          setSolutionLoading(false);
+          setSolutionVisible(true);
+        }, 300);
+      });
   };
 
   const handleExplainStep = (stepNumber: number, stepText: string, event: React.MouseEvent) => {
@@ -295,57 +236,25 @@ function PracticeSolveContent() {
     setStepExplanationLoading(true);
     setStepExplanation(null);
 
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
-
-    if (isLocalFallback) {
-      const subjectName = localStorage.getItem('selectedSubjectName') || 'Engineering Mathematics-I';
-      fetch('/api/ai/explain-step', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId: 'mock-question',
-          stepNumber,
-          stepText,
-          subjectId,
-          fallbackContext: {
-            questionText: currentQuestion.questionText,
-            subjectName: subjectName
-          }
-        })
+    fetch('/api/ai/explain-step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        questionId: currentQuestion._id,
+        stepNumber,
+        stepText,
+        subjectId
       })
-        .then((res) => {
-          if (!res.ok) throw new Error();
-          return res.json();
-        })
-        .then((data) => {
-          setStepExplanation(data.explanation);
-          setStepExplanationLoading(false);
-        })
-        .catch(() => {
-          setStepExplanation(`**Concept Explanation (Offline):**\nThis step resolves the calculation of Step ${stepNumber} for topic **${currentQuestion.topic}**.\n\nIt applies standard mathematical substitutions matching your university syllabus. Ensure to review the formulas for this unit.`);
-          setStepExplanationLoading(false);
-        });
-    } else {
-      fetch('/api/ai/explain-step', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questionId: currentQuestion._id,
-          stepNumber,
-          stepText,
-          subjectId
-        })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setStepExplanation(data.explanation);
+        setStepExplanationLoading(false);
       })
-        .then((res) => res.json())
-        .then((data) => {
-          setStepExplanation(data.explanation);
-          setStepExplanationLoading(false);
-        })
-        .catch(() => {
-          setStepExplanation("Failed to load step explanation from server.");
-          setStepExplanationLoading(false);
-        });
-    }
+      .catch(() => {
+        setStepExplanation("Failed to load step explanation from server.");
+        setStepExplanationLoading(false);
+      });
   };
 
   const handleAskAi = () => {
@@ -370,65 +279,23 @@ function PracticeSolveContent() {
     setChatMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
     setChatLoading(true);
 
-    const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true' || !sessionId;
-
-    if (isLocalFallback) {
-      const subjectName = localStorage.getItem('selectedSubjectName') || 'Engineering Mathematics-I';
-      try {
-        const res = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: localStorage.getItem('anonymousUserId') || 'guest',
-            questionId: 'mock-question',
-            message: userMsg,
-            history: chatMessages,
-            fallbackContext: {
-              questionText: currentQuestion.questionText,
-              topic: currentQuestion.topic,
-              unit: currentQuestion.unit,
-              subjectName: subjectName,
-              syllabus: [],
-              cachedSolution: activeSolution || currentQuestion.cachedSolution
-            }
-          })
-        });
-        const data = await res.json();
-        if (data.reply) {
-          setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
-        } else {
-          throw new Error();
-        }
-      } catch {
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            role: 'assistant',
-            content: `Regarding your query about **${currentQuestion.topic}**: (Offline Mode) To solve this university-style, we apply the standard syllabus formulas. \n\nIf you swap the coefficients, remember to keep track of the sign of the discriminant ($b^2 - 4ac$).`
-          }
-        ]);
-      } finally {
-        setChatLoading(false);
-      }
-    } else {
-      try {
-        const res = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: localStorage.getItem('anonymousUserId') || 'guest',
-            questionId: currentQuestion._id,
-            message: userMsg,
-            history: chatMessages
-          })
-        });
-        const data = await res.json();
-        setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
-      } catch {
-        setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Connection error. Failed to send message to Groq layer.' }]);
-      } finally {
-        setChatLoading(false);
-      }
+    try {
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: localStorage.getItem('anonymousUserId') || 'guest',
+          questionId: currentQuestion._id,
+          message: userMsg,
+          history: chatMessages
+        })
+      });
+      const data = await res.json();
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch {
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: 'Connection error. Failed to send message to Groq layer.' }]);
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -440,12 +307,27 @@ function PracticeSolveContent() {
       setExplainingStep(null);
       setStepExplanation(null);
       setChatMessages([]);
+    } else {
+      setIsCompleted(true);
+    }
+  };
+
+  const prevQuestion = () => {
+    if (currentIdx > 0) {
+      setCurrentIdx(currentIdx - 1);
+      setSolutionVisible(false);
+      setActiveSolution(null);
+      setExplainingStep(null);
+      setStepExplanation(null);
+      setChatMessages([]);
     }
   };
 
   const finishSession = () => {
-    // Redirect to dashboard or summary
-    router.push(`/subjects/${subjectId}`);
+    const confirm = window.confirm("Are you sure you want to finish this practice session? Your progress will be lost.");
+    if (confirm) {
+      router.push(`/subjects/${subjectId}`);
+    }
   };
 
   if (loading) {
@@ -470,6 +352,31 @@ function PracticeSolveContent() {
         <Link href={`/subjects/${subjectId}`} className="px-6 py-2.5 bg-accent text-white font-medium rounded-lg">
           Back to Dashboard
         </Link>
+      </div>
+    );
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-bg-primary text-text-primary p-6 text-center transition-colors duration-300">
+        <div className="absolute top-6 right-6">
+          <ThemeToggle />
+        </div>
+        <div className="max-w-md w-full p-8 rounded-2xl border border-border-primary bg-bg-secondary shadow-sm">
+          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-10 h-10 text-green-500" />
+          </div>
+          <h1 className="font-display text-3xl font-bold mb-4">Well Done!</h1>
+          <p className="text-text-secondary leading-relaxed mb-8">
+            You&apos;ve successfully completed all the relevant questions! More questions will be added soon.
+          </p>
+          <Link
+            href={`/subjects/${subjectId}`}
+            className="w-full inline-flex items-center justify-center px-6 py-3 bg-accent text-white font-semibold rounded-xl hover:bg-accent-hover transition-colors"
+          >
+            Back to Dashboard
+          </Link>
+        </div>
       </div>
     );
   }
@@ -513,6 +420,11 @@ function PracticeSolveContent() {
                 Unit {currentQuestion.unit} • {currentQuestion.topic}
               </span>
               <div className="flex items-center space-x-2">
+                {currentQuestion.repetitionFrequency > 1 && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 inline-flex items-center space-x-0.5 animate-pulse">
+                    <span>🔥 Repeated {currentQuestion.repetitionFrequency}x</span>
+                  </span>
+                )}
                 {currentQuestion.sourcePapers?.map((paper: { year: number; examType: string }, pIdx: number) => (
                   <span key={pIdx} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-accent/5 border border-accent/15 text-accent">
                     {paper.year} {paper.examType}
@@ -525,6 +437,15 @@ function PracticeSolveContent() {
                 }`}>
                   {currentQuestion.difficulty}
                 </span>
+                {currentQuestion.marks !== undefined && (
+                  <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${
+                    currentQuestion.marks <= 2 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
+                    currentQuestion.marks <= 4 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                    'bg-purple-500/10 text-purple-500 border-purple-500/20'
+                  }`}>
+                    {currentQuestion.marks} Marker
+                  </span>
+                )}
               </div>
             </div>
             
@@ -803,22 +724,34 @@ function PracticeSolveContent() {
           Finish Session
         </button>
 
-        {currentIdx < questions.length - 1 ? (
-          <button
-            onClick={nextQuestion}
-            className="px-5 py-2 rounded-lg bg-bg-primary border border-border-primary hover:bg-bg-tertiary transition-all text-xs font-bold text-text-primary flex items-center space-x-1.5 group"
-          >
-            <span>Next Question</span>
-            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-          </button>
-        ) : (
-          <button
-            onClick={finishSession}
-            className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover transition-all text-xs font-bold text-white flex items-center space-x-1.5"
-          >
-            <span>Complete Session</span>
-          </button>
-        )}
+        <div className="flex items-center space-x-3">
+          {currentIdx > 0 && (
+            <button
+              onClick={prevQuestion}
+              className="px-5 py-2 rounded-lg bg-bg-primary border border-border-primary hover:bg-bg-tertiary transition-all text-xs font-bold text-text-primary flex items-center space-x-1.5 group"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+              <span>Previous Question</span>
+            </button>
+          )}
+
+          {currentIdx < questions.length - 1 ? (
+            <button
+              onClick={nextQuestion}
+              className="px-5 py-2 rounded-lg bg-bg-primary border border-border-primary hover:bg-bg-tertiary transition-all text-xs font-bold text-text-primary flex items-center space-x-1.5 group"
+            >
+              <span>Next Question</span>
+              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ) : (
+            <button
+              onClick={finishSession}
+              className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover transition-all text-xs font-bold text-white flex items-center space-x-1.5"
+            >
+              <span>Complete Session</span>
+            </button>
+          )}
+        </div>
       </footer>
     </div>
   );

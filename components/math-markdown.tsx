@@ -4,6 +4,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -12,17 +13,50 @@ interface MathMarkdownProps {
   className?: string;
 }
 
-/** Sanitize code blocks – remove \quad / \qquad that AI sometimes injects into code */
-function sanitizeCodeBlocks(markdown: string): string {
+/**
+ * preprocessLaTeX
+ * ---------------
+ * Converts STANDARD LaTeX delimiters to the $ / $$ syntax that remark-math
+ * expects.  By this point (after server-side sanitization) the input should
+ * already contain clean LaTeX — this function only does delimiter translation.
+ *
+ *   \[  …  \]   →   $$  …  $$   (display math)
+ *   \(  …  \)   →   $  …  $     (inline math)
+ */
+function preprocessLaTeX(content: string): string {
+  if (!content) return '';
+
+  let s = content;
+
+  // Replace display-math delimiters \[ … \] with $$ … $$
+  // Use a replacement function to prevent JS from interpreting "$$" as a single "$"
+  s = s
+    .replace(/\\\[/g, () => '\n\n$$\n')
+    .replace(/\\\]/g, () => '\n$$\n\n')
+    // Inline math delimiters \( … \)
+    .replace(/\\\(/g, () => '$')
+    .replace(/\\\)/g, () => '$');
+
+  return s;
+}
+
+/**
+ * Fenced code blocks that contain only plain prose (no programming characters)
+ * are rendered as regular paragraphs instead of dark terminal boxes.
+ */
+function unwrapProseFences(markdown: string): string {
   return markdown.replace(
-    /(```[\w]*\n)([\s\S]*?)(```)/g,
-    (_m, open, body, close) => {
-      const cleaned = body
-        .replace(/\\quad\s*/g, '    ')
-        .replace(/\\qquad\s*/g, '        ')
-        .replace(/\bquad\s+/g, '    ')
-        .replace(/\bqquad\s+/g, '        ');
-      return open + cleaned + close;
+    /^```[ \t]*\r?\n([\s\S]*?)^```/gm,
+    (_m, body: string) => {
+      const trimmed = body.trim();
+      // Heuristic: if body contains code-like characters, keep as code block
+      const isCode =
+        /[{}()=;#<>|\\]/.test(trimmed) ||
+        /^\s*\w+\s*\(/.test(trimmed) ||        // function call
+        /^\s*(if|for|while|return|int|void|def|class|import)\b/.test(trimmed) ||
+        trimmed.split('\n').length > 8;
+      if (isCode) return _m;
+      return '\n' + trimmed + '\n';
     }
   );
 }
@@ -44,34 +78,35 @@ function hastToText(node: HastElement): string {
 }
 
 export function MathMarkdown({ content, className = '' }: MathMarkdownProps) {
-  const sanitized = sanitizeCodeBlocks(content || '');
+  const preprocessed = preprocessLaTeX(content || '');
+  const final = unwrapProseFences(preprocessed);
 
   return (
-    <div className={`prose dark:prose-invert max-w-none ${className}`}>
+    <div className={`prose dark:prose-invert max-w-none math-content ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
         components={{
           p: ({ children }) => (
-            <p className="mb-4 leading-relaxed text-sm text-text-primary">{children}</p>
+            <p className="mb-4 leading-relaxed text-base text-text-primary">{children}</p>
           ),
           h1: ({ children }) => (
-            <h1 className="font-display font-bold text-lg mb-3 mt-4 text-text-primary">{children}</h1>
+            <h1 className="font-display font-bold text-xl mb-3 mt-5 text-text-primary">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="font-display font-bold text-base mb-2 mt-3 text-text-primary">{children}</h2>
+            <h2 className="font-display font-bold text-lg mb-2 mt-4 text-text-primary">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="font-display font-semibold text-sm mb-2 mt-3 text-text-primary">{children}</h3>
+            <h3 className="font-display font-semibold text-base mb-2 mt-3 text-text-primary">{children}</h3>
           ),
           ul: ({ children }) => (
-            <ul className="list-disc pl-5 mb-4 space-y-1 text-sm text-text-secondary">{children}</ul>
+            <ul className="list-disc pl-5 mb-4 space-y-1.5 text-base text-text-secondary">{children}</ul>
           ),
           ol: ({ children }) => (
-            <ol className="list-decimal pl-5 mb-4 space-y-1 text-sm text-text-secondary">{children}</ol>
+            <ol className="list-decimal pl-5 mb-4 space-y-1.5 text-base text-text-secondary">{children}</ol>
           ),
           li: ({ children }) => (
-            <li className="text-text-secondary mb-1">{children}</li>
+            <li className="text-text-secondary mb-1.5">{children}</li>
           ),
           blockquote: ({ children }) => (
             <blockquote className="border-l-4 border-accent pl-4 italic text-text-secondary my-4">
@@ -99,8 +134,7 @@ export function MathMarkdown({ content, className = '' }: MathMarkdownProps) {
 
           /**
            * react-markdown v10: intercept <pre> using the raw hast `node` prop.
-           * This bypasses the rendered children entirely, reading code content and
-           * language directly from the AST so nothing is lost in transformation.
+           * Reads code content and language directly from the AST.
            */
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           pre: ({ node }: { node?: any }) => {
@@ -112,7 +146,6 @@ export function MathMarkdown({ content, className = '' }: MathMarkdownProps) {
             );
 
             if (!codeNode) {
-              // No code child – render a plain pre as fallback
               return (
                 <pre className="bg-[#1e1e2e] rounded-lg p-4 overflow-x-auto text-xs my-4 border border-border-primary font-mono text-gray-200">
                   {hastToText(hastNode!)}
@@ -158,14 +191,11 @@ export function MathMarkdown({ content, className = '' }: MathMarkdownProps) {
 
           /**
            * Inline code renderer.
-           * Block code is fully handled in `pre` above via the hast node — this
-           * renderer only runs for inline `code` spans (which have no language class).
+           * Block code is fully handled in `pre` above — this only runs for
+           * inline `code` spans (no language class).
            */
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           code: ({ children, node }: { children?: React.ReactNode; node?: any }) => {
-            // If this code element has a language class it belongs to a fenced block
-            // that is already handled by the `pre` renderer — return null to avoid
-            // rendering a duplicate.
             const classes = (node?.properties?.className ?? []) as string[];
             const isBlock = classes.some((c: string) => c.startsWith('language-'));
             if (isBlock) return null;
@@ -178,7 +208,7 @@ export function MathMarkdown({ content, className = '' }: MathMarkdownProps) {
           },
         }}
       >
-        {sanitized}
+        {final}
       </ReactMarkdown>
     </div>
   );
