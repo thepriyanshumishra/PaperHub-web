@@ -209,7 +209,7 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
 async function seed() {
   try {
     console.log('Connecting to database...');
-    await mongoose.connect(MONGODB_URI!);
+    await mongoose.connect(MONGODB_URI!, { autoSelectFamily: false });
     console.log('Connected successfully.');
 
     // Clear existing collection data

@@ -20,7 +20,7 @@ if (!process.env.MONGODB_URI) {
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/paperhub';
 
 async function main() {
-  await mongoose.connect(MONGODB_URI);
+  await mongoose.connect(MONGODB_URI, { autoSelectFamily: false });
   console.log('Connected to MongoDB.');
 
   const questions = await Question.find({}).limit(10).lean();
