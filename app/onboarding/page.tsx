@@ -274,21 +274,56 @@ function OnboardingContent() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-grow flex items-center justify-center py-12 px-6">
-        <div className="max-w-xl w-full">
-          {/* Progress dots */}
-          <div className="flex items-center justify-center space-x-3 mb-8">
+      <main className="flex-grow flex items-center justify-center py-12 px-6 relative overflow-hidden">
+        {/* Subtle space gradient glow background behind the onboarding card wizard */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/5 rounded-full blur-[140px] pointer-events-none dark:block hidden"></div>
+        
+        <div className={`w-full transition-all duration-500 ease-in-out ${step === 'subject' || step === 'branch' ? 'max-w-4xl' : 'max-w-xl'}`}>
+          {/* High-Fidelity Premium Connector Stepper */}
+          <div className="flex items-center justify-between max-w-md mx-auto mb-10 px-4 relative">
+            {/* Background connector line */}
+            <div className="absolute top-3.5 left-8 right-8 h-[2px] bg-border-primary z-0"></div>
+            
+            {/* Active connector glowing line */}
+            <div 
+              className="absolute top-3.5 left-8 h-[2px] bg-accent transition-all duration-500 z-0"
+              style={{
+                width: `${
+                  step === 'college' ? '0%' : 
+                  step === 'branch' ? '33.33%' : 
+                  step === 'semester' ? '66.66%' : '100%'
+                }`
+              }}
+            ></div>
+
             {(['college', 'branch', 'semester', 'subject'] as const).map((s, idx) => {
               const steps = ['college', 'branch', 'semester', 'subject'];
+              const labels = ['University', 'Branch', 'Semester', 'Subject'];
               const currentIdx = steps.indexOf(step);
               const active = idx <= currentIdx;
+              const isCurrent = step === s;
+              
               return (
-                <div 
-                  key={s} 
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    active ? 'w-8 bg-accent' : 'w-2 bg-border-primary'
-                  }`}
-                />
+                <div key={s} className="flex flex-col items-center z-10 relative">
+                  <div 
+                    className={`w-7 h-7 rounded-full flex items-center justify-center font-display text-xs font-bold transition-all duration-300 ${
+                      isCurrent 
+                        ? 'bg-accent text-white ring-4 ring-accent/20 scale-110 shadow-[0_0_15px_rgba(124,102,255,0.4)]'
+                        : active 
+                          ? 'bg-accent text-white' 
+                          : 'bg-bg-secondary border-2 border-border-primary text-text-secondary'
+                    }`}
+                  >
+                    {idx + 1}
+                  </div>
+                  <span 
+                    className={`text-[9px] mt-2.5 font-semibold tracking-wide uppercase transition-colors duration-300 ${
+                      isCurrent ? 'text-accent font-bold' : active ? 'text-text-primary' : 'text-text-muted'
+                    }`}
+                  >
+                    {labels[idx]}
+                  </span>
+                </div>
               );
             })}
           </div>
@@ -477,29 +512,46 @@ function OnboardingContent() {
                   initial="enter"
                   animate="center"
                   exit="exit"
-                  className="grid grid-cols-1 gap-4"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-5"
                 >
                   {subjectsToDisplay.length > 0 ? (
                     subjectsToDisplay.map((sub) => (
                       <button
                         key={sub._id}
                         onClick={() => handleSubjectSelect(sub._id, sub.name, sub.code)}
-                        className="p-6 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex items-center justify-between group"
+                        className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex items-center justify-between group overflow-hidden relative"
                       >
-                        <div className="flex items-start space-x-4">
-                          <div className="w-10 h-10 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent">
-                            <BookOpen className="w-5 h-5" />
+                        {/* Corner visual gradient overlay */}
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/15 transition-all duration-300"></div>
+
+                        <div className="flex items-center space-x-4 z-10">
+                          <div className="w-12 h-12 rounded-2xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white group-hover:border-transparent transition-all duration-300 shadow-inner">
+                            <BookOpen className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
                           </div>
                           <div>
-                            <h3 className="font-display font-semibold text-text-primary mb-1">{sub.name}</h3>
-                            <p className="text-xs text-text-secondary">{sub.code} • {sub.syllabus?.length || 0} Units Indexed</p>
+                            <div className="flex items-center space-x-2 mb-1.5">
+                              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-accent/8 border border-accent/20 text-accent font-semibold tracking-wider uppercase">
+                                {sub.code}
+                              </span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-500/10 border border-green-500/25 text-green-400 font-medium">
+                                Active PYQs
+                              </span>
+                            </div>
+                            <h3 className="font-display font-bold text-text-primary text-base leading-snug group-hover:text-accent transition-colors duration-250">
+                              {sub.name}
+                            </h3>
+                            <p className="text-xs text-text-secondary flex items-center space-x-1.5 mt-1">
+                              <span>📚 {sub.syllabus?.length || 0} Units Indexed</span>
+                              <span className="text-text-muted">•</span>
+                              <span className="text-accent/80 font-medium">Auto Mapped</span>
+                            </p>
                           </div>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-text-muted group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight className="w-5 h-5 text-text-muted group-hover:text-accent group-hover:translate-x-1 transition-all duration-300 z-10" />
                       </button>
                     ))
                   ) : (
-                    <div className="text-center py-12">
+                    <div className="text-center py-12 col-span-2">
                       <p className="text-sm text-text-secondary">No subjects mapped for this combination.</p>
                       <button
                         onClick={() => setStep('semester')}
@@ -511,7 +563,7 @@ function OnboardingContent() {
                   )}
 
                   {usingFallback && !loadingSubjects && (
-                    <div className="text-[10px] text-center text-text-muted border-t border-border-primary/50 pt-4">
+                    <div className="text-[10px] text-center text-text-muted border-t border-border-primary/50 pt-4 col-span-2">
                       Running in local preview mode. Configured database not detected.
                     </div>
                   )}
