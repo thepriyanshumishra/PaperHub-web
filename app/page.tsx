@@ -85,7 +85,7 @@ export default function Home() {
             transition={{ delay: 0.1, duration: 0.5 }}
             className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight sm:leading-none mb-6"
           >
-            Master Descriptive University Exams, <span className="text-accent">Concept by Concept.</span>
+            Master Descriptive University Exams, <span className="text-accent dark:bg-gradient-to-r dark:from-[#3b82f6] dark:to-[#a855f7] dark:bg-clip-text dark:text-transparent">Concept by Concept.</span>
           </motion.h1>
 
           <motion.p

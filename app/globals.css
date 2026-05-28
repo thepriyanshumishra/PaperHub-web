@@ -16,15 +16,15 @@
   }
 
   .dark {
-    --bg-primary: 0 0% 7%;         /* #121212 */
-    --bg-secondary: 240 5% 10%;    /* #18181B */
-    --bg-tertiary: 240 6% 13%;     /* #1F1F23 */
-    --text-primary: 0 0% 92%;      /* #ECECEC */
-    --text-secondary: 240 4% 70%;  /* #B1B1B8 */
-    --text-muted: 240 4% 50%;
-    --border-primary: 240 5% 19%;  /* #2E2E32 */
-    --accent: 18 85% 58%;
-    --accent-hover: 18 85% 48%;
+    --bg-primary: 244 50% 3.5%;      /* #05040a (Exquisite Deep Midnight Violet) */
+    --bg-secondary: 244 40% 7.5%;     /* #0c0b16 (Rich Dark Purple/Indigo Card Background) */
+    --bg-tertiary: 244 30% 11.5%;    /* #141223 (Lighter Violet/Purple Input background) */
+    --text-primary: 240 25% 97%;     /* #f6f6f9 (Luminous Lilac-White) */
+    --text-secondary: 226 20% 78%;   /* #b9c3d9 (Lavender Muted text) */
+    --text-muted: 226 12% 58%;       /* #818ba0 (Muted Slate Purple text) */
+    --border-primary: 244 25% 15%;   /* #1e1b33 (Elegant Dark Violet Border) */
+    --accent: 250 85% 68%;           /* #7c66ff (Neon Purple Accent) */
+    --accent-hover: 250 85% 58%;     /* #5a3eff */
   }
 
   body {
@@ -74,4 +74,53 @@ mjx-container:not([display="true"]) {
   font-size: 1.05em;
   padding: 0 3px;
   color: hsl(var(--accent)); /* Slightly highlight inline variables */
+}
+
+/* Premium midnight-purple design enhancements inspired by student.mmmut.xyz */
+.dark .bg-accent {
+  background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.3) !important;
+}
+.dark .bg-accent:hover {
+  background: linear-gradient(135deg, #5f52ff 0%, #a855f7 100%) !important;
+  box-shadow: 0 6px 20px rgba(124, 102, 255, 0.45) !important;
+  transform: translateY(-1px);
+}
+.dark .hover\:bg-accent-hover:hover {
+  background: linear-gradient(135deg, #5f52ff 0%, #a855f7 100%) !important;
+}
+
+/* Custom premium scrollbar in dark mode */
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-primary) / 1);
+}
+
+/* Glassmorphism card shadows & borders */
+.dark .bg-bg-secondary {
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4) !important;
+  background-color: hsl(var(--bg-secondary)) !important;
+}
+
+.dark .border-border-primary {
+  border-color: hsl(var(--border-primary) / 0.85) !important;
+}
+
+/* Gorgeous glowing gradient badges for units and subheadings */
+.dark .badge-premium {
+  background: rgba(124, 102, 255, 0.08) !important;
+  border: 1px solid rgba(124, 102, 255, 0.25) !important;
+  color: #a855f7 !important;
+}
+
+.dark .gradient-heading {
+  background: linear-gradient(135deg, #60a5fa 0%, #c084fc 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Soft glowing glow borders for hover state of active elements */
+.dark .glow-hover:hover {
+  border-color: rgba(124, 102, 255, 0.5) !important;
+  box-shadow: 0 0 15px rgba(124, 102, 255, 0.15) !important;
 }
