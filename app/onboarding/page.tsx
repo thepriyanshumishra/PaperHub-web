@@ -82,6 +82,21 @@ function OnboardingContent() {
 
   // Restore onboarding state from localStorage if available
   useEffect(() => {
+    const shouldReset = searchParams.get('reset') === 'true';
+    if (shouldReset) {
+      localStorage.removeItem('selectedCollege');
+      localStorage.removeItem('selectedBranch');
+      localStorage.removeItem('selectedSemester');
+      localStorage.removeItem('selectedSubjectId');
+      localStorage.removeItem('selectedSubjectName');
+      localStorage.removeItem('selectedSubjectCode');
+      setSelectedCollege(null);
+      setSelectedBranch(null);
+      setSelectedSemester(null);
+      setStep('college');
+      return;
+    }
+
     const college = localStorage.getItem('selectedCollege');
     const branch = localStorage.getItem('selectedBranch');
     const semester = localStorage.getItem('selectedSemester');
@@ -92,7 +107,7 @@ function OnboardingContent() {
       setSelectedSemester(parseInt(semester, 10));
       setStep('subject');
     }
-  }, []);
+  }, [searchParams]);
 
   // Load colleges dynamically on mount
   useEffect(() => {

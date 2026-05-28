@@ -104,7 +104,7 @@ export default function Home() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <Link
-              href="/onboarding"
+              href="/onboarding?reset=true"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-medium hover:bg-accent-hover transition-colors shadow-sm hover:shadow-md flex items-center justify-center space-x-2 group"
             >
               <span>Get Started</span>
@@ -365,7 +365,7 @@ export default function Home() {
           <p className="text-sm text-text-secondary max-w-lg mx-auto mb-8 relative z-10">Get instant access to MMMUT past papers, syllabus topic filters, and AI assistance. Start practicing in under 30 seconds.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
             <Link
-              href="/onboarding"
+              href="/onboarding?reset=true"
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-medium hover:bg-accent-hover transition-colors shadow-sm flex items-center justify-center space-x-2 group"
             >
               <span>Launch Practice Solver</span>
