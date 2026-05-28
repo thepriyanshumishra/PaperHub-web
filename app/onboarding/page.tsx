@@ -361,33 +361,51 @@ function OnboardingContent() {
                           <button
                             key={col._id}
                             onClick={() => handleCollegeSelect(col.code)}
-                            className="p-6 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex items-start space-x-4 group"
+                            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.12)] hover:bg-bg-secondary hover:-translate-y-0.5 transition-all duration-300 flex items-start space-x-4 group relative overflow-hidden"
                           >
-                            <div className="w-10 h-10 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-                              <GraduationCap className="w-5 h-5" />
+                            {/* Accent Glow corner overlay */}
+                            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/15 transition-all duration-300"></div>
+
+                            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
+                              <GraduationCap className="w-6 h-6 group-hover:scale-110 transition-transform duration-300" />
                             </div>
-                            <div className="flex-grow">
-                              <h3 className="font-display font-semibold text-text-primary mb-1">{col.name}</h3>
-                              <p className="text-xs text-text-secondary">{col.code} • Mapped Syllabi & PYQs</p>
+                            <div className="flex-grow z-10">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h3 className="font-display font-bold text-text-primary text-base group-hover:text-accent transition-colors duration-200">{col.name}</h3>
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-accent/8 border border-accent/20 text-accent font-semibold tracking-wider uppercase">
+                                  {col.code}
+                                </span>
+                              </div>
+                              <p className="text-xs text-text-secondary flex items-center space-x-1.5">
+                                <span className="text-green-400 font-medium">🟢 Syllabi & PYQs Live</span>
+                                <span className="text-text-muted">•</span>
+                                <span>University Database Loaded</span>
+                              </p>
                             </div>
-                            <ChevronRight className="w-5 h-5 text-text-muted mt-2 group-hover:translate-x-1 transition-transform" />
+                            <ChevronRight className="w-5 h-5 text-text-muted mt-3 group-hover:text-accent group-hover:translate-x-1 transition-all duration-300 z-10" />
                           </button>
                         );
                       }
                       return (
                         <div
                           key={col._id}
-                          className="p-6 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex items-start space-x-4 cursor-not-allowed"
+                          className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-left opacity-65 flex items-start space-x-4 relative overflow-hidden cursor-not-allowed"
                         >
-                          <div className="w-10 h-10 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
-                            <GraduationCap className="w-5 h-5" />
+                          <div className="w-12 h-12 rounded-xl bg-border-primary/40 flex items-center justify-center text-text-muted">
+                            <GraduationCap className="w-6 h-6" />
                           </div>
                           <div className="flex-grow">
                             <div className="flex items-center space-x-2 mb-1">
-                              <h3 className="font-display font-semibold text-text-primary">{col.name}</h3>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                              <h3 className="font-display font-semibold text-text-secondary text-base">{col.name}</h3>
+                              <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-500 font-bold tracking-wider">
+                                SOON
+                              </span>
                             </div>
-                            <p className="text-xs text-text-secondary">{col.code} • Under indexing</p>
+                            <p className="text-xs text-text-muted flex items-center space-x-1.5">
+                              <span>{col.code}</span>
+                              <span>•</span>
+                              <span>Under indexing and course structuring</span>
+                            </p>
                           </div>
                         </div>
                       );
@@ -407,10 +425,10 @@ function OnboardingContent() {
                   initial="enter"
                   animate="center"
                   exit="exit"
-                  className="grid grid-cols-1 sm:grid-cols-2 gap-4"
+                  className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5"
                 >
                   {loadingBranches ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-2">
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-3">
                       <Loader2 className="w-8 h-8 text-accent animate-spin" />
                       <p className="text-xs text-text-secondary">Fetching branches...</p>
                     </div>
@@ -422,14 +440,20 @@ function OnboardingContent() {
                           <button
                             key={b._id}
                             onClick={() => handleBranchSelect(b.code)}
-                            className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-sm transition-all duration-200 flex flex-col justify-between h-36 group"
+                            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_20px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-40 group relative overflow-hidden"
                           >
-                            <div className="w-9 h-9 rounded-lg bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-                              <IconComponent className="w-4 h-4" />
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
+
+                            <div className="w-11 h-11 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
+                              <IconComponent className="w-5 h-5 group-hover:scale-105 transition-transform duration-300" />
                             </div>
-                            <div className="w-full">
-                              <h3 className="font-display font-semibold text-text-primary text-sm leading-tight mb-1">{b.name}</h3>
-                              <p className="text-[11px] text-text-secondary">Fully Indexed</p>
+                            <div className="w-full z-10">
+                              <h3 className="font-display font-bold text-text-primary text-sm leading-snug group-hover:text-accent transition-colors duration-200 mb-1">
+                                {b.name}
+                              </h3>
+                              <p className="text-[10px] text-green-400 font-semibold tracking-wider flex items-center space-x-1">
+                                <span>🟢 Fully Indexed</span>
+                              </p>
                             </div>
                           </button>
                         );
@@ -437,23 +461,23 @@ function OnboardingContent() {
                       return (
                         <div
                           key={b._id}
-                          className="p-5 rounded-xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex flex-col justify-between h-36 cursor-not-allowed"
+                          className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-left opacity-65 flex flex-col justify-between h-40 cursor-not-allowed"
                         >
-                          <div className="w-9 h-9 rounded-lg bg-border-primary flex items-center justify-center text-text-muted">
-                            <IconComponent className="w-4 h-4" />
+                          <div className="w-11 h-11 rounded-xl bg-border-primary/40 flex items-center justify-center text-text-muted">
+                            <IconComponent className="w-5 h-5" />
                           </div>
                           <div>
                             <div className="flex items-center space-x-1.5 mb-1">
-                              <h3 className="font-display font-semibold text-text-primary text-sm leading-tight">{b.name}</h3>
-                              <span className="text-[8px] px-1 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                              <h3 className="font-display font-semibold text-text-secondary text-sm leading-tight">{b.name}</h3>
+                              <span className="text-[8px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-bold">SOON</span>
                             </div>
-                            <p className="text-[10px] text-text-secondary">Mapping syllabus...</p>
+                            <p className="text-[10px] text-text-muted">Mapping academic syllabus...</p>
                           </div>
                         </div>
                       );
                     })
                   ) : (
-                    <div className="text-center py-12 col-span-2">
+                    <div className="text-center py-12 col-span-3">
                       <p className="text-sm text-text-secondary">No branches found for this college.</p>
                     </div>
                   )}
@@ -467,10 +491,10 @@ function OnboardingContent() {
                   initial="enter"
                   animate="center"
                   exit="exit"
-                  className="grid grid-cols-3 gap-3"
+                  className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"
                 >
                   {loadingSubjects ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-3">
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-4">
                       <Loader2 className="w-8 h-8 text-accent animate-spin" />
                       <p className="text-xs text-text-secondary">Analyzing active semesters...</p>
                     </div>
@@ -482,22 +506,27 @@ function OnboardingContent() {
                           <button
                             key={sem}
                             onClick={() => handleSemesterSelect(sem)}
-                            className="py-5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary hover:border-accent/40 text-center transition-all duration-200 group flex flex-col items-center justify-center space-y-2"
+                            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-center hover:border-accent/40 hover:shadow-[0_0_20px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 group flex flex-col items-center justify-center space-y-3 relative overflow-hidden"
                           >
-                            <span className="font-display font-bold text-xl text-accent group-hover:scale-110 transition-transform">Sem {sem}</span>
-                            <span className="text-[10px] text-text-secondary uppercase font-semibold tracking-wider">
-                              {sem <= 2 ? '1st Year' : sem <= 4 ? '2nd Year' : sem <= 6 ? '3rd Year' : '4th Year'}
-                            </span>
+                            <div className="absolute top-0 right-0 w-12 h-12 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
+
+                            <span className="font-display font-extrabold text-2xl text-accent group-hover:scale-110 transition-transform duration-300 drop-shadow-sm">Sem {sem}</span>
+                            <div className="flex flex-col items-center space-y-1">
+                              <span className="text-[9px] text-text-secondary uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-border-primary/50">
+                                {sem <= 2 ? '1st Year' : sem <= 4 ? '2nd Year' : sem <= 6 ? '3rd Year' : '4th Year'}
+                              </span>
+                              <span className="text-[8px] text-green-400 font-semibold uppercase tracking-wider">Active PYQs</span>
+                            </div>
                           </button>
                         );
                       }
                       return (
                         <div
                           key={sem}
-                          className="py-5 rounded-xl border border-border-primary bg-bg-secondary/40 text-center opacity-60 cursor-not-allowed flex flex-col items-center justify-center space-y-2"
+                          className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-center opacity-65 cursor-not-allowed flex flex-col items-center justify-center space-y-3"
                         >
-                          <span className="font-display font-bold text-xl text-text-muted">Sem {sem}</span>
-                          <span className="text-[8px] px-1 py-0.5 rounded bg-border-primary text-text-secondary font-medium">COMING SOON</span>
+                          <span className="font-display font-bold text-2xl text-text-muted">Sem {sem}</span>
+                          <span className="text-[8px] px-2 py-0.5 rounded-full bg-border-primary/60 text-text-secondary font-bold uppercase tracking-wider">COMING SOON</span>
                         </div>
                       );
                     })
