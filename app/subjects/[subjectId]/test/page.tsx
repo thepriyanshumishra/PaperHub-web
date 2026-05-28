@@ -154,33 +154,36 @@ export default function TestSelection() {
       </header>
 
       {/* Main Configurations */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12">
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12 relative overflow-hidden">
+        {/* Subtle glowing space background */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-accent/5 rounded-full blur-[120px] pointer-events-none dark:block hidden"></div>
+
+        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 z-10 relative">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-accent mb-2 block">Exam Arena</span>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-text-primary">
+            <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">Exam Arena</span>
+            <h1 className="font-display text-3xl font-extrabold tracking-tight text-text-primary">
               Exam Simulation Setup
             </h1>
           </div>
           
           <button
             onClick={startTest}
-            className="px-6 py-3 rounded-xl bg-accent text-white font-medium hover:bg-accent-hover transition-colors shadow-sm flex items-center justify-center space-x-2 self-start md:self-auto"
+            className="px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2 self-start md:self-auto hover:-translate-y-0.5"
           >
             <Clock className="w-4 h-4" />
             <span>Start Test Session</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto z-10 relative">
           {/* Card 1: Choose Test Type */}
-          <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary space-y-4">
-            <h3 className="font-display font-semibold text-text-primary flex items-center space-x-2">
-              <Award className="w-4 h-4 text-accent" />
+          <div className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.25)] space-y-5">
+            <h3 className="font-display font-bold text-text-primary flex items-center space-x-2.5">
+              <Award className="w-5 h-5 text-accent" />
               <span>Test Coverage</span>
             </h3>
             
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 gap-2.5">
               {([
                 { id: 'syllabus', title: 'Full Syllabus Test', desc: '10 questions from all units' },
                 { id: 'unit', title: 'Unit-Wise Test', desc: '5 questions from a single unit' },
@@ -189,13 +192,13 @@ export default function TestSelection() {
                 <button
                   key={t.id}
                   onClick={() => setTestType(t.id)}
-                  className={`p-4 rounded-lg border text-left transition-all duration-150 ${
+                  className={`p-4 rounded-xl border text-left transition-all duration-200 ${
                     testType === t.id 
-                      ? 'border-accent bg-accent/5' 
-                      : 'border-border-primary bg-bg-primary hover:bg-bg-tertiary'
+                      ? 'border-accent/40 bg-accent/10 shadow-[0_0_12px_rgba(124,102,255,0.15)]' 
+                      : 'border-border-primary bg-bg-primary/50 hover:bg-bg-tertiary hover:border-accent/20'
                   }`}
                 >
-                  <h4 className={`text-xs font-bold ${testType === t.id ? 'text-accent' : 'text-text-primary'}`}>{t.title}</h4>
+                  <h4 className={`text-xs font-extrabold ${testType === t.id ? 'text-accent' : 'text-text-primary'}`}>{t.title}</h4>
                   <p className="text-[10px] text-text-secondary mt-0.5">{t.desc}</p>
                 </button>
               ))}
@@ -203,13 +206,13 @@ export default function TestSelection() {
           </div>
 
           {/* Card 2: Choose Time Mode */}
-          <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary space-y-4">
-            <h3 className="font-display font-semibold text-text-primary flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-accent" />
+          <div className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.25)] space-y-5">
+            <h3 className="font-display font-bold text-text-primary flex items-center space-x-2.5">
+              <Clock className="w-5 h-5 text-accent" />
               <span>Time Pattern</span>
             </h3>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2.5">
               {([
                 { id: 'minor', label: 'Minor', sub: '1.5 hrs' },
                 { id: 'major', label: 'Major', sub: '3.0 hrs' },
@@ -218,21 +221,21 @@ export default function TestSelection() {
                 <button
                   key={t.id}
                   onClick={() => setTimeMode(t.id)}
-                  className={`py-3 rounded-lg border text-center transition-all duration-150 ${
+                  className={`py-3 rounded-xl border text-center transition-all duration-200 ${
                     timeMode === t.id 
-                      ? 'border-accent bg-accent/5 text-accent' 
-                      : 'border-border-primary bg-bg-primary hover:bg-bg-tertiary'
+                      ? 'border-accent/40 bg-accent/10 text-accent font-semibold shadow-[0_0_12px_rgba(124,102,255,0.15)]' 
+                      : 'border-border-primary bg-bg-primary/50 hover:bg-bg-tertiary hover:border-accent/20'
                   }`}
                 >
-                  <span className="block text-xs font-bold">{t.label}</span>
-                  <span className="block text-[8px] uppercase tracking-wide opacity-80 mt-0.5">{t.sub}</span>
+                  <span className="block text-xs font-extrabold">{t.label}</span>
+                  <span className="block text-[8px] uppercase tracking-wider opacity-80 mt-0.5">{t.sub}</span>
                 </button>
               ))}
             </div>
 
             {/* Custom Input */}
             {timeMode === 'custom' && (
-              <div className="flex items-center space-x-2 p-3 bg-bg-primary border border-border-primary rounded-lg">
+              <div className="flex items-center space-x-2.5 p-4 bg-bg-primary/50 border border-border-primary rounded-xl">
                 <div className="flex-grow">
                   <label className="text-[9px] uppercase font-bold text-text-secondary block mb-1">Hours</label>
                   <input
@@ -241,7 +244,7 @@ export default function TestSelection() {
                     max="6"
                     value={customHours}
                     onChange={(e) => setCustomHours(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="w-full bg-bg-secondary border border-border-primary rounded px-2 py-1 text-xs"
+                    className="w-full bg-bg-secondary border border-border-primary rounded px-2.5 py-1 text-xs text-text-primary focus:outline-none focus:border-accent"
                   />
                 </div>
                 <div className="flex-grow">
@@ -252,26 +255,26 @@ export default function TestSelection() {
                     max="59"
                     value={customMinutes}
                     onChange={(e) => setCustomMinutes(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
-                    className="w-full bg-bg-secondary border border-border-primary rounded px-2 py-1 text-xs"
+                    className="w-full bg-bg-secondary border border-border-primary rounded px-2.5 py-1 text-xs text-text-primary focus:outline-none focus:border-accent"
                   />
                 </div>
               </div>
             )}
 
             {/* Dynamic Feedback */}
-            <div className="p-3 bg-bg-primary border border-border-primary border-dashed rounded-lg text-[10px] leading-relaxed text-text-secondary space-y-1">
-              <p>⏰ Total Duration: **{getDurationMinutes()} minutes**</p>
-              <p>📝 Questions Count: **{getQuestionsCount()} questions**</p>
-              <p>⚡ Pacing Guideline: **~{Math.round(getDurationMinutes() / getQuestionsCount())} minutes** per question.</p>
+            <div className="p-4 bg-bg-primary/50 border border-border-primary border-dashed rounded-xl text-[10px] leading-relaxed text-text-secondary space-y-1.5 shadow-inner">
+              <p>⏰ Total Duration: <strong className="text-text-primary font-extrabold">{getDurationMinutes()} minutes</strong></p>
+              <p>📝 Questions Count: <strong className="text-text-primary font-extrabold">{getQuestionsCount()} questions</strong></p>
+              <p>⚡ Pacing Guideline: <strong className="text-accent font-bold">~{Math.round(getDurationMinutes() / getQuestionsCount())} minutes</strong> per question.</p>
             </div>
           </div>
         </div>
 
         {/* Security / Anti-Cheat Notice */}
-        <div className="mt-8 p-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 max-w-xl mx-auto flex items-start space-x-3 text-xs leading-relaxed text-text-secondary">
-          <ShieldAlert className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+        <div className="mt-8 p-5 rounded-2xl border border-amber-500/25 bg-amber-500/5 backdrop-blur-sm max-w-xl mx-auto flex items-start space-x-3 text-xs leading-relaxed text-text-secondary shadow-[0_0_20px_rgba(245,158,11,0.06)] z-10 relative">
+          <ShieldAlert className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-bold text-text-primary mb-0.5">Integrity Guard Monitoring Enabled</h4>
+            <h4 className="font-extrabold text-text-primary mb-0.5">Integrity Guard Monitoring Enabled</h4>
             <p>
               The exam solver records focus interruptions, browser tab changes, and fullscreen escapes. These analytics are logged for review on your final summary panel.
             </p>

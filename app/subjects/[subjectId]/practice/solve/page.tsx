@@ -411,26 +411,29 @@ function PracticeSolveContent() {
       </header>
 
       {/* Main Solver Sandbox */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-8 flex flex-col md:flex-row gap-6 relative">
-        <div className="flex-grow space-y-6 max-w-3xl">
+      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-8 flex flex-col md:flex-row gap-6 relative overflow-hidden">
+        {/* Subtle glowing space background */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-accent/5 rounded-full blur-[120px] pointer-events-none dark:block hidden"></div>
+
+        <div className="flex-grow space-y-6 max-w-3xl z-10 relative">
           {/* Question Card */}
-          <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-border-primary text-text-secondary">
+          <div className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.25)] relative overflow-hidden z-10">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded bg-border-primary/50 text-text-secondary">
                 Unit {currentQuestion.unit} • {currentQuestion.topic}
               </span>
               <div className="flex items-center space-x-2">
                 {currentQuestion.repetitionFrequency > 1 && (
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 inline-flex items-center space-x-0.5 animate-pulse">
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 inline-flex items-center space-x-0.5 animate-pulse">
                     <span>🔥 Repeated {currentQuestion.repetitionFrequency}x</span>
                   </span>
                 )}
                 {currentQuestion.sourcePapers?.map((paper: { year: number; examType: string }, pIdx: number) => (
-                  <span key={pIdx} className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-accent/5 border border-accent/15 text-accent">
+                  <span key={pIdx} className="text-[9px] font-bold px-2 py-0.5 rounded bg-accent/8 border border-accent/15 text-accent">
                     {paper.year} {paper.examType}
                   </span>
                 ))}
-                <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${
                   currentQuestion.difficulty === 'easy' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
                   currentQuestion.difficulty === 'medium' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
                   'bg-red-500/10 text-red-500 border border-red-500/20'
@@ -438,7 +441,7 @@ function PracticeSolveContent() {
                   {currentQuestion.difficulty}
                 </span>
                 {currentQuestion.marks !== undefined && (
-                  <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded border ${
+                  <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded border ${
                     currentQuestion.marks <= 2 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
                     currentQuestion.marks <= 4 ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
                     'bg-purple-500/10 text-purple-500 border-purple-500/20'
@@ -458,7 +461,7 @@ function PracticeSolveContent() {
               {!solutionVisible && !solutionLoading && (
                 <button
                   onClick={triggerSolutionFetch}
-                  className="w-full sm:w-auto px-6 py-3 rounded-lg bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors shadow-sm flex items-center justify-center space-x-2"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2 hover:-translate-y-0.5"
                 >
                   <BookOpen className="w-4 h-4" />
                   <span>Show Solution</span>
@@ -467,9 +470,9 @@ function PracticeSolveContent() {
               
               <button
                 onClick={handleAskAi}
-                className="w-full sm:w-auto px-6 py-3 rounded-lg border border-border-primary bg-bg-primary text-text-primary text-sm font-semibold hover:bg-bg-tertiary transition-colors flex items-center justify-center space-x-2"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl border border-border-primary bg-bg-primary/50 text-text-primary text-sm font-semibold hover:bg-bg-tertiary transition-all duration-200 flex items-center justify-center space-x-2 hover:-translate-y-0.5"
               >
-                <Sparkles className="w-4 h-4 text-accent" />
+                <Sparkles className="w-4 h-4 text-accent animate-pulse" />
                 <span>Ask AI Assistant</span>
               </button>
             </div>
@@ -477,7 +480,7 @@ function PracticeSolveContent() {
 
           {/* Solution Loading Bar */}
           {solutionLoading && (
-            <div className="p-8 rounded-xl border border-border-primary bg-bg-secondary text-center space-y-4">
+            <div className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-center space-y-4">
               <div className="max-w-xs mx-auto space-y-2">
                 <div className="flex items-center justify-between text-xs text-text-secondary font-medium">
                   <span>Formatting university step-by-step solution...</span>
@@ -499,9 +502,9 @@ function PracticeSolveContent() {
             <motion.div
               initial={{ y: 15, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="p-6 rounded-xl border border-border-primary bg-bg-secondary shadow-sm"
+              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.25)]"
             >
-              <h3 className="font-display font-bold text-md text-text-primary border-b border-border-primary pb-3 mb-4 flex items-center space-x-2">
+              <h3 className="font-display font-bold text-base text-text-primary border-b border-border-primary pb-3 mb-6 flex items-center space-x-2.5">
                 <CheckCircle className="w-5 h-5 text-green-500" />
                 <span>Syllabus-Aligned Solution</span>
               </h3>
@@ -510,7 +513,7 @@ function PracticeSolveContent() {
                 {activeSolution.steps?.map((step, sIdx) => (
                   <div 
                     key={sIdx} 
-                    className="relative group border-l-2 border-border-primary pl-4 py-1"
+                    className="relative group border-l-2 border-accent/20 hover:border-accent pl-5 py-2 transition-all duration-200"
                     ref={(el) => { stepRefs.current[step.stepNumber] = el; }}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2">

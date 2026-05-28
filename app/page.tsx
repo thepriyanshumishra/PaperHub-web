@@ -39,41 +39,46 @@ export default function Home() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden flex flex-col">
+    <div className="relative min-h-screen overflow-hidden flex flex-col bg-bg-primary text-text-primary transition-all duration-300">
+      {/* Background ambient space glows */}
+      <div className="absolute top-[10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-accent/5 blur-[150px] pointer-events-none" />
+      <div className="absolute top-[30%] right-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-500/3 blur-[160px] pointer-events-none" />
+      <div className="absolute bottom-[20%] left-[10%] w-[500px] h-[500px] rounded-full bg-[#7c66ff]/4 blur-[140px] pointer-events-none" />
+
       {/* Top Navbar */}
-      <header className="sticky top-0 z-50 backdrop-blur-md border-b border-border-primary/50 bg-bg-primary/80 transition-colors duration-300">
+      <header className="sticky top-0 z-50 backdrop-blur-md border-b border-border-primary/50 bg-bg-primary/80 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg">
+          <Link href="/" className="flex items-center space-x-2 flex-shrink-0 group">
+            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-accent/20 group-hover:scale-105 transition-transform duration-200">
               P
             </div>
-            <span className="font-display font-bold text-xl tracking-tight">PaperHub</span>
+            <span className="font-display font-bold text-xl tracking-tight group-hover:text-accent transition-colors duration-200">PaperHub</span>
           </Link>
 
           {/* Expanded Header Navigation */}
           <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-text-secondary">
-            <a href="#features" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-colors">Blueprint</a>
-            <a href="#ai-solving" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-colors">AI Assistant</a>
-            <a href="#faq" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-colors">FAQ</a>
-            <Link href="/onboarding" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-colors">Explorer</Link>
+            <a href="#features" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Features</a>
+            <a href="#how-it-works" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Blueprint</a>
+            <a href="#ai-solving" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">AI Assistant</a>
+            <a href="#faq" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">FAQ</a>
+            <Link href="/onboarding" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Explorer</Link>
           </nav>
           
           <div className="flex items-center space-x-4">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded border border-border-primary text-text-secondary hidden sm:inline-block bg-bg-secondary/40">Syllabus Mapped</span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded border border-border-primary text-text-secondary hidden sm:inline-block bg-bg-secondary/40 backdrop-blur-sm">Syllabus Mapped</span>
             <ThemeToggle />
           </div>
         </div>
       </header>
 
       {/* Hero Section */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-16 md:py-24 flex flex-col justify-center">
+      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-16 md:py-24 flex flex-col justify-center relative z-10">
         <div className="text-center max-w-3xl mx-auto mb-16 md:mb-24">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.4 }}
-            className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold mb-6 tracking-wide"
+            className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold mb-6 tracking-wide shadow-sm"
           >
             <span>Now Live for MMMUT CSE/IT</span>
             <ChevronRight className="w-3 h-3" />
@@ -85,14 +90,14 @@ export default function Home() {
             transition={{ delay: 0.1, duration: 0.5 }}
             className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight sm:leading-none mb-6"
           >
-            Master Descriptive University Exams, <span className="text-accent dark:bg-gradient-to-r dark:from-[#3b82f6] dark:to-[#a855f7] dark:bg-clip-text dark:text-transparent">Concept by Concept.</span>
+            Master Descriptive University Exams, <span className="text-accent dark:gradient-heading">Concept by Concept.</span>
           </motion.h1>
 
           <motion.p
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="text-lg md:text-xl text-text-secondary leading-relaxed mb-10"
+            className="text-lg md:text-xl text-text-secondary leading-relaxed mb-10 font-normal"
           >
             We transform scattered PDF papers, WhatsApp drive links, and unorganized PYQs into syllabus-mapped practice, exam-like tests, and step-by-step academic explanations.
           </motion.p>
@@ -105,14 +110,14 @@ export default function Home() {
           >
             <Link
               href="/onboarding?reset=true"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-medium hover:bg-accent-hover transition-colors shadow-sm hover:shadow-md flex items-center justify-center space-x-2 group"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all shadow-md hover:scale-[1.02] flex items-center justify-center space-x-2 group"
             >
               <span>Get Started</span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/onboarding?demo=true"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-secondary text-text-primary hover:bg-bg-tertiary transition-colors flex items-center justify-center space-x-2"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm text-text-primary hover:bg-bg-tertiary transition-all flex items-center justify-center space-x-2 hover:scale-[1.02]"
             >
               <span>Solve Demo Paper</span>
             </Link>
@@ -136,14 +141,14 @@ export default function Home() {
             <motion.div
               variants={itemVariants}
               whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col justify-between h-64 hover:border-accent/30 transition-all duration-300 shadow-sm"
+              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
             >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent mb-6">
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
                 <BookOpen className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display font-semibold text-lg mb-2">Structured PYQs</h3>
-                <p className="text-sm text-text-secondary">No more scrolling random drives. Access past papers neatly organized by units and topics.</p>
+                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Structured PYQs</h3>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">No more scrolling random drives. Access past papers neatly organized by units and topics.</p>
               </div>
             </motion.div>
 
@@ -151,14 +156,14 @@ export default function Home() {
             <motion.div
               variants={itemVariants}
               whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col justify-between h-64 hover:border-accent/30 transition-all duration-300 shadow-sm"
+              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
             >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent mb-6">
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
                 <Clock className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display font-semibold text-lg mb-2">Exam-like Tests</h3>
-                <p className="text-sm text-text-secondary">Simulate actual minor and major exam patterns with custom duration timers and strict focus modes.</p>
+                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Exam-like Tests</h3>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Simulate actual minor and major exam patterns with custom duration timers and strict focus modes.</p>
               </div>
             </motion.div>
 
@@ -166,14 +171,14 @@ export default function Home() {
             <motion.div
               variants={itemVariants}
               whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col justify-between h-64 hover:border-accent/30 transition-all duration-300 shadow-sm"
+              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
             >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent mb-6">
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
                 <Sparkles className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display font-semibold text-lg mb-2">AI Step Explanations</h3>
-                <p className="text-sm text-text-secondary">Hover over any complex derivation or transition step to get a simplified popover explanation.</p>
+                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">AI Step Explanations</h3>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Hover over any complex derivation or transition step to get a simplified popover explanation.</p>
               </div>
             </motion.div>
 
@@ -181,14 +186,14 @@ export default function Home() {
             <motion.div
               variants={itemVariants}
               whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col justify-between h-64 hover:border-accent/30 transition-all duration-300 shadow-sm"
+              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
             >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent mb-6">
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
                 <Layers className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display font-semibold text-lg mb-2">Topic-wise Practice</h3>
-                <p className="text-sm text-text-secondary">Target your weak areas directly by filtering questions by unit and individual syllabus topics.</p>
+                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Topic-wise Practice</h3>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Target your weak areas directly by filtering questions by unit and individual syllabus topics.</p>
               </div>
             </motion.div>
 
@@ -196,14 +201,14 @@ export default function Home() {
             <motion.div
               variants={itemVariants}
               whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col justify-between h-64 hover:border-accent/30 transition-all duration-300 shadow-sm"
+              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
             >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent mb-6">
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
                 <TrendingUp className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-display font-semibold text-lg mb-2">Most Repeated Questions</h3>
-                <p className="text-sm text-text-secondary">Prioritize your preparation by tracking question recurrence statistics across multiple exam terms.</p>
+                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Most Repeated Questions</h3>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Prioritize your preparation by tracking question recurrence statistics across multiple exam terms.</p>
               </div>
             </motion.div>
 
@@ -211,17 +216,17 @@ export default function Home() {
             <motion.div
               variants={itemVariants}
               whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 border-dashed flex flex-col justify-between h-64 transition-all duration-300 opacity-70"
+              className="p-8 rounded-2xl border border-border-primary border-dashed bg-bg-secondary/30 backdrop-blur-sm flex flex-col justify-between h-66 transition-all duration-300 opacity-60 hover:opacity-85 shadow-md"
             >
               <div className="w-12 h-12 rounded-xl bg-border-primary/50 border border-border-primary flex items-center justify-center text-text-muted mb-6">
                 <Award className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center space-x-2 mb-2">
-                  <h3 className="font-display font-semibold text-lg">Night Before Exam</h3>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                  <h3 className="font-display font-semibold text-lg text-text-primary">Night Before Exam</h3>
+                  <span className="text-[9px] px-2 py-0.5 rounded badge-premium font-bold">SOON</span>
                 </div>
-                <p className="text-sm text-text-secondary">A highly curated hyper-focused revision set of the most important concepts to review in the final 12 hours.</p>
+                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">A highly curated hyper-focused revision set of the most important concepts to review in the final 12 hours.</p>
               </div>
             </motion.div>
           </motion.div>
@@ -234,29 +239,29 @@ export default function Home() {
             <p className="text-sm text-text-secondary">How PaperHub transforms standard university study material into structural exam readiness in three simple steps.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 relative">
-              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-display font-bold shadow-sm">1</span>
-              <h3 className="font-display font-semibold text-lg mb-3 mt-2">Personalize Syllabus</h3>
-              <p className="text-sm text-text-secondary">Select your college (e.g. MMMUT), branch, and semester. Our system instantly parses the matching static syllabi and units.</p>
+            <div className="p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm glow-hover relative transition-all duration-300 shadow-md">
+              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-display font-bold shadow-md shadow-accent/20">1</span>
+              <h3 className="font-display font-semibold text-lg mb-3 mt-2 text-text-primary">Personalize Syllabus</h3>
+              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Select your college (e.g. MMMUT), branch, and semester. Our system instantly parses the matching static syllabi and units.</p>
             </div>
-            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 relative">
-              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-display font-bold shadow-sm">2</span>
-              <h3 className="font-display font-semibold text-lg mb-3 mt-2">Interactive Practice</h3>
-              <p className="text-sm text-text-secondary">Solve past exam questions with step-by-step model solutions. Hover over transitions to see the math breakdown, or ask AI doubts.</p>
+            <div className="p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm glow-hover relative transition-all duration-300 shadow-md">
+              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-display font-bold shadow-md shadow-accent/20">2</span>
+              <h3 className="font-display font-semibold text-lg mb-3 mt-2 text-text-primary">Interactive Practice</h3>
+              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Solve past exam questions with step-by-step model solutions. Hover over transitions to see the math breakdown, or ask AI doubts.</p>
             </div>
-            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 relative">
-              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-display font-bold shadow-sm">3</span>
-              <h3 className="font-display font-semibold text-lg mb-3 mt-2">Timed Focus Exams</h3>
-              <p className="text-sm text-text-secondary">Attempt mock minor or major tests in a secure fullscreen solver. Track pacing against exam standards with active anti-cheat logging.</p>
+            <div className="p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm glow-hover relative transition-all duration-300 shadow-md">
+              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-display font-bold shadow-md shadow-accent/20">3</span>
+              <h3 className="font-display font-semibold text-lg mb-3 mt-2 text-text-primary">Timed Focus Exams</h3>
+              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Attempt mock minor or major tests in a secure fullscreen solver. Track pacing against exam standards with active anti-cheat logging.</p>
             </div>
           </div>
         </section>
 
         {/* Context-Aware AI Assistant Section */}
         <section id="ai-solving" className="mb-20 md:mb-28 scroll-mt-20">
-          <div className="p-8 md:p-12 rounded-3xl border border-border-primary bg-bg-secondary flex flex-col lg:flex-row items-center gap-10">
+          <div className="p-8 md:p-12 rounded-3xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col lg:flex-row items-center gap-10 shadow-xl shadow-black/10">
             <div className="flex-1 space-y-6">
-              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold">
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold shadow-sm">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Llama-3.3 Powered</span>
               </div>
@@ -268,40 +273,40 @@ export default function Home() {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-accent/10 flex items-center justify-center text-accent mt-0.5 text-xs">✓</div>
+                  <div className="w-5 h-5 rounded-full bg-accent/10 flex items-center justify-center text-accent mt-0.5 text-xs font-bold border border-accent/20">✓</div>
                   <div>
-                    <h4 className="font-display font-semibold text-sm">Grading Step Marks</h4>
+                    <h4 className="font-display font-semibold text-sm text-text-primary">Grading Step Marks</h4>
                     <p className="text-xs text-text-secondary mt-0.5">Ensures solutions follow standard textbook derivations required by local examiners.</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <div className="w-5 h-5 rounded-full bg-accent/10 flex items-center justify-center text-accent mt-0.5 text-xs">✓</div>
+                  <div className="w-5 h-5 rounded-full bg-accent/10 flex items-center justify-center text-accent mt-0.5 text-xs font-bold border border-accent/20">✓</div>
                   <div>
-                    <h4 className="font-display font-semibold text-sm">LaTeX Formatting</h4>
+                    <h4 className="font-display font-semibold text-sm text-text-primary">LaTeX Formatting</h4>
                     <p className="text-xs text-text-secondary mt-0.5">All equations and math expressions are beautifully rendered in standard LaTeX block and inline formats.</p>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="w-full lg:w-96 p-6 rounded-2xl border border-border-primary bg-bg-primary/50 relative overflow-hidden flex-shrink-0">
+            <div className="w-full lg:w-96 p-6 rounded-2xl border border-border-primary bg-bg-primary/60 backdrop-blur-sm relative overflow-hidden flex-shrink-0 shadow-lg border-border-primary/80">
               <div className="flex items-center justify-between border-b border-border-primary pb-3 mb-4">
                 <span className="text-xs font-semibold text-text-secondary">Solution Preview (Linear Search)</span>
                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
               </div>
               <div className="space-y-4">
-                <div className="p-3 rounded-lg bg-bg-secondary text-xs border border-border-primary">
+                <div className="p-3 rounded-lg bg-bg-secondary/70 text-xs border border-border-primary shadow-sm">
                   <p className="font-semibold text-accent mb-1">Q: Write a program to search an element in an array.</p>
                   <p className="text-text-secondary">To perform linear search, we iterate through the index range $[0, N-1]$...</p>
                 </div>
-                <div className="p-3 rounded-lg bg-accent/5 border border-accent/25 text-xs">
+                <div className="p-3 rounded-lg bg-accent/5 border border-accent/25 text-xs shadow-sm">
                   <p className="font-semibold text-accent mb-1">💡 Step 1: Base Case</p>
                   <p className="text-text-secondary">{`If target $T$ matches elements at index $i$, return $i$. Average complexity is $\\mathcal{O}(N)$`}.</p>
                 </div>
-                <div className="p-3 rounded-lg bg-bg-secondary text-xs border border-border-primary">
+                <div className="p-3 rounded-lg bg-bg-secondary/70 text-xs border border-border-primary shadow-sm">
                   <p className="font-semibold text-text-primary mb-1">💬 Student Doubt</p>
                   <p className="text-text-secondary">&quot;Why is average complexity $O(N)$ and not $O(1)$?&quot;</p>
                 </div>
-                <div className="p-3 rounded-lg bg-accent/10 text-xs text-accent">
+                <div className="p-3 rounded-lg bg-accent/10 border border-accent/15 text-xs text-accent shadow-sm">
                   <p className="font-semibold mb-1">🤖 Assistant Reply</p>
                   <p className="text-text-secondary">{`"Average complexity accounts for the element being in the middle, requiring $N/2$ checks, which simplifies to $\\mathcal{O}(N)$."`}</p>
                 </div>
@@ -337,43 +342,43 @@ export default function Home() {
         </section>
 
         {/* Statistics Section */}
-        <section className="py-12 border-t border-b border-border-primary bg-bg-secondary/20 rounded-2xl px-8 mb-20">
+        <section className="py-12 border border-border-primary bg-bg-secondary/40 backdrop-blur-sm rounded-2xl px-8 mb-20 shadow-md">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
               <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">500+</h4>
-              <p className="text-xs uppercase tracking-wider text-text-secondary font-semibold">Questions Mapped</p>
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Questions Mapped</p>
             </div>
             <div>
               <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">10+</h4>
-              <p className="text-xs uppercase tracking-wider text-text-secondary font-semibold">Subjects Configured</p>
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Subjects Configured</p>
             </div>
             <div>
               <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">1,200+</h4>
-              <p className="text-xs uppercase tracking-wider text-text-secondary font-semibold">Solved Steps Explained</p>
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Solved Steps Explained</p>
             </div>
             <div>
               <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">100%</h4>
-              <p className="text-xs uppercase tracking-wider text-text-secondary font-semibold">MMMUT Syllabus Aligned</p>
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">MMMUT Syllabus Aligned</p>
             </div>
           </div>
         </section>
 
         {/* Call to Action Section */}
-        <section className="mb-20 text-center relative rounded-3xl border border-border-primary bg-bg-secondary p-8 md:p-12 overflow-hidden shadow-sm">
+        <section className="mb-20 text-center relative rounded-3xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm p-8 md:p-12 overflow-hidden shadow-lg border-border-primary/80">
           <div className="absolute inset-0 bg-accent/5 opacity-40 blur-3xl pointer-events-none"></div>
           <h2 className="font-display text-3xl font-bold text-text-primary mb-4 relative z-10">Ready to Ace Your Exams?</h2>
-          <p className="text-sm text-text-secondary max-w-lg mx-auto mb-8 relative z-10">Get instant access to MMMUT past papers, syllabus topic filters, and AI assistance. Start practicing in under 30 seconds.</p>
+          <p className="text-sm text-text-secondary max-w-lg mx-auto mb-8 relative z-10 font-normal">Get instant access to MMMUT past papers, syllabus topic filters, and AI assistance. Start practicing in under 30 seconds.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
             <Link
               href="/onboarding?reset=true"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-medium hover:bg-accent-hover transition-colors shadow-sm flex items-center justify-center space-x-2 group"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all shadow-md hover:scale-[1.02] flex items-center justify-center space-x-2 group"
             >
               <span>Launch Practice Solver</span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/onboarding?demo=true"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-primary text-text-primary hover:bg-bg-tertiary transition-colors flex items-center justify-center"
+              className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-primary text-text-primary hover:bg-bg-tertiary transition-all flex items-center justify-center hover:scale-[1.02]"
             >
               <span>View Interactive Demo</span>
             </Link>
@@ -382,14 +387,14 @@ export default function Home() {
       </main>
 
       {/* Expanded Multi-Column Footer */}
-      <footer className="border-t border-border-primary bg-bg-secondary/40 py-12 md:py-16 transition-colors duration-300">
+      <footer className="border-t border-border-primary bg-bg-secondary/40 backdrop-blur-sm py-12 md:py-16 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
           <div className="col-span-2 space-y-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg">
+            <Link href="/" className="flex items-center space-x-2 group">
+              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-accent/20">
                 P
               </div>
-              <span className="font-display font-bold text-xl tracking-tight">PaperHub</span>
+              <span className="font-display font-bold text-xl tracking-tight group-hover:text-accent transition-colors duration-200">PaperHub</span>
             </Link>
             <p className="text-xs text-text-secondary max-w-sm leading-relaxed">
               PaperHub is a descriptive university exam preparation platform localized for MMMUT. We organize syllabi, past papers, and provide step-by-step guidance.

@@ -131,25 +131,30 @@ export default function PracticeSelection() {
       </header>
 
       {/* Mode Selectors */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12">
-        <div className="mb-10 text-center md:text-left">
-          <span className="text-xs font-semibold uppercase tracking-wider text-accent mb-2 block">Choose Mode</span>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-text-primary">
+      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12 relative overflow-hidden">
+        {/* Subtle glowing space background */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-accent/5 rounded-full blur-[120px] pointer-events-none dark:block hidden"></div>
+
+        <div className="mb-10 text-center md:text-left z-10 relative">
+          <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">Choose Mode</span>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight text-text-primary">
             How would you like to practice?
           </h1>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto z-10 relative">
           {/* Option 1: Full Syllabus */}
           <button
             onClick={startFullSyllabusPractice}
-            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-48 group"
+            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-48 group relative overflow-hidden"
           >
-            <div className="w-10 h-10 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-              <Book className="w-5 h-5" />
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
+
+            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
+              <Book className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
             </div>
             <div>
-              <h3 className="font-display font-semibold text-lg mb-1 flex items-center">
+              <h3 className="font-display font-bold text-lg text-text-primary group-hover:text-accent flex items-center transition-colors duration-200 mb-1">
                 <span>Full Syllabus Set</span>
                 <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
@@ -162,13 +167,15 @@ export default function PracticeSelection() {
           {/* Option 2: Custom Builder */}
           <Link
             href={`/subjects/${subjectId}/practice/custom`}
-            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-48 group"
+            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-48 group relative overflow-hidden"
           >
-            <div className="w-10 h-10 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-              <Sliders className="w-5 h-5" />
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
+
+            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
+              <Sliders className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
             </div>
             <div>
-              <h3 className="font-display font-semibold text-lg mb-1 flex items-center">
+              <h3 className="font-display font-bold text-lg text-text-primary group-hover:text-accent flex items-center transition-colors duration-200 mb-1">
                 <span>Custom Practice Builder</span>
                 <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>

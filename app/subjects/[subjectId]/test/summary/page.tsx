@@ -73,25 +73,29 @@ export default function TestSummary() {
   const isSuspicious = totalBreaches > 3;
 
   return (
-    <div className="min-h-screen flex flex-col justify-between transition-colors duration-300">
+    <div className="min-h-screen flex flex-col justify-between transition-colors duration-300 relative overflow-hidden bg-bg-primary text-text-primary">
+      {/* Background ambient space glows */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-accent/5 blur-[130px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-accent/3 blur-[130px] pointer-events-none" />
+
       {/* Top Navbar */}
       <header className="border-b border-border-primary/50 bg-bg-primary/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link 
               href={`/subjects/${subjectId}`} 
-              className="p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-colors"
+              className="p-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary transition-all hover:text-text-primary"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <span className="font-display font-bold text-sm tracking-tight text-accent">Summary Report</span>
+            <span className="font-display font-bold text-sm tracking-tight text-accent dark:gradient-heading">Summary Report</span>
           </div>
           <ThemeToggle />
         </div>
       </header>
 
       {/* Main summary view */}
-      <main className="flex-grow max-w-2xl w-full mx-auto px-6 py-12 flex items-center justify-center">
+      <main className="flex-grow max-w-2xl w-full mx-auto px-6 py-12 flex items-center justify-center relative z-10">
         <motion.div
           initial={{ scale: 0.96, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -99,7 +103,7 @@ export default function TestSummary() {
           className="w-full space-y-8"
         >
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mx-auto mb-4">
+            <div className="w-16 h-16 rounded-2xl bg-accent/5 border border-accent/25 flex items-center justify-center text-accent mx-auto mb-5 shadow-lg shadow-accent/5">
               <Award className="w-8 h-8" />
             </div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-text-primary mb-2">Test Completed</h1>
@@ -108,22 +112,22 @@ export default function TestSummary() {
 
           {/* Key stats row */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary text-center space-y-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Attempted</span>
-              <h3 className="font-display text-2xl font-bold text-text-primary">
-                {data.attemptedCount} <span className="text-text-secondary text-sm font-normal">/ {data.totalQuestions}</span>
+            <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm glow-hover text-center space-y-1.5 transition-all">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Attempted</span>
+              <h3 className="font-display text-3xl font-bold text-text-primary">
+                {data.attemptedCount} <span className="text-text-muted text-sm font-normal">/ {data.totalQuestions}</span>
               </h3>
             </div>
             
-            <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary text-center space-y-1.5">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Time Elapsed</span>
-              <h3 className="font-display text-2xl font-bold text-text-primary">{formattedTime()}</h3>
+            <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm glow-hover text-center space-y-1.5 transition-all">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-text-muted">Time Elapsed</span>
+              <h3 className="font-display text-3xl font-bold text-text-primary dark:text-accent">{formattedTime()}</h3>
             </div>
           </div>
 
           {/* Security Integrity Card */}
-          <div className={`p-6 rounded-xl border ${isSuspicious ? 'border-red-500/20 bg-red-500/5' : 'border-green-500/20 bg-green-500/5'} space-y-4`}>
-            <div className="flex items-center space-x-2">
+          <div className={`p-6 rounded-xl border transition-all ${isSuspicious ? 'border-red-500/20 bg-red-500/5 shadow-md shadow-red-950/5' : 'border-green-500/20 bg-green-500/5 shadow-md shadow-green-950/5'} space-y-4`}>
+            <div className="flex items-center space-x-2.5">
               {isSuspicious ? (
                 <ShieldAlert className="w-5 h-5 text-red-500" />
               ) : (
@@ -134,18 +138,18 @@ export default function TestSummary() {
               </h3>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center border-t border-border-primary/30 pt-4">
+            <div className="grid grid-cols-3 gap-2 text-center border-t border-border-primary/20 pt-4">
               <div>
-                <span className="block text-[8px] uppercase tracking-wider text-text-secondary mb-1">Tab Switches</span>
-                <span className="text-xs font-bold text-text-primary">{data.tabSwitches}</span>
+                <span className="block text-[8px] uppercase tracking-wider text-text-muted mb-1 font-bold">Tab Switches</span>
+                <span className="text-sm font-bold text-text-primary">{data.tabSwitches}</span>
               </div>
               <div>
-                <span className="block text-[8px] uppercase tracking-wider text-text-secondary mb-1">Focus Losses</span>
-                <span className="text-xs font-bold text-text-primary">{data.focusLosses}</span>
+                <span className="block text-[8px] uppercase tracking-wider text-text-muted mb-1 font-bold">Focus Losses</span>
+                <span className="text-sm font-bold text-text-primary">{data.focusLosses}</span>
               </div>
               <div>
-                <span className="block text-[8px] uppercase tracking-wider text-text-secondary mb-1">Fullscreen Exits</span>
-                <span className="text-xs font-bold text-text-primary">{data.fullscreenExits}</span>
+                <span className="block text-[8px] uppercase tracking-wider text-text-muted mb-1 font-bold">Fullscreen Exits</span>
+                <span className="text-sm font-bold text-text-primary">{data.fullscreenExits}</span>
               </div>
             </div>
 
@@ -159,23 +163,23 @@ export default function TestSummary() {
           </div>
 
           {/* Grading Check (Future) */}
-          <div className="p-4 rounded-lg border border-border-primary border-dashed text-[10px] leading-relaxed text-text-muted flex justify-between items-center bg-bg-secondary/30">
-            <span>🤖 AI-Assisted Checking and Detailed Grading report</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">COMING SOON</span>
+          <div className="p-4 rounded-lg border border-border-primary border-dashed text-[10px] leading-relaxed text-text-secondary flex justify-between items-center bg-bg-secondary/40 backdrop-blur-sm">
+            <span className="font-medium">🤖 AI-Assisted Checking and Detailed Grading report</span>
+            <span className="text-[9px] px-2 py-0.5 rounded badge-premium font-bold">COMING SOON</span>
           </div>
 
           {/* Navigation Controls */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
             <Link
               href={`/subjects/${subjectId}`}
-              className="w-full sm:w-auto flex-grow px-6 py-3 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-hover transition-colors text-center shadow-sm"
+              className="w-full sm:w-auto flex-grow px-6 py-3 rounded-lg bg-accent text-white text-xs font-bold hover:bg-accent-hover transition-all text-center shadow-sm"
             >
               Back to Dashboard
             </Link>
             
             <Link
               href="/onboarding"
-              className="w-full sm:w-auto flex-grow px-6 py-3 rounded-lg border border-border-primary bg-bg-secondary text-text-primary text-xs font-bold hover:bg-bg-tertiary transition-colors text-center"
+              className="w-full sm:w-auto flex-grow px-6 py-3 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-text-primary text-xs font-bold hover:text-accent transition-all text-center"
             >
               Prepare Another Subject
             </Link>
@@ -183,9 +187,10 @@ export default function TestSummary() {
         </motion.div>
       </main>
 
-      <footer className="border-t border-border-primary/50 bg-bg-secondary/20 py-6 text-center text-xs text-text-secondary">
+      <footer className="border-t border-border-primary/50 bg-bg-secondary/20 py-6 text-center text-xs text-text-muted">
         <p>PaperHub • Mapped Syllabus and Exam Patterns</p>
       </footer>
     </div>
   );
 }
+

@@ -178,47 +178,53 @@ export default function CustomPracticeBuilder() {
       </header>
 
       {/* Builder Console */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12">
-        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12 relative overflow-hidden">
+        {/* Subtle glowing space background */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-accent/5 rounded-full blur-[120px] pointer-events-none dark:block hidden"></div>
+
+        <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 z-10 relative">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-accent mb-2 block">Configure</span>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-text-primary">
+            <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">Configure</span>
+            <h1 className="font-display text-3xl font-extrabold tracking-tight text-text-primary">
               Custom Practice Builder
             </h1>
           </div>
           
           <button
             onClick={handleStart}
-            className="px-6 py-3 rounded-xl bg-accent text-white font-medium hover:bg-accent-hover transition-colors shadow-sm flex items-center justify-center space-x-2 self-start md:self-auto"
+            className="px-6 py-3 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2 self-start md:self-auto hover:-translate-y-0.5"
           >
             <Play className="w-4 h-4 fill-current" />
             <span>Start Practice Session</span>
           </button>
         </div>
 
-        <div className="max-w-3xl space-y-6">
+        <div className="max-w-3xl space-y-6 z-10 relative">
           <div className="space-y-6">
-            <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary">
-              <h3 className="font-display font-semibold text-text-primary mb-6">Select Units & Topics</h3>
+            <div className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.25)]">
+              <h3 className="font-display font-bold text-text-primary text-base mb-6">Select Units & Topics</h3>
               <div className="space-y-6">
                 {subject.syllabus.map((unit) => {
                   const unitSelected = selectedUnits.includes(unit.unitNumber);
                   return (
-                    <div key={unit.unitNumber} className="border-b border-border-primary/50 last:border-0 pb-6 last:pb-0">
+                    <div key={unit.unitNumber} className="border-b border-border-primary/40 last:border-0 pb-6 last:pb-0">
                       {/* Unit Header row */}
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-4">
                         <button
                           onClick={() => toggleUnit(unit.unitNumber)}
                           className="flex items-start space-x-3 text-left group"
                         >
-                          <div className={`w-5 h-5 rounded border mt-0.5 flex items-center justify-center transition-colors duration-150 ${
-                            unitSelected ? 'bg-accent border-accent text-white' : 'border-border-primary bg-bg-primary group-hover:border-accent/40'
+                          <div className={`w-5 h-5 rounded-md border mt-0.5 flex items-center justify-center transition-all duration-200 ${
+                            unitSelected ? 'bg-accent border-accent text-white shadow-[0_0_10px_rgba(124,102,255,0.3)]' : 'border-border-primary bg-bg-primary/50 group-hover:border-accent/40'
                           }`}>
-                            {unitSelected && <Check className="w-3.5 h-3.5" />}
+                            {unitSelected && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
                           </div>
                           <div>
-                            <h4 className={`font-display font-bold text-sm transition-colors ${unitSelected ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>
-                              Unit {unit.unitNumber}: {unit.unitTitle}
+                            <h4 className={`font-display font-bold text-sm transition-colors flex items-center space-x-2 ${unitSelected ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>
+                              <span className="flex items-center justify-center w-5 h-5 rounded-full bg-accent/10 text-accent text-[9px] font-extrabold">
+                                {unit.unitNumber}
+                              </span>
+                              <span>{unit.unitTitle}</span>
                             </h4>
                           </div>
                         </button>
@@ -232,10 +238,10 @@ export default function CustomPracticeBuilder() {
                             <button
                               key={tIdx}
                               onClick={() => toggleTopic(topic, unit.unitNumber)}
-                              className={`text-xs px-3 py-1 rounded-full border transition-all duration-150 ${
+                              className={`text-xs px-3.5 py-1.5 rounded-full border transition-all duration-200 ${
                                 topicSelected
-                                  ? 'border-accent bg-accent/5 text-accent font-medium'
-                                  : 'border-border-primary bg-bg-primary text-text-secondary hover:border-accent/25 hover:text-text-primary'
+                                  ? 'border-accent/40 bg-accent/10 text-accent font-semibold shadow-[0_0_12px_rgba(124,102,255,0.15)]'
+                                  : 'border-border-primary bg-bg-primary/50 text-text-secondary hover:border-accent/30 hover:text-accent hover:bg-bg-primary'
                               }`}
                             >
                               {topic}

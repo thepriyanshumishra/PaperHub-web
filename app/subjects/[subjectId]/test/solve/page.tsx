@@ -324,23 +324,27 @@ function TestSolveContent() {
 
   return (
     <div 
-      className="min-h-screen flex flex-col justify-between bg-bg-primary text-text-primary transition-colors duration-300"
+      className="min-h-screen flex flex-col justify-between bg-bg-primary text-text-primary transition-colors duration-300 relative overflow-hidden"
       ref={containerRef}
     >
+      {/* Background ambient space glows */}
+      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/3 blur-[120px] pointer-events-none" />
+
       {/* timed test header */}
-      <header className="border-b border-border-primary/50 bg-bg-secondary h-16 px-6 flex items-center justify-between sticky top-0 z-50">
+      <header className="border-b border-border-primary/50 bg-bg-secondary/80 backdrop-blur-md h-16 px-6 flex items-center justify-between sticky top-0 z-50 transition-all">
         <div className="flex items-center space-x-4">
-          <span className="font-display font-bold text-sm tracking-tight text-accent">Exam Arena</span>
+          <span className="font-display font-bold text-sm tracking-tight text-accent dark:gradient-heading">Exam Arena</span>
           <span className="text-text-muted">|</span>
-          <nav className="flex items-center space-x-2 text-xs text-text-secondary">
-            <span>Q. {currentIdx + 1} of {questions.length}</span>
+          <nav className="flex items-center space-x-2 text-xs text-text-secondary font-medium">
+            <span>Q. <span className="text-accent font-semibold">{currentIdx + 1}</span> of <span className="text-text-primary font-semibold">{questions.length}</span></span>
           </nav>
         </div>
 
         {/* Action Widgets */}
         <div className="flex items-center space-x-6">
           {/* Timer Countdown */}
-          <div className="flex items-center space-x-2 text-text-primary font-mono text-sm font-semibold bg-bg-primary border border-border-primary px-3 py-1.5 rounded-lg">
+          <div className="flex items-center space-x-2 text-text-primary font-mono text-sm font-semibold bg-bg-secondary/80 backdrop-blur-sm border border-border-primary px-3 py-1.5 rounded-lg shadow-sm">
             <Clock className="w-4 h-4 text-accent animate-pulse" />
             <span>{formatTimer(timeLeft)}</span>
           </div>
@@ -348,7 +352,7 @@ function TestSolveContent() {
           {/* Fullscreen focus button */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-tertiary text-text-secondary transition-colors"
+            className="p-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary transition-all hover:text-text-primary duration-200"
             title={isFullscreen ? 'Exit Focus Mode' : 'Enter Focus Mode'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -356,7 +360,7 @@ function TestSolveContent() {
 
           <button
             onClick={() => handleSubmitExam(false)}
-            className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold text-xs hover:bg-red-700 transition-colors shadow-sm"
+            className="px-4 py-2 rounded-lg bg-red-600/90 text-white font-semibold text-xs hover:bg-red-600 transition-all duration-200 shadow-sm shadow-red-900/10 hover:shadow-red-600/20 hover:scale-[1.02]"
           >
             Submit Exam
           </button>
@@ -364,16 +368,16 @@ function TestSolveContent() {
       </header>
 
       {/* Main timed test layout */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-6 grid grid-cols-1 md:grid-cols-2 gap-6 relative">
+      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
         
         {/* Left Side: Question Sheet */}
-        <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary flex flex-col justify-between shadow-sm min-h-[450px]">
+        <div className="p-6 md:p-8 rounded-xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm glow-hover flex flex-col justify-between shadow-lg min-h-[480px] transition-all duration-300">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-border-primary text-text-secondary">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded badge-premium">
                 Descriptive Written Question • Unit {currentQuestion.unit}
               </span>
-              <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+              <span className="text-[10px] uppercase font-bold px-2.5 py-1 rounded bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 border border-yellow-500/20">
                 {currentQuestion.marks ? `${currentQuestion.marks} Marks` : '10 Marks'}
               </span>
             </div>
@@ -384,19 +388,23 @@ function TestSolveContent() {
           </div>
 
           {/* Guidelines */}
-          <div className="border-t border-border-primary/50 pt-4 text-[10px] text-text-muted flex items-start space-x-2">
-            <PenTool className="w-3.5 h-3.5 mt-0.5 text-accent" />
-            <p>
+          <div className="border-t border-border-primary/40 pt-4 text-[10px] text-text-secondary flex items-start space-x-2.5">
+            <div className="p-1 rounded-md bg-accent/5 text-accent border border-accent/15">
+              <PenTool className="w-3.5 h-3.5" />
+            </div>
+            <p className="leading-normal">
               Please write the detailed descriptive step-by-step resolution on your physical examination sheet. Use the scratchpad on the right to outline your derivation parameters or scratch math.
             </p>
           </div>
         </div>
 
         {/* Right Side: Outline / Scratchpad */}
-        <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary flex flex-col justify-between shadow-sm">
+        <div className="p-6 md:p-8 rounded-xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm glow-hover flex flex-col justify-between shadow-lg transition-all duration-300">
           <div className="flex-grow flex flex-col h-full">
-            <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-text-secondary mb-3 flex items-center space-x-1.5">
-              <PenTool className="w-3.5 h-3.5 text-accent" />
+            <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-text-secondary mb-3 flex items-center space-x-2">
+              <span className="p-1 rounded bg-accent/5 text-accent border border-accent/15">
+                <PenTool className="w-3.5 h-3.5" />
+              </span>
               <span>Scratchpad Outline</span>
             </h3>
             
@@ -404,13 +412,13 @@ function TestSolveContent() {
               value={currentNote}
               onChange={(e) => handleNotesChange(e.target.value)}
               placeholder="Outline your steps, write down variables, matrices equations, or type pseudo-code here..."
-              className="w-full flex-grow p-4 rounded-lg bg-bg-primary text-xs font-mono border border-border-primary text-text-primary focus:outline-none focus:border-accent resize-none min-h-[300px]"
+              className="w-full flex-grow p-4 rounded-lg bg-bg-primary/50 text-xs font-mono border border-border-primary/80 text-text-primary focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all duration-200 resize-none min-h-[320px]"
             />
           </div>
           
           <div className="mt-4 flex justify-between items-center text-[10px] text-text-muted">
             <span>Notes auto-saved per question.</span>
-            <span>Character Count: {currentNote.length}</span>
+            <span>Character Count: <span className="text-text-secondary font-semibold">{currentNote.length}</span></span>
           </div>
         </div>
 
@@ -421,20 +429,20 @@ function TestSolveContent() {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
-              className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 flex items-center space-x-2 px-4 py-2.5 rounded-lg border border-yellow-500/20 bg-yellow-500/10 text-yellow-500 text-xs font-semibold shadow-lg backdrop-blur-md"
+              className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 flex items-center space-x-2.5 px-4.5 py-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 text-xs font-semibold shadow-xl backdrop-blur-md"
             >
-              <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-              <span>{cheatNoticeMsg} (Focus Breaches: {tabSwitches + focusLosses})</span>
+              <ShieldAlert className="w-4 h-4 flex-shrink-0 animate-bounce" />
+              <span>{cheatNoticeMsg} (Focus Breaches: <span className="font-bold">{tabSwitches + focusLosses}</span>)</span>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
       {/* Bottom control row */}
-      <footer className="border-t border-border-primary/50 bg-bg-secondary/40 py-4 px-6 flex items-center justify-between sticky bottom-0 z-40 backdrop-blur-md">
+      <footer className="border-t border-border-primary/50 bg-bg-secondary/60 backdrop-blur-md py-4 px-6 flex items-center justify-between sticky bottom-0 z-40">
         <div className="flex items-center space-x-2">
           {/* Integrity indicators */}
-          <div className="flex items-center space-x-1 text-[9px] uppercase tracking-wider font-semibold text-text-secondary">
+          <div className="flex items-center space-x-1.5 text-[9px] uppercase tracking-wider font-semibold text-text-secondary bg-bg-secondary/40 border border-border-primary/50 px-2.5 py-1 rounded-md">
             <span>Security Violations:</span>
             <span className={`font-bold ${tabSwitches + focusLosses > 0 ? 'text-red-500' : 'text-green-500'}`}>
               {tabSwitches + focusLosses}
@@ -446,7 +454,7 @@ function TestSolveContent() {
           <button
             onClick={() => setCurrentIdx(Math.max(0, currentIdx - 1))}
             disabled={currentIdx === 0}
-            className="px-4 py-2 rounded-lg border border-border-primary bg-bg-primary text-xs font-bold text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-xs font-bold text-text-primary hover:text-accent transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-text-primary"
           >
             Previous
           </button>
@@ -454,7 +462,7 @@ function TestSolveContent() {
           <button
             onClick={() => setCurrentIdx(Math.min(questions.length - 1, currentIdx + 1))}
             disabled={currentIdx === questions.length - 1}
-            className="px-4 py-2 rounded-lg border border-border-primary bg-bg-primary text-xs font-bold text-text-primary hover:bg-bg-tertiary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-xs font-bold text-text-primary hover:text-accent transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-text-primary"
           >
             Next
           </button>
@@ -463,3 +471,4 @@ function TestSolveContent() {
     </div>
   );
 }
+

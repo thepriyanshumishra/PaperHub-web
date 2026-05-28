@@ -163,10 +163,13 @@ export default function SubjectDashboard() {
       </header>
 
       {/* Main Subject Dashboard */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12">
-        <div className="mb-10">
-          <span className="text-xs font-semibold uppercase tracking-wider text-accent mb-2 block">{subject.code}</span>
-          <h1 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-text-primary mb-3">
+      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12 relative overflow-hidden">
+        {/* Subtle glowing space background */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-accent/5 rounded-full blur-[120px] pointer-events-none dark:block hidden"></div>
+
+        <div className="mb-10 z-10 relative">
+          <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">{subject.code}</span>
+          <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary mb-3">
             {subject.name}
           </h1>
           <p className="text-sm text-text-secondary leading-relaxed max-w-2xl">
@@ -175,17 +178,19 @@ export default function SubjectDashboard() {
         </div>
 
         {/* Mode Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 z-10 relative">
           {/* Practice Mode Card */}
           <Link
             href={`/subjects/${subjectId}/practice`}
-            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-52 group"
+            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-52 group relative overflow-hidden"
           >
-            <div className="w-10 h-10 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-              <Play className="w-5 h-5" />
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
+
+            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
+              <Play className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
             </div>
             <div>
-              <h3 className="font-display font-semibold text-lg mb-1 flex items-center">
+              <h3 className="font-display font-bold text-lg text-text-primary group-hover:text-accent flex items-center transition-colors duration-200 mb-1">
                 <span>Practice Mode</span>
                 <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
@@ -198,13 +203,15 @@ export default function SubjectDashboard() {
           {/* Test Mode Card */}
           <Link
             href={`/subjects/${subjectId}/test`}
-            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-left hover:border-accent/40 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-52 group"
+            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-52 group relative overflow-hidden"
           >
-            <div className="w-10 h-10 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-colors duration-200">
-              <FileText className="w-5 h-5" />
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
+
+            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
+              <FileText className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
             </div>
             <div>
-              <h3 className="font-display font-semibold text-lg mb-1 flex items-center">
+              <h3 className="font-display font-bold text-lg text-text-primary group-hover:text-accent flex items-center transition-colors duration-200 mb-1">
                 <span>Test Mode</span>
                 <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </h3>
@@ -215,32 +222,32 @@ export default function SubjectDashboard() {
           </Link>
 
           {/* Important Questions (Soon) */}
-          <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex flex-col justify-between h-52 cursor-not-allowed">
-            <div className="w-10 h-10 rounded-xl bg-border-primary flex items-center justify-center text-text-muted">
+          <div className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-left opacity-65 flex flex-col justify-between h-52 cursor-not-allowed">
+            <div className="w-12 h-12 rounded-xl bg-border-primary/45 flex items-center justify-center text-text-muted">
               <TrendingUp className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2 mb-1">
-                <h3 className="font-display font-semibold text-lg">Important Questions</h3>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                <h3 className="font-display font-semibold text-lg text-text-secondary">Important Questions</h3>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-500 font-bold uppercase tracking-wider">SOON</span>
               </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
+              <p className="text-xs text-text-muted leading-relaxed">
                 A customized selection of recurring questions showing highest exam repetition frequencies.
               </p>
             </div>
           </div>
 
           {/* Night Before Exam (Soon) */}
-          <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 text-left opacity-60 flex flex-col justify-between h-52 cursor-not-allowed">
-            <div className="w-10 h-10 rounded-xl bg-border-primary flex items-center justify-center text-text-muted">
+          <div className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-left opacity-65 flex flex-col justify-between h-52 cursor-not-allowed">
+            <div className="w-12 h-12 rounded-xl bg-border-primary/45 flex items-center justify-center text-text-muted">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center space-x-2 mb-1">
-                <h3 className="font-display font-semibold text-lg">Night Before Exam</h3>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-medium">SOON</span>
+                <h3 className="font-display font-semibold text-lg text-text-secondary">Night Before Exam</h3>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-500 font-bold uppercase tracking-wider">SOON</span>
               </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
+              <p className="text-xs text-text-muted leading-relaxed">
                 Hyper-focused final revision set. Check the absolute must-know topics in the last 12 hours.
               </p>
             </div>
@@ -248,34 +255,37 @@ export default function SubjectDashboard() {
         </div>
 
         {/* Syllabus Overview Drawer/Accordion */}
-        <div className="rounded-xl border border-border-primary bg-bg-secondary p-6">
-          <h3 className="font-display font-semibold text-text-primary mb-4 flex items-center space-x-2">
-            <BookOpen className="w-4 h-4 text-accent" />
+        <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm p-8 z-10 relative">
+          <h3 className="font-display font-bold text-text-primary text-lg mb-6 flex items-center space-x-2.5">
+            <BookOpen className="w-5 h-5 text-accent" />
             <span>Syllabus Mapping ({subject.syllabus?.length || 0} Units)</span>
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {subject.syllabus?.map((unit) => {
               const isMostImportant = stats?.mostImportantUnit === unit.unitNumber;
               const isHighYield = stats?.importantUnits?.includes(unit.unitNumber) && !isMostImportant;
 
               return (
-                <div key={unit.unitNumber} className="border-b border-border-primary/50 last:border-0 pb-3 last:pb-0">
-                  <div className="flex items-center flex-wrap gap-2 mb-1">
-                    <h4 className="text-xs font-bold text-text-primary">
-                      Unit {unit.unitNumber}: {unit.unitTitle}
+                <div key={unit.unitNumber} className="border-b border-border-primary/40 last:border-0 pb-5 last:pb-0">
+                  <div className="flex items-center flex-wrap gap-2.5 mb-2.5">
+                    <h4 className="text-sm font-bold text-text-primary flex items-center space-x-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-accent/10 text-accent text-[10px] font-extrabold">
+                        {unit.unitNumber}
+                      </span>
+                      <span>{unit.unitTitle}</span>
                     </h4>
                     {isMostImportant && (
-                      <span className="text-[8px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 inline-flex items-center">
+                      <span className="text-[8px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center">
                         🏆 Max Weightage
                       </span>
                     )}
                     {isHighYield && (
-                      <span className="text-[8px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500 border border-purple-500/20 inline-flex items-center">
+                      <span className="text-[8px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 inline-flex items-center">
                         ⭐ High Yield
                       </span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     {unit.topics.map((topic: string, tIdx: number) => {
                       const isImportantTopic = stats?.importantTopics?.includes(topic.trim());
                       const topicDetail = stats?.topicStats?.[topic.trim()];
@@ -284,11 +294,11 @@ export default function SubjectDashboard() {
                         return (
                           <span 
                             key={tIdx} 
-                            className="text-[10px] px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 cursor-default transition-colors duration-150 inline-flex items-center space-x-1 font-semibold"
+                            className="text-[10px] px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/15 cursor-default transition-all duration-200 inline-flex items-center space-x-1.5 font-semibold"
                           >
                             <span>🔥 {topic}</span>
                             {topicDetail?.maxMarks && (
-                              <span className="text-[8px] opacity-75 font-bold">({topicDetail.maxMarks}M Max)</span>
+                              <span className="text-[8px] px-1 py-0.2 rounded bg-rose-500/15 text-rose-300 font-extrabold">{topicDetail.maxMarks}M Max</span>
                             )}
                           </span>
                         );
@@ -297,7 +307,7 @@ export default function SubjectDashboard() {
                       return (
                         <span 
                           key={tIdx} 
-                          className="text-[10px] px-2 py-0.5 rounded bg-bg-primary border border-border-primary text-text-secondary hover:text-accent hover:border-accent/20 cursor-default transition-colors duration-150"
+                          className="text-[10px] px-2.5 py-1 rounded-full bg-bg-primary/50 border border-border-primary/80 text-text-secondary hover:text-accent hover:border-accent/40 hover:bg-bg-primary transition-all duration-200 cursor-default"
                         >
                           {topic}
                         </span>
