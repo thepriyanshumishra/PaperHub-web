@@ -105,6 +105,7 @@ function PracticeSolveContent() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Load configuration and filter questions
   useEffect(() => {
@@ -158,12 +159,8 @@ function PracticeSolveContent() {
     window.history.pushState(null, '', window.location.href);
 
     const handlePopState = () => {
-      const confirm = window.confirm("Are you sure you want to finish this practice session? Your progress will be lost.");
-      if (confirm) {
-        router.push(`/subjects/${subjectId}`);
-      } else {
-        window.history.pushState(null, '', window.location.href);
-      }
+      window.history.pushState(null, '', window.location.href);
+      setShowConfirmModal(true);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -324,10 +321,7 @@ function PracticeSolveContent() {
   };
 
   const finishSession = () => {
-    const confirm = window.confirm("Are you sure you want to finish this practice session? Your progress will be lost.");
-    if (confirm) {
-      router.push(`/subjects/${subjectId}`);
-    }
+    setShowConfirmModal(true);
   };
 
   if (loading) {
@@ -756,6 +750,48 @@ function PracticeSolveContent() {
           )}
         </div>
       </footer>
+
+      {/* Premium In-website Confirmation Dialog */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-bg-secondary/95 border border-border-primary/80 max-w-sm w-full p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-5"
+            >
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent shadow-sm shadow-accent/5">
+                <HelpCircle className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-display font-bold text-base text-text-primary">Finish Session?</h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Are you sure you want to finish this practice session? Your progress will be lost.
+                </p>
+              </div>
+              <div className="flex items-center space-x-3 w-full pt-2">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="flex-1 py-2.5 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-tertiary text-xs font-bold text-text-primary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    router.push(`/subjects/${subjectId}`);
+                  }}
+                  className="flex-1 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-bold transition-all shadow-md shadow-accent/10"
+                >
+                  Confirm
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

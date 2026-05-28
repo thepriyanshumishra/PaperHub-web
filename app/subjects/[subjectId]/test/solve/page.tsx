@@ -70,6 +70,8 @@ function TestSolveContent() {
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [showCheatNotice, setShowCheatNotice] = useState(false);
   const [cheatNoticeMsg, setCheatNoticeMsg] = useState('');
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   // Refs for requestAnimationFrame / timers
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -115,12 +117,8 @@ function TestSolveContent() {
     window.history.pushState(null, '', window.location.href);
 
     const handlePopState = () => {
-      const confirm = window.confirm("Are you sure you want to leave the exam? Your progress will not be saved.");
-      if (confirm) {
-        router.push(`/subjects/${subjectId}`);
-      } else {
-        window.history.pushState(null, '', window.location.href);
-      }
+      window.history.pushState(null, '', window.location.href);
+      setShowLeaveModal(true);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -244,10 +242,10 @@ function TestSolveContent() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmitExam = async (isAutoSubmit = false) => {
-    if (!isAutoSubmit) {
-      const confirm = window.confirm("Are you sure you want to submit your exam sheet and end this session?");
-      if (!confirm) return;
+  const handleSubmitExam = async (isAutoSubmit = false, bypassConfirm = false) => {
+    if (!isAutoSubmit && !bypassConfirm) {
+      setShowSubmitModal(true);
+      return;
     }
 
     // Exit fullscreen if active
@@ -468,6 +466,90 @@ function TestSolveContent() {
           </button>
         </div>
       </footer>
+
+      {/* Premium In-website Leave Confirmation Dialog */}
+      <AnimatePresence>
+        {showLeaveModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-bg-secondary/95 border border-border-primary/80 max-w-sm w-full p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-5"
+            >
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent shadow-sm shadow-accent/5">
+                <ShieldAlert className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-display font-bold text-base text-text-primary">Leave Exam?</h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Are you sure you want to leave the exam? Your progress will not be saved.
+                </p>
+              </div>
+              <div className="flex items-center space-x-3 w-full pt-2">
+                <button
+                  onClick={() => setShowLeaveModal(false)}
+                  className="flex-1 py-2.5 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-tertiary text-xs font-bold text-text-primary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowLeaveModal(false);
+                    router.push(`/subjects/${subjectId}`);
+                  }}
+                  className="flex-1 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-bold transition-all shadow-md shadow-accent/10"
+                >
+                  Leave
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium In-website Submit Confirmation Dialog */}
+      <AnimatePresence>
+        {showSubmitModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-bg-secondary/95 border border-border-primary/80 max-w-sm w-full p-6 rounded-2xl shadow-2xl flex flex-col items-center text-center space-y-5"
+            >
+              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent shadow-sm shadow-accent/5">
+                <Clock className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-display font-bold text-base text-text-primary">Submit Exam Sheet?</h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Are you sure you want to submit your exam sheet and end this session?
+                </p>
+              </div>
+              <div className="flex items-center space-x-3 w-full pt-2">
+                <button
+                  onClick={() => setShowSubmitModal(false)}
+                  className="flex-1 py-2.5 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-tertiary text-xs font-bold text-text-primary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSubmitModal(false);
+                    handleSubmitExam(false, true);
+                  }}
+                  className="flex-1 py-2.5 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-bold transition-all shadow-md shadow-accent/10"
+                >
+                  Submit
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
