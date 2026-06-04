@@ -780,7 +780,15 @@ export function sanitizeAILatex(text: string): string {
           .map(l => l.trim())
           .filter(Boolean);
         
-        return `$$\n\\begin{gathered}\n${lines.join(' \\\\\n')}\n\\end{gathered}\n$$`;
+        const RELATION_RE = /=|\\approx|\\le\b|\\leq\b|\\ge\b|\\geq\b|\\neq\b|\\ne\b|\\equiv\b|\\propto\b|\\to\b|\\rightarrow\b|\\implies\b|<|>/g;
+        const hasExplicitLinebreaks = mathContent.includes('\\\\');
+        const relationCount = (mathContent.match(RELATION_RE) || []).length;
+        
+        if (hasExplicitLinebreaks || relationCount >= 2) {
+          return `$$\n\\begin{gathered}\n${lines.join(' \\\\\n')}\n\\end{gathered}\n$$`;
+        } else {
+          return `$$\n${lines.join(' ')}\n$$`;
+        }
       }
       return seg.content;
     }).join('');
