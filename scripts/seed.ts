@@ -58,6 +58,68 @@ interface ParsedPaper {
   questions: ParsedQuestion[];
 }
 
+interface SubjectConfig {
+  name: string;
+  semester: number;
+  branchCodes: string[];
+}
+
+const SUBJECT_CONFIGS: Record<string, SubjectConfig> = {
+  // Engineering Mathematics
+  'BSM-110': { name: 'Engineering Mathematics-I', semester: 1, branchCodes: ['CSE', 'IT', 'ECE', 'ECE-IOT'] },
+  'BSM-160': { name: 'Engineering Mathematics-II', semester: 2, branchCodes: ['CSE', 'IT', 'ECE', 'ECE-IOT'] },
+
+  // Group A (CSE & IT) - Semester 1
+  'BCS-110': { name: 'Introduction to C Programming', semester: 1, branchCodes: ['CSE'] },
+  'BCS-111': { name: 'Web Designing-I', semester: 1, branchCodes: ['CSE'] },
+  'BIT-103': { name: 'Programming in C', semester: 1, branchCodes: ['IT'] },
+  'BIT-104': { name: 'Internet & Web Designing', semester: 1, branchCodes: ['IT'] },
+  'BSM-131': { name: 'Engineering Physics', semester: 1, branchCodes: ['CSE', 'IT'] },
+  'BHS-101': { name: 'Universal Human Values', semester: 1, branchCodes: ['CSE', 'IT'] },
+
+  // Group A (CSE & IT) - Semester 2
+  'BEE-160': { name: 'Basic Electrical Engineering', semester: 2, branchCodes: ['CSE', 'IT'] },
+  'BSM-190': { name: 'Environmental Science and Green Chemistry', semester: 2, branchCodes: ['CSE', 'IT'] },
+  'BCS-161': { name: 'Web Designing-II', semester: 2, branchCodes: ['CSE'] },
+  'BIT-154': { name: 'Object Oriented Programming with C++', semester: 2, branchCodes: ['IT'] },
+
+  // Group B (ECE & ECE-IoT) - Semester 1
+  'BEE-110': { name: 'Basic Electrical Engineering', semester: 1, branchCodes: ['ECE', 'ECE-IOT'] },
+  'BEC-106': { name: 'Electronic Component Testing and Measurement', semester: 1, branchCodes: ['ECE', 'ECE-IOT'] },
+  'BSM-140': { name: 'Environmental Science and Green Chemistry', semester: 1, branchCodes: ['ECE', 'ECE-IOT'] },
+
+  // Group B (ECE & ECE-IoT) - Semester 2
+  'BEC-157': { name: 'Electronic Workshop', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
+  'BSM-181': { name: 'Engineering Physics', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
+  'BCS-160': { name: 'Introduction to C Programming', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
+  'BHS-151': { name: 'Universal Human Values: Understanding Harmony', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
+};
+
+function getSubjectConfig(code: string, currentFile: string, parsedSem: number) {
+  const upperCode = code.toUpperCase().trim();
+  
+  if (upperCode === 'BHS-152') {
+    const isSem1File = currentFile.toUpperCase().includes('ECE_SEM1') || 
+                       currentFile.toUpperCase().includes('IOT_SEM1') || 
+                       parsedSem === 1;
+    if (isSem1File) {
+      return {
+        name: 'Technical Writing & Professional Communication',
+        semester: 1,
+        branchCodes: ['ECE', 'ECE-IOT']
+      };
+    } else {
+      return {
+        name: 'Technical Writing & Professional Communication',
+        semester: 2,
+        branchCodes: ['CSE', 'IT']
+      };
+    }
+  }
+  
+  return SUBJECT_CONFIGS[upperCode] || null;
+}
+
 function parseMarkdownFile(fileContent: string): ParsedPaper[] {
   // Split the file by "# Paper Metadata" to get individual paper sections
   // Note: We search for optional dashes/newlines before the header
@@ -247,11 +309,27 @@ async function seed() {
       code: "CSE",
       isActive: true,
     });
+    const it = await Branch.create({
+      collegeId: mmmut._id,
+      name: "Information Technology",
+      code: "IT",
+      isActive: true,
+    });
+    const ece = await Branch.create({
+      collegeId: mmmut._id,
+      name: "Electronics & Communication Engineering",
+      code: "ECE",
+      isActive: true,
+    });
+    const eceIot = await Branch.create({
+      collegeId: mmmut._id,
+      name: "Electronics & Communication Engineering (IoT)",
+      code: "ECE-IOT",
+      isActive: true,
+    });
     // Inactive branches under MMMUT (marked inactive / Coming Soon)
-    const inactiveBranchCodes = ['IT', 'ECE', 'EE', 'ME', 'CE'];
+    const inactiveBranchCodes = ['EE', 'ME', 'CE'];
     const inactiveBranchNames: Record<string, string> = {
-      IT: "Information Technology",
-      ECE: "Electronics & Communication Engineering",
       EE: "Electrical Engineering",
       ME: "Mechanical Engineering",
       CE: "Civil Engineering",
@@ -308,8 +386,61 @@ async function seed() {
           }
         }
 
-        // Find or create the Subject
-        let subject = await Subject.findOne({ code: subjectCode.toUpperCase() });
+        const subjectCodeClean = subjectCode.toUpperCase().trim();
+        const subjectConf = getSubjectConfig(subjectCodeClean, file, semester);
+        
+        let targetSemester = semester;
+        let branchIds: mongoose.Types.ObjectId[] = [];
+        let finalSubjectName = subjectName;
+
+        if (subjectConf) {
+          targetSemester = subjectConf.semester;
+          finalSubjectName = subjectConf.name;
+          
+          // Map branch codes to MongoDB ObjectIds
+          for (const bCode of subjectConf.branchCodes) {
+            if (bCode === 'CSE') branchIds.push(cse._id as mongoose.Types.ObjectId);
+            if (bCode === 'IT') branchIds.push(it._id as mongoose.Types.ObjectId);
+            if (bCode === 'ECE') branchIds.push(ece._id as mongoose.Types.ObjectId);
+            if (bCode === 'ECE-IOT') branchIds.push(eceIot._id as mongoose.Types.ObjectId);
+          }
+        } else {
+          // Fallback to parsed metadata if not in configs
+          const paperBranch = paper.metadata['Branch'] ? paper.metadata['Branch'].trim().toUpperCase() : 'CSE';
+          const branchTokens = paperBranch.split(/[&,\/]/).map((s) => s.trim());
+          for (const token of branchTokens) {
+            if (token === 'CSE') {
+              branchIds.push(cse._id as mongoose.Types.ObjectId);
+            } else if (token === 'IT') {
+              branchIds.push(it._id as mongoose.Types.ObjectId);
+            } else if (token === 'ECE') {
+              branchIds.push(ece._id as mongoose.Types.ObjectId);
+              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
+            } else if (token === 'ECE-IOT' || token === 'ECE-IOT' || token === 'IOT') {
+              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
+              branchIds.push(ece._id as mongoose.Types.ObjectId);
+            } else if (token === 'COMMON') {
+              branchIds.push(cse._id as mongoose.Types.ObjectId);
+              branchIds.push(it._id as mongoose.Types.ObjectId);
+              branchIds.push(ece._id as mongoose.Types.ObjectId);
+              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
+            }
+          }
+          if (branchIds.length === 0) {
+            const upperFileName = file.toUpperCase();
+            if (upperFileName.includes('ECE') || upperFileName.includes('IOT')) {
+              branchIds.push(ece._id as mongoose.Types.ObjectId);
+              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
+            } else if (upperFileName.includes('IT')) {
+              branchIds.push(it._id as mongoose.Types.ObjectId);
+            } else {
+              branchIds.push(cse._id as mongoose.Types.ObjectId);
+            }
+          }
+        }
+
+        // Find or create the Subject by code AND semester
+        let subject = await Subject.findOne({ code: subjectCodeClean, semester: targetSemester });
         if (subject) {
           // If subject exists, merge syllabus
           for (const newUnit of paper.syllabus) {
@@ -325,16 +456,22 @@ async function seed() {
               subject.syllabus.push(newUnit as any);
             }
           }
+          // Merge branchIds
+          branchIds.forEach((bId) => {
+            if (!subject!.branchIds.some((existingId) => existingId.equals(bId))) {
+              subject!.branchIds.push(bId);
+            }
+          });
           // Sort syllabus units by unitNumber
           subject.syllabus.sort((a, b) => a.unitNumber - b.unitNumber);
           await subject.save();
         } else {
           // Create subject
           subject = await Subject.create({
-            branchIds: [cse._id], // Map to active branch CSE
-            semester,
-            name: subjectName,
-            code: subjectCode.toUpperCase(),
+            branchIds,
+            semester: targetSemester,
+            name: finalSubjectName,
+            code: subjectCodeClean,
             syllabus: paper.syllabus,
           });
         }
@@ -374,6 +511,58 @@ async function seed() {
           }
         }
       }
+    }
+
+    // 4. Post-processing: Clone Technical Writing (BHS-152) for ECE & ECE-IOT Semester 1
+    console.log('Post-processing: Checking Technical Writing (BHS-152) for ECE & ECE-IOT Sem 1...');
+    
+    // Find the CSE/IT Sem 2 Technical Writing subject
+    const technicalWritingSem2 = await Subject.findOne({ code: 'BHS-152', semester: 2 });
+    if (technicalWritingSem2) {
+      // Find or create the Sem 1 version for ECE and ECE-IoT
+      let technicalWritingSem1 = await Subject.findOne({ code: 'BHS-152', semester: 1 });
+      if (!technicalWritingSem1) {
+        console.log('Creating Technical Writing (BHS-152) for ECE & ECE-IOT Semester 1...');
+        const branchIdsSem1: mongoose.Types.ObjectId[] = [];
+        branchIdsSem1.push(ece._id as mongoose.Types.ObjectId);
+        branchIdsSem1.push(eceIot._id as mongoose.Types.ObjectId);
+        
+        technicalWritingSem1 = await Subject.create({
+          branchIds: branchIdsSem1,
+          semester: 1,
+          name: technicalWritingSem2.name,
+          code: 'BHS-152',
+          syllabus: technicalWritingSem2.syllabus,
+        });
+      }
+      
+      // Clone all questions associated with Sem 2 subject into Sem 1 subject
+      const questionsToClone = await Question.find({ subjectId: technicalWritingSem2._id });
+      console.log(`Cloning ${questionsToClone.length} Technical Writing questions for ECE & ECE-IOT Sem 1...`);
+      
+      for (const q of questionsToClone) {
+        // We need a unique questionId for the cloned questions
+        const clonedQuestionId = `${q.questionId}-ECE`;
+        
+        // Check if the clone already exists
+        const existingClone = await Question.findOne({ questionId: clonedQuestionId });
+        if (!existingClone) {
+          await Question.create({
+            questionId: clonedQuestionId,
+            subjectId: technicalWritingSem1._id,
+            unit: q.unit,
+            topic: q.topic,
+            questionText: q.questionText,
+            difficulty: q.difficulty,
+            repetitionFrequency: q.repetitionFrequency,
+            marks: q.marks,
+            sourcePapers: q.sourcePapers,
+            humanVerified: q.humanVerified,
+            cachedSolution: q.cachedSolution,
+          });
+        }
+      }
+      console.log('Post-processing Technical Writing cloning completed!');
     }
 
     console.log('Ingestion and Seeding completed successfully!');

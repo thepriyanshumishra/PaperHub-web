@@ -12,8 +12,17 @@ export interface ISolutionStep {
 }
 
 export interface ICachedSolution {
-  content: string; // Full solution in Markdown/LaTeX
-  steps: ISolutionStep[];
+  content: string; // Full solution in Markdown/LaTeX or intro paragraph
+  steps?: ISolutionStep[];
+  type?: 'stepwise' | 'theoretical' | 'coding' | 'flowchart' | 'theory' | 'maths';
+  code?: string;
+  explanation?: string;
+  complexity?: {
+    time: string;
+    space: string;
+  };
+  inputOutput?: string;
+  mermaid?: string;
   generatedAt: Date;
 }
 
@@ -47,6 +56,15 @@ const SolutionStepSchema = new Schema<ISolutionStep>({
 const CachedSolutionSchema = new Schema<ICachedSolution>({
   content: { type: String, required: true },
   steps: [SolutionStepSchema],
+  type: { type: String, enum: ['stepwise', 'theoretical', 'coding', 'flowchart', 'theory', 'maths'], default: 'stepwise' },
+  code: { type: String },
+  explanation: { type: String },
+  complexity: {
+    time: { type: String },
+    space: { type: String },
+  },
+  inputOutput: { type: String },
+  mermaid: { type: String },
   generatedAt: { type: Date, default: Date.now },
 });
 

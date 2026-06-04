@@ -20,7 +20,18 @@ import {
   Send,
   Loader2,
   CheckCircle,
-  HelpCircle as QuestionIcon
+  HelpCircle as QuestionIcon,
+  ArrowUp,
+  ArrowDown,
+  Clock,
+  Layers,
+  Terminal,
+  Code2,
+  Workflow,
+  FileText,
+  Info,
+  AlertTriangle,
+  RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -64,7 +75,13 @@ function PracticeSolveContent() {
     sourcePapers?: { year: number; examType: string }[];
     cachedSolution?: {
       content: string;
-      steps: { stepNumber: number; heading: string; content: string }[];
+      steps?: { stepNumber: number; heading: string; content: string }[];
+      type?: 'stepwise' | 'theoretical' | 'coding' | 'flowchart' | 'theory' | 'maths';
+      code?: string;
+      explanation?: string;
+      complexity?: { time: string; space: string };
+      inputOutput?: string;
+      mermaid?: string;
     };
   }
 
@@ -76,7 +93,13 @@ function PracticeSolveContent() {
 
   interface SolutionDetail {
     content: string;
-    steps: SolutionStep[];
+    steps?: SolutionStep[];
+    type?: 'stepwise' | 'theoretical' | 'coding' | 'flowchart' | 'theory' | 'maths';
+    code?: string;
+    explanation?: string;
+    complexity?: { time: string; space: string };
+    inputOutput?: string;
+    mermaid?: string;
   }
 
   // App state
@@ -90,6 +113,7 @@ function PracticeSolveContent() {
   const [solutionLoading, setSolutionLoading] = useState(false);
   const [solutionProgress, setSolutionProgress] = useState(0);
   const [activeSolution, setActiveSolution] = useState<SolutionDetail | null>(null);
+  const [solutionError, setSolutionError] = useState<string | null>(null);
 
   // Explain Step states
   const [explainingStep, setExplainingStep] = useState<number | null>(null);
@@ -106,6 +130,8 @@ function PracticeSolveContent() {
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Load configuration and filter questions
   useEffect(() => {
@@ -149,12 +175,6 @@ function PracticeSolveContent() {
 
   // Intercept browser back/navigation and close
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     // Push dummy state to handle browser back button
     window.history.pushState(null, '', window.location.href);
 
@@ -166,18 +186,57 @@ function PracticeSolveContent() {
     window.addEventListener('popstate', handlePopState);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
   }, [router, subjectId]);
+
+  // Listen to window scroll events to toggle Scroll to Top / Bottom buttons
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      const isNearBottom = documentHeight - scrollY - windowHeight < 120;
+      const isScrollable = documentHeight > windowHeight + 50;
+      
+      setShowScrollBottom(!isNearBottom && isScrollable);
+      setShowScrollTop(scrollY > 200);
+    };
+
+    window.addEventListener('scroll', handleWindowScroll);
+    // Initial check after a small delay to allow KaTeX layout calculations to finish
+    const timer = setTimeout(handleWindowScroll, 150);
+
+    return () => {
+      window.removeEventListener('scroll', handleWindowScroll);
+      clearTimeout(timer);
+    };
+  }, [currentIdx, solutionVisible, activeSolution, loading]);
+
+  const scrollToBottom = () => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: 'smooth'
+    });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
   const currentQuestion = questions[currentIdx];
 
   // Perceived performance loading simulation for solution
   const triggerSolutionFetch = () => {
-    if (solutionLoading || solutionVisible) return;
+    if (solutionLoading) return;
     
     setSolutionLoading(true);
+    setSolutionVisible(false);
+    setSolutionError(null);
     setSolutionProgress(0);
     setExplainingStep(null);
     setStepExplanation(null);
@@ -198,28 +257,30 @@ function PracticeSolveContent() {
     // Real API fetch
     fetch(`/api/ai/solve?questionId=${currentQuestion._id}`)
       .then((res) => {
-        if (!res.ok) throw new Error();
+        if (!res.ok) throw new Error('API server returned a non-200 status');
         return res.json();
       })
       .then((data) => {
         clearInterval(interval);
         setSolutionProgress(100);
         setTimeout(() => {
+          if (data.error) {
+            throw new Error(data.error);
+          }
           setActiveSolution(data.solution);
+          setSolutionError(null);
           setSolutionLoading(false);
           setSolutionVisible(true);
         }, 300);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         clearInterval(interval);
         setSolutionProgress(100);
         setTimeout(() => {
-          setActiveSolution({
-            content: "Error loading solution from server.",
-            steps: [{ stepNumber: 1, heading: "Notice", content: "MongoDB/Groq API server returned an error. Please verify your connection configuration." }]
-          });
+          setSolutionError((err as Error).message || "MongoDB/Groq API server returned an error. Please verify your connection configuration.");
+          setActiveSolution(null);
           setSolutionLoading(false);
-          setSolutionVisible(true);
+          setSolutionVisible(false);
         }, 300);
       });
   };
@@ -240,7 +301,10 @@ function PracticeSolveContent() {
         questionId: currentQuestion._id,
         stepNumber,
         stepText,
-        subjectId
+        subjectId,
+        fallbackContext: {
+          solutionType: activeSolution?.type
+        }
       })
     })
       .then((res) => res.json())
@@ -249,7 +313,7 @@ function PracticeSolveContent() {
         setStepExplanationLoading(false);
       })
       .catch(() => {
-        setStepExplanation("Failed to load step explanation from server.");
+        setStepExplanation(activeSolution?.type === 'theoretical' ? "Failed to load explanation from server." : "Failed to load step explanation from server.");
         setStepExplanationLoading(false);
       });
   };
@@ -301,6 +365,7 @@ function PracticeSolveContent() {
       setCurrentIdx(currentIdx + 1);
       setSolutionVisible(false);
       setActiveSolution(null);
+      setSolutionError(null);
       setExplainingStep(null);
       setStepExplanation(null);
       setChatMessages([]);
@@ -314,9 +379,35 @@ function PracticeSolveContent() {
       setCurrentIdx(currentIdx - 1);
       setSolutionVisible(false);
       setActiveSolution(null);
+      setSolutionError(null);
       setExplainingStep(null);
       setStepExplanation(null);
       setChatMessages([]);
+    }
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15, scale: 0.98 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { 
+        type: 'spring' as const, 
+        stiffness: 90, 
+        damping: 15 
+      } 
     }
   };
 
@@ -427,13 +518,7 @@ function PracticeSolveContent() {
                     {paper.year} {paper.examType}
                   </span>
                 ))}
-                <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded ${
-                  currentQuestion.difficulty === 'easy' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
-                  currentQuestion.difficulty === 'medium' ? 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20' :
-                  'bg-red-500/10 text-red-500 border border-red-500/20'
-                }`}>
-                  {currentQuestion.difficulty}
-                </span>
+
                 {currentQuestion.marks !== undefined && (
                   <span className={`text-[9px] uppercase font-bold px-2 py-0.5 rounded border ${
                     currentQuestion.marks <= 2 ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' :
@@ -491,6 +576,34 @@ function PracticeSolveContent() {
             </div>
           )}
 
+          {/* Solution Error Card */}
+          {solutionError && (
+            <motion.div
+              initial={{ y: 15, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="p-8 rounded-2xl border border-rose-500/20 bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.15)] flex flex-col items-center text-center space-y-6"
+            >
+              <div className="w-14 h-14 bg-rose-500/10 rounded-full flex items-center justify-center text-rose-500 shadow-sm border border-rose-500/20">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              
+              <div className="space-y-2 max-w-md">
+                <h3 className="font-display font-bold text-base text-text-primary">Failed to Generate Solution</h3>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  {solutionError}
+                </p>
+              </div>
+
+              <button
+                onClick={triggerSolutionFetch}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent text-white text-xs font-semibold hover:bg-accent-hover active:scale-[0.98] transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Retry Fetching Solution</span>
+              </button>
+            </motion.div>
+          )}
+
           {/* Digital Textbook Solution View */}
           {solutionVisible && activeSolution && (
             <motion.div
@@ -503,31 +616,203 @@ function PracticeSolveContent() {
                 <span>Syllabus-Aligned Solution</span>
               </h3>
 
-              <div className="space-y-6">
-                {activeSolution.steps?.map((step, sIdx) => (
-                  <div 
-                    key={sIdx} 
-                    className="relative group border-l-2 border-accent/20 hover:border-accent pl-5 py-2 transition-all duration-200"
-                    ref={(el) => { stepRefs.current[step.stepNumber] = el; }}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-accent">
-                        Step {step.stepNumber}: {step.heading}
-                      </h4>
-                      
-                      {/* Explain This Step - Subtly visible on hover */}
-                      <button
-                        onClick={(e) => handleExplainStep(step.stepNumber, step.content, e)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-accent font-semibold hover:underline flex items-center space-x-1 mt-1 sm:mt-0 outline-none"
-                      >
-                        <HelpCircle className="w-3.5 h-3.5" />
-                        <span>Explain This Step</span>
-                      </button>
+              {/* Pathway A: Coding */}
+              {activeSolution.type === 'coding' && (
+                <div className="space-y-6">
+                  {/* Approach Description */}
+                  {activeSolution.content && (
+                    <div className="p-5 rounded-xl bg-bg-primary/20 border border-border-primary/50 text-sm leading-relaxed text-text-secondary">
+                      <div className="flex items-center gap-2 mb-2 text-text-primary font-semibold">
+                        <Info className="w-4 h-4 text-accent" />
+                        <span>Approach & Implementation Strategy</span>
+                      </div>
+                      <MathMarkdown content={activeSolution.content} />
                     </div>
-                    <MathMarkdown content={step.content} />
-                  </div>
-                ))}
-              </div>
+                  )}
+
+                  {/* Time & Space Complexity Badges */}
+                  {activeSolution.complexity && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl border border-border-primary bg-bg-primary/30 flex items-start gap-3 hover:border-accent/20 transition-colors duration-200">
+                        <div className="p-2 rounded-lg bg-accent/10 text-accent">
+                          <Clock className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider font-bold text-text-muted">Time Complexity</div>
+                          <div className="text-xs font-semibold text-text-primary mt-0.5">{activeSolution.complexity.time}</div>
+                        </div>
+                      </div>
+                      <div className="p-4 rounded-xl border border-border-primary bg-bg-primary/30 flex items-start gap-3 hover:border-accent/20 transition-colors duration-200">
+                        <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider font-bold text-text-muted">Space Complexity</div>
+                          <div className="text-xs font-semibold text-text-primary mt-0.5">{activeSolution.complexity.space}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* pristine Complete Code Block */}
+                  {activeSolution.code && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-text-primary flex items-center gap-1.5 px-1">
+                        <Code2 className="w-4 h-4 text-accent" />
+                        <span>Complete C Program</span>
+                      </div>
+                      <MathMarkdown content={`\`\`\`c\n${activeSolution.code}\n\`\`\``} />
+                    </div>
+                  )}
+
+                  {/* Line-by-Line Code Explanation */}
+                  {activeSolution.explanation && (
+                    <div className="p-6 rounded-xl border border-border-primary bg-bg-primary/10">
+                      <div className="text-xs font-bold text-text-primary flex items-center gap-1.5 mb-4 border-b border-border-primary/50 pb-2">
+                        <FileText className="w-4 h-4 text-accent" />
+                        <span>Code Logic & Explanation</span>
+                      </div>
+                      <div className="text-xs leading-relaxed text-text-secondary">
+                        <MathMarkdown content={activeSolution.explanation} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Sample Input/Output Terminal */}
+                  {activeSolution.inputOutput && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-text-primary flex items-center gap-1.5 px-1">
+                        <Terminal className="w-4 h-4 text-accent" />
+                        <span>Dry Run & Example Execution</span>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-[#0f172a] p-4 font-mono text-[11px] leading-relaxed text-slate-300 shadow-inner">
+                        <div className="flex items-center gap-1.5 border-b border-white/5 pb-2 mb-2 select-none">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
+                          <span className="text-[9px] text-slate-500 ml-1.5 font-sans font-medium uppercase tracking-wider">C compiler terminal</span>
+                        </div>
+                        <pre className="whitespace-pre-wrap select-text">{activeSolution.inputOutput}</pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pathway B: Flowchart */}
+              {activeSolution.type === 'flowchart' && (
+                <div className="space-y-6">
+                  {/* Approach Description */}
+                  {activeSolution.content && (
+                    <div className="p-5 rounded-xl bg-bg-primary/20 border border-border-primary/50 text-sm leading-relaxed text-text-secondary">
+                      <div className="flex items-center gap-2 mb-2 text-text-primary font-semibold">
+                        <Info className="w-4 h-4 text-accent" />
+                        <span>Logic Strategy</span>
+                      </div>
+                      <MathMarkdown content={activeSolution.content} />
+                    </div>
+                  )}
+
+                  {/* Interactive Flowchart Visual */}
+                  {activeSolution.mermaid && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-text-primary flex items-center gap-1.5 px-1">
+                        <Workflow className="w-4 h-4 text-accent" />
+                        <span>Visual Flow Control Chart</span>
+                      </div>
+                      <MathMarkdown content={`\`\`\`mermaid\n${activeSolution.mermaid}\n\`\`\``} />
+                    </div>
+                  )}
+
+                  {/* Detailed Step Explanations */}
+                  {activeSolution.explanation && (
+                    <div className="p-6 rounded-xl border border-border-primary bg-bg-primary/10">
+                      <div className="text-xs font-bold text-text-primary flex items-center gap-1.5 mb-4 border-b border-border-primary/50 pb-2">
+                        <FileText className="w-4 h-4 text-accent" />
+                        <span>Flow Control Description</span>
+                      </div>
+                      <div className="text-xs leading-relaxed text-text-secondary">
+                        <MathMarkdown content={activeSolution.explanation} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pathway C: Theory */}
+              {activeSolution.type === 'theory' && (
+                <div className="space-y-6">
+                  {/* Core concept intro */}
+                  {activeSolution.content && (
+                    <div className="p-5 rounded-xl bg-bg-primary/20 border border-border-primary/50 text-sm leading-relaxed text-text-secondary font-medium">
+                      <MathMarkdown content={activeSolution.content} />
+                    </div>
+                  )}
+
+                  {/* Structured Textbook-Style Explanation */}
+                  {activeSolution.explanation && (
+                    <div className="p-6 rounded-xl border border-border-primary bg-bg-secondary shadow-sm">
+                      <div className="text-xs leading-relaxed text-text-secondary">
+                        <MathMarkdown content={activeSolution.explanation} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pathway D: Maths / Stepwise Fallback */}
+              {(activeSolution.type === 'stepwise' || activeSolution.type === 'maths' || activeSolution.type === 'theoretical' || !activeSolution.type) && 
+                activeSolution.steps && activeSolution.steps.length > 0 && (
+                <motion.div 
+                  variants={containerVariants}
+                  initial="hidden"
+                  animate="show"
+                  className="relative border-l border-border-primary/30 pl-6 ml-3 space-y-6 mt-4"
+                >
+                  {activeSolution.steps.map((step, sIdx) => (
+                    <motion.div 
+                      key={sIdx} 
+                      variants={itemVariants}
+                      className="relative group"
+                      ref={(el) => { stepRefs.current[step.stepNumber] = el; }}
+                    >
+                      {/* Timeline Circle */}
+                      <span className="absolute -left-[35px] top-0 w-6 h-6 rounded-full bg-bg-secondary border border-accent text-accent shadow-[0_0_12px_rgba(124,102,255,0.3)] flex items-center justify-center text-xs font-black select-none z-10 transition-transform duration-300 group-hover:scale-110">
+                        {step.stepNumber}
+                      </span>
+                      
+                      {/* Step Card */}
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-primary/25 backdrop-blur-md hover:border-accent/30 hover:bg-accent/[0.015] hover:shadow-lg transition-all duration-300 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="text-xs font-black text-text-primary tracking-wide flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                            {activeSolution.type === 'theoretical' 
+                              ? `${step.heading}` 
+                              : `Step ${step.stepNumber}: ${step.heading}`}
+                          </div>
+                          
+                          {/* Explain This Step - Subtly visible on hover */}
+                          <button
+                            onClick={(e) => handleExplainStep(step.stepNumber, step.content, e)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-accent font-semibold hover:underline flex items-center space-x-1 outline-none"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5" />
+                            <span>
+                              {activeSolution.type === 'theoretical' 
+                                ? 'Elaborate On This' 
+                                : 'Explain This Step'}
+                            </span>
+                          </button>
+                        </div>
+                        
+                        <div className="text-xs leading-relaxed text-text-secondary">
+                          <MathMarkdown content={step.content} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
             </motion.div>
           )}
         </div>
@@ -563,7 +848,11 @@ function PracticeSolveContent() {
                   </div>
                   <div>
                     <p className="text-[10px] font-medium text-text-muted uppercase tracking-widest leading-none mb-0.5">AI Concept Breakdown</p>
-                    <p className="text-sm font-bold text-accent leading-none">Step {explainingStep} — Deep Explanation</p>
+                    <p className="text-sm font-bold text-accent leading-none">
+                      {activeSolution?.type === 'theoretical' 
+                        ? 'Deep Elaboration' 
+                        : `Step ${explainingStep} — Deep Explanation`}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -792,6 +1081,45 @@ function PracticeSolveContent() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Viewport-Fixed Scroll Stack Container */}
+      <div className="fixed bottom-24 right-8 z-[99] flex flex-col gap-3.5">
+        {/* Scroll to Top Button */}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToTop}
+              className="p-3 rounded-full bg-gradient-to-r from-accent to-purple-600 text-white shadow-[0_4px_20px_rgba(124,102,255,0.4)] border border-accent/30 hover:shadow-[0_6px_25px_rgba(124,102,255,0.6)] hover:border-accent/60 transition-all duration-300 flex items-center justify-center cursor-pointer"
+              title="Scroll to Top"
+            >
+              <ArrowUp className="w-5 h-5 animate-pulse" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Scroll to Bottom Button */}
+        <AnimatePresence>
+          {showScrollBottom && (
+            <motion.button
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToBottom}
+              className="p-3 rounded-full bg-gradient-to-r from-accent to-purple-600 text-white shadow-[0_4px_20px_rgba(124,102,255,0.4)] border border-accent/30 hover:shadow-[0_6px_25px_rgba(124,102,255,0.6)] hover:border-accent/60 transition-all duration-300 flex items-center justify-center cursor-pointer"
+              title="Scroll to Bottom"
+            >
+              <ArrowDown className="w-5 h-5 animate-bounce" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

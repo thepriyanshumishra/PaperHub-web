@@ -34,6 +34,7 @@ const branchIconMap: Record<string, React.ComponentType<{ className?: string }>>
   CSE: Code,
   IT: Cpu,
   ECE: Cpu,
+  "ECE-IOT": Cpu,
   EE: Settings,
   ME: Wrench,
   CE: Layers

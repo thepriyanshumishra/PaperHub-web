@@ -12,6 +12,13 @@ export interface ISessionTestAnalytics {
   fullscreenExits: number;
 }
 
+export interface ITestResponse {
+  questionId: mongoose.Types.ObjectId;
+  selfScore?: 'correct' | 'partial' | 'incorrect';
+  score?: number;
+  notes?: string;
+}
+
 export interface ISession extends Document {
   userId: string; // Anonymous UUID
   subjectId: mongoose.Types.ObjectId;
@@ -29,6 +36,19 @@ export interface ISession extends Document {
   startedAt: Date;
   endedAt?: Date;
   status: 'active' | 'completed';
+  evaluationMethod?: 'self' | 'photo';
+  testResponses?: ITestResponse[];
+  uploadedImages?: string[]; // Array of base64 image strings
+  evaluationResult?: {
+    totalMarks: number;
+    obtainedMarks: number;
+    summaryFeedback: string;
+    details: {
+      questionId: string;
+      marksAwarded: number;
+      feedback: string;
+    }[];
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +63,13 @@ const SessionTestAnalyticsSchema = new Schema<ISessionTestAnalytics>({
   tabSwitches: { type: Number, default: 0 },
   focusLosses: { type: Number, default: 0 },
   fullscreenExits: { type: Number, default: 0 },
+});
+
+const TestResponseSchema = new Schema<ITestResponse>({
+  questionId: { type: Schema.Types.ObjectId, ref: 'Question', required: true },
+  selfScore: { type: String, enum: ['correct', 'partial', 'incorrect'] },
+  score: { type: Number },
+  notes: { type: String },
 });
 
 const SessionSchema = new Schema<ISession>(
@@ -63,6 +90,19 @@ const SessionSchema = new Schema<ISession>(
     startedAt: { type: Date, default: Date.now },
     endedAt: { type: Date },
     status: { type: String, enum: ['active', 'completed'], default: 'active' },
+    evaluationMethod: { type: String, enum: ['self', 'photo'], default: 'self' },
+    testResponses: [TestResponseSchema],
+    uploadedImages: [{ type: String }],
+    evaluationResult: {
+      totalMarks: { type: Number },
+      obtainedMarks: { type: Number },
+      summaryFeedback: { type: String },
+      details: [{
+        questionId: { type: String },
+        marksAwarded: { type: Number },
+        feedback: { type: String },
+      }],
+    },
   },
   { timestamps: true }
 );

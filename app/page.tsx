@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { 
@@ -15,7 +15,78 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+function AnimatedNumber({ value }: { value: number }) {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const start = displayValue;
+    const end = value;
+    if (start === end) return;
+
+    const duration = 800; // 0.8 seconds count up
+    const startTime = performance.now();
+
+    let animationFrameId: number;
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function (easeOutQuad)
+      const easeProgress = progress * (2 - progress);
+      
+      const currentVal = Math.round(start + (end - start) * easeProgress);
+      setDisplayValue(currentVal);
+
+      if (progress < 1) {
+        animationFrameId = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <>{displayValue.toLocaleString()}</>;
+}
+
 export default function Home() {
+  const [stats, setStats] = useState({
+    totalQuestions: 0,
+    totalSubjects: 0,
+    totalSolvedSteps: 0,
+    totalActiveBranches: 0,
+  });
+
+  useEffect(() => {
+    const fetchStats = () => {
+      fetch('/api/stats')
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((data) => {
+          setStats({
+            totalQuestions: data.totalQuestions,
+            totalSubjects: data.totalSubjects,
+            totalSolvedSteps: data.totalSolvedSteps,
+            totalActiveBranches: data.totalActiveBranches,
+          });
+        })
+        .catch((err) => console.error('Failed to load real-time stats:', err));
+    };
+
+    fetchStats();
+    
+    // Poll for real-time updates every 10 seconds
+    const interval = setInterval(fetchStats, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -345,20 +416,28 @@ export default function Home() {
         <section className="py-12 border border-border-primary bg-bg-secondary/40 backdrop-blur-sm rounded-2xl px-8 mb-20 shadow-md">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             <div>
-              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">500+</h4>
+              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">
+                <AnimatedNumber value={stats.totalQuestions} />
+              </h4>
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Questions Mapped</p>
             </div>
             <div>
-              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">10+</h4>
+              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">
+                <AnimatedNumber value={stats.totalSubjects} />
+              </h4>
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Subjects Configured</p>
             </div>
             <div>
-              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">1,200+</h4>
+              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">
+                <AnimatedNumber value={stats.totalSolvedSteps} />
+              </h4>
               <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Solved Steps Explained</p>
             </div>
             <div>
-              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">100%</h4>
-              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">MMMUT Syllabus Aligned</p>
+              <h4 className="font-display text-3xl md:text-4xl font-bold text-accent mb-1">
+                <AnimatedNumber value={stats.totalActiveBranches} />
+              </h4>
+              <p className="text-[10px] sm:text-xs uppercase tracking-wider text-text-secondary font-semibold">Active Branches Mapped</p>
             </div>
           </div>
         </section>

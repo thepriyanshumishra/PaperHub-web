@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
 
     let subjectName = 'this subject';
     let questionText = '';
+    let solutionType = 'stepwise';
 
     const isMock = !questionId || String(questionId).startsWith('mock') || !mongoose.Types.ObjectId.isValid(questionId);
 
@@ -54,42 +55,80 @@ export async function POST(req: NextRequest) {
       const subject = await Subject.findById(subjectId || question?.subjectId);
       subjectName = subject?.name || 'this subject';
       questionText = question?.questionText || '';
+      if (question?.cachedSolution?.type) {
+        solutionType = question.cachedSolution.type;
+      }
     } else if (fallbackContext) {
       subjectName = fallbackContext.subjectName || 'this subject';
       questionText = fallbackContext.questionText || '';
+      if (fallbackContext.solutionType) {
+        solutionType = fallbackContext.solutionType;
+      }
     }
 
-    const prompt = `You are a helpful university professor teaching "${subjectName}".
+    const isTheoretical = solutionType === 'theoretical';
+
+    const prompt = `You are a university mathematics and computer science professor teaching "${subjectName}".
 A student is practicing this question:
 "${questionText}"
 
-In the generated step-by-step solution, they are confused about Step ${stepNumber}:
+In the generated solution, they are reading the section:
 "${stepText}"
 
-Explain this step to the student.
-1. Provide a brief, simplified description of the conceptual transition, reasoning, or theorem application.
-2. Formatting and Layout Guidelines for Explanation:
-   - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
-     * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
-     * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in $$ ... $$.
-     * Use inline math (enclosed in $ ... $) ONLY for single variables (like $x$) or very short references (like $f(x)$). NEVER use inline math for actual equations or steps.
-     * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
-     * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
-     * Use bullet points to list properties or assumptions clearly.
-   - For all other subjects (Computer Science, Web Development, Electronics, etc.):
-     * Make explanations highly structured, readable, and neat.
-     * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
-     * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
-3. Keep the explanation under 3-4 concise paragraphs/sections. Make it easy to read in a small popover overlay.
+Explain this ${isTheoretical ? 'section' : `Step ${stepNumber}`} to the student.
+
+CRITICAL INSTRUCTIONS FOR HIGH LEGIBILITY & READABILITY (MUST BE STICTLY FOLLOWED):
+1. NO DENSE PARAGRAPHS: Do NOT write long, dense paragraphs of text. Students find walls of text extremely difficult to read.
+2. EXTREMELY HIGH SPACING: Space out your explanation heavily. Precede and follow EVERY mathematical display block, list, and header with double newlines (\\n\\n).
+3. BULLETED / STRUCTURED LISTS: Break down your conceptual explanation into a clean, bulleted or numbered list where each point starts with a bold key term (e.g. "**Substitution:** ...", "**Derivative:** ...").
+4. MATHEMATICAL DELIMITER RULES:
+   - EVERY mathematical variable, symbol, expression, or equation MUST be wrapped in either $ ... $ (inline) or $$ ... $$ (display block).
+   - INLINE MATH ($...$): ONLY use for single variables (e.g., $x$, $y$, $m$, $t$) or single constants/terms (e.g., $C_1$, $x^m$, $e^t$). NEVER write equations with equal signs (=), fractions, derivatives, integrals, or multi-term algebraic steps inline inside a sentence!
+   - DISPLAY MATH ($$...$$): EVERY equation, derivative calculation, substitution, simplification, or algebraic step MUST be separated on its own line and wrapped in $$ ... $$, preceded and followed by a double newline (\\n\\n).
+   - DO NOT inline equations like dy/dx = mx^{m-1} in prose text. Put them in centered $$ ... $$ blocks!
+
+GOLD STANDARD MATH FORMATTING EXAMPLE (REQUIRED FORMAT):
+"To find the homogeneous solution, we use the following key concepts:
+
+- **Substitution**: We substitute the assumed power solution:
+
+  $$y = x^m$$
+
+- **First Derivative**: Differentiating with respect to $x$ gives:
+
+  $$\\frac{dy}{dx} = m x^{m-1}$$
+
+- **Second Derivative**: Differentiating again yields:
+
+  $$\\frac{d^2y}{dx^2} = m(m-1)x^{m-2}$$
+
+Now, we substitute these derivatives back into the homogeneous part..."
+
+Keep the explanation short, neat, highly structured, and under 3-4 spaced sections.
 
 Your explanation:`;
 
-    const completion = await groq!.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }]
-    });
+    // Explain Step Pass: primary model Llama 3.3 70B for maximum premium formatting and academic accuracy, fallback to 8B on failure.
+    let modelToUse = 'llama-3.3-70b-versatile';
+    let completion;
+    let rawExplanation = '';
 
-    const rawExplanation = completion.choices[0]?.message?.content || 'Explanation unavailable.';
+    try {
+      completion = await groq!.chat.completions.create({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      rawExplanation = completion.choices[0]?.message?.content || 'Explanation unavailable.';
+    } catch (err70b) {
+      console.warn('Llama 70B explain-step failed, falling back to Llama 8B:', err70b);
+      modelToUse = 'llama-3.1-8b-instant';
+      completion = await groq!.chat.completions.create({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      rawExplanation = completion.choices[0]?.message?.content || 'Explanation unavailable.';
+    }
+
     const explanation = sanitizeAILatex(rawExplanation);
     return NextResponse.json({ explanation });
   } catch (error) {

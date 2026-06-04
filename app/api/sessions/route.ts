@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     await dbConnect();
     const body = await req.json();
-    const { userId, subjectId, type, subType, config } = body;
+    const { userId, subjectId, type, subType, config, evaluationMethod } = body;
 
     if (!userId || !subjectId || !type || !subType || !config) {
       return NextResponse.json({ error: 'Missing required parameters: userId, subjectId, type, subType, config' }, { status: 400 });
@@ -61,6 +61,13 @@ export async function POST(req: NextRequest) {
         focusLosses: 0,
         fullscreenExits: 0
       },
+      evaluationMethod: evaluationMethod || 'self',
+      testResponses: selectedQuestions.map((qId) => ({
+        questionId: qId,
+        selfScore: undefined,
+        score: undefined,
+        notes: ''
+      })),
       status: 'active'
     });
 

@@ -9,6 +9,9 @@ const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mo
   ssr: false,
   loading: () => <div className="animate-pulse h-12 bg-bg-secondary rounded-lg border border-border-primary/50 w-full" />,
 });
+
+import { ThemeToggle } from '@/components/theme-toggle';
+
 import { 
   Clock, 
   ShieldAlert, 
@@ -16,9 +19,47 @@ import {
   Minimize2, 
   PenTool, 
   Loader2,
-  HelpCircle as QuestionIcon
+  HelpCircle as QuestionIcon,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Sparkles,
+  Lock,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowDown,
+  BadgeCheck,
+  Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface SolutionStep {
+  stepNumber: number;
+  heading: string;
+  content: string;
+}
+
+interface SolutionData {
+  content?: string;
+  steps?: SolutionStep[];
+  type?: string;
+  code?: string;
+  explanation?: string;
+  complexity?: {
+    time: string;
+    space: string;
+  };
+  inputOutput?: string;
+  mermaid?: string;
+  generatedAt?: string | Date;
+  error?: string | boolean;
+}
+
+interface HistoryEntry {
+  questionId: string | { _id: string };
+  viewedSolution?: boolean;
+}
 
 export default function TestSolve() {
   return (
@@ -46,7 +87,7 @@ function TestSolveContent() {
   const durationParam = parseInt(searchParams.get('duration') || '90', 10);
 
   interface TestQuestion {
-    _id?: string;
+    _id: string;
     unit: number;
     topic: string;
     questionText: string;
@@ -60,9 +101,20 @@ function TestSolveContent() {
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [timeLeft, setTimeLeft] = useState(durationParam * 60); // seconds
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [userNotes, setUserNotes] = useState<{[key: string]: string}>({});
+
+  // Self Grading and Evaluation states
+  const [evaluationMethod, setEvaluationMethod] = useState<'self' | 'photo'>('self');
+  const [responses, setResponses] = useState<{[qId: string]: { selfScore?: 'correct' | 'partial' | 'incorrect'; score?: number; notes?: string }}>({});
+  const [revealedQuestions, setRevealedQuestions] = useState<{[qId: string]: boolean}>({});
+  const [solutionsLoading, setSolutionsLoading] = useState<{[qId: string]: boolean}>({});
+  const [solutions, setSolutions] = useState<{[qId: string]: SolutionData}>({});
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Anti-cheat trackers
   const [tabSwitches, setTabSwitches] = useState(0);
@@ -73,10 +125,10 @@ function TestSolveContent() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
-  // Refs for requestAnimationFrame / timers
+  // Refs for container
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Load questions
+  // Load questions and saved stats
   useEffect(() => {
     if (!sessionId) {
       router.push(`/subjects/${subjectId}`);
@@ -92,6 +144,33 @@ function TestSolveContent() {
         if (data.session && data.session.questions) {
           setQuestions(data.session.questions);
           setCurrentIdx(data.session.currentQuestionIndex || 0);
+          setEvaluationMethod(data.session.evaluationMethod || 'self');
+          setHistory(data.session.history || []);
+          
+          if (data.session.history) {
+            const initialRevealed: typeof revealedQuestions = {};
+            data.session.history.forEach((h: HistoryEntry) => {
+              const qIdStr = typeof h.questionId === 'object' && h.questionId !== null ? h.questionId._id : h.questionId;
+              if (h.viewedSolution) {
+                initialRevealed[qIdStr] = true;
+              }
+            });
+            setRevealedQuestions(initialRevealed);
+          }
+
+          if (data.session.testResponses) {
+            const initialResp: typeof responses = {};
+            data.session.testResponses.forEach((resItem: { questionId: string | { _id: string }; selfScore?: 'correct' | 'partial' | 'incorrect'; score?: number; notes?: string }) => {
+              const qIdStr = typeof resItem.questionId === 'object' && resItem.questionId !== null ? resItem.questionId._id : resItem.questionId;
+              initialResp[qIdStr] = {
+                selfScore: resItem.selfScore,
+                score: resItem.score,
+                notes: resItem.notes || ''
+              };
+            });
+            setResponses(initialResp);
+          }
+          setIsInitialized(true);
         } else {
           router.push(`/subjects/${subjectId}`);
         }
@@ -105,14 +184,78 @@ function TestSolveContent() {
       });
   }, [subjectId, sessionId, router]);
 
+  // Load saved timer value from localStorage on client-side mount
+  useEffect(() => {
+    if (!sessionId) return;
+    const saved = localStorage.getItem(`test_time_left_${sessionId}`);
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        setTimeLeft(parsed);
+      }
+    }
+  }, [sessionId]);
+
+  // Sync current question index to database when it changes
+  useEffect(() => {
+    if (!isInitialized || loading || questions.length === 0 || !sessionId) return;
+    
+    fetch(`/api/sessions/${sessionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentQuestionIndex: currentIdx })
+    }).catch(e => console.error("Error syncing question index:", e));
+  }, [currentIdx, sessionId, loading, questions.length, isInitialized]);
+
+  // Auto-fetch solution if the active question is already revealed but not loaded
+  useEffect(() => {
+    if (loading || questions.length === 0) return;
+    const qId = questions[currentIdx]?._id;
+    if (qId && revealedQuestions[qId] && !solutions[qId] && !solutionsLoading[qId]) {
+      fetchSolutionForQuestion(qId);
+    }
+  }, [currentIdx, revealedQuestions, solutions, loading, questions]);
+
+  // Listen to window scroll events to toggle Scroll to Top / Bottom buttons
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      
+      const isNearBottom = documentHeight - scrollY - windowHeight < 120;
+      const isScrollable = documentHeight > windowHeight + 50;
+      
+      setShowScrollBottom(!isNearBottom && isScrollable);
+      setShowScrollTop(scrollY > 200);
+    };
+
+    window.addEventListener('scroll', handleWindowScroll);
+    // Initial check after a small delay to allow KaTeX layout calculations to finish
+    const timer = setTimeout(handleWindowScroll, 150);
+
+    return () => {
+      window.removeEventListener('scroll', handleWindowScroll);
+      clearTimeout(timer);
+    };
+  }, [currentIdx, revealedQuestions, solutions, loading]);
+
+  const scrollToBottom = () => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: 'smooth'
+    });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
+
   // Intercept browser back/navigation and close
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     // Push dummy state to handle browser back button
     window.history.pushState(null, '', window.location.href);
 
@@ -124,12 +267,11 @@ function TestSolveContent() {
     window.addEventListener('popstate', handlePopState);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
   }, [router, subjectId]);
 
-  // Timer countdown
+  // Timer countdown with localStorage backup
   useEffect(() => {
     if (timeLeft <= 0) {
       handleSubmitExam(true);
@@ -137,12 +279,17 @@ function TestSolveContent() {
     }
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
+      setTimeLeft((prev) => {
+        const nextTime = prev - 1;
+        if (sessionId) {
+          localStorage.setItem(`test_time_left_${sessionId}`, String(nextTime));
+        }
+        return nextTime;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
+  }, [timeLeft, sessionId]);
 
   // Anti-cheat event listeners
   useEffect(() => {
@@ -194,7 +341,6 @@ function TestSolveContent() {
   const triggerCheatWarning = (msg: string) => {
     setCheatNoticeMsg(msg);
     setShowCheatNotice(true);
-    // Hide notice after 4 seconds
     setTimeout(() => {
       setShowCheatNotice(false);
     }, 4000);
@@ -202,7 +348,6 @@ function TestSolveContent() {
 
   const syncAntiCheatState = async (payload: { tabSwitches?: number; focusLosses?: number; fullscreenExits?: number }) => {
     if (!sessionId) return;
-    // PUT API updates to database
     fetch(`/api/sessions/${sessionId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -228,11 +373,34 @@ function TestSolveContent() {
   };
 
   const handleNotesChange = (text: string) => {
-    const currentQId = currentQuestion._id || currentIdx;
+    const currentQId = currentQuestion._id || String(currentIdx);
     setUserNotes((prev) => ({
       ...prev,
       [currentQId]: text
     }));
+  };
+
+  const fetchSolutionForQuestion = (qId: string) => {
+    setSolutionsLoading(prev => ({ ...prev, [qId]: true }));
+    fetch(`/api/ai/solve?questionId=${qId}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load solution');
+        return res.json();
+      })
+      .then(data => {
+        if (data.solution) {
+          setSolutions(prev => ({ ...prev, [qId]: data.solution }));
+        } else {
+          setSolutions(prev => ({ ...prev, [qId]: { error: true } }));
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        setSolutions(prev => ({ ...prev, [qId]: { error: true } }));
+      })
+      .finally(() => {
+        setSolutionsLoading(prev => ({ ...prev, [qId]: false }));
+      });
   };
 
   const formatTimer = (secs: number) => {
@@ -242,20 +410,65 @@ function TestSolveContent() {
     return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleGradeResponse = async (selfScore: 'correct' | 'partial' | 'incorrect') => {
+    const currentQ = questions[currentIdx];
+    const qId = currentQ._id;
+    const maxMarks = currentQ.marks || 10;
+    let score = 0;
+    if (selfScore === 'correct') score = maxMarks;
+    else if (selfScore === 'partial') score = Math.round(maxMarks / 2);
+
+    const updatedResponses = {
+      ...responses,
+      [qId]: {
+        ...responses[qId],
+        selfScore,
+        score
+      }
+    };
+    
+    setResponses(updatedResponses);
+
+    // Sync to backend immediately
+    const testResponsesPayload = Object.keys(updatedResponses).map((key) => ({
+      questionId: key,
+      selfScore: updatedResponses[key].selfScore,
+      score: updatedResponses[key].score,
+      notes: updatedResponses[key].notes || ''
+    }));
+
+    try {
+      await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testResponses: testResponsesPayload
+        })
+      });
+    } catch (err) {
+      console.error('Error saving self-evaluation response:', err);
+    }
+  };
+
   const handleSubmitExam = async (isAutoSubmit = false, bypassConfirm = false) => {
     if (!isAutoSubmit && !bypassConfirm) {
       setShowSubmitModal(true);
       return;
     }
 
-    // Exit fullscreen if active
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
     
-    // Save attempts stats
+    if (sessionId) {
+      localStorage.removeItem(`test_time_left_${sessionId}`);
+    }
+    
     const totalQuestions = questions.length;
-    const attemptedCount = Object.keys(userNotes).filter((k) => userNotes[k].trim().length > 0).length;
+    const attemptedCount = evaluationMethod === 'self' 
+      ? Object.keys(responses).filter((k) => responses[k].selfScore !== undefined).length
+      : Object.keys(userNotes).filter((k) => userNotes[k].trim().length > 0).length;
+      
     const timeSpentSeconds = durationParam * 60 - timeLeft;
 
     if (!sessionId) {
@@ -263,14 +476,57 @@ function TestSolveContent() {
       return;
     }
 
-    // Submit session updates to DB
+    if (evaluationMethod === 'photo') {
+      try {
+        await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            testAnalytics: { tabSwitches, focusLosses, fullscreenExits }
+          })
+        });
+        
+        sessionStorage.setItem('localTestSummary', JSON.stringify({
+          totalQuestions,
+          attemptedCount,
+          timeSpentSeconds,
+          tabSwitches,
+          focusLosses,
+          fullscreenExits
+        }));
+
+        router.push(`/subjects/${subjectId}/test/upload?sessionId=${sessionId}`);
+      } catch (err) {
+        console.error('Error submitting exam for photo upload:', err);
+        router.push(`/subjects/${subjectId}/test/upload?sessionId=${sessionId}`);
+      }
+      return;
+    }
+
+    // Submit session updates to DB for Self-Evaluation
     try {
+      // Calculate obtained and total marks
+      const totalMarks = questions.reduce((sum, q) => sum + (q.marks || 10), 0);
+      const obtainedMarks = Object.keys(responses).reduce((sum, key) => sum + (responses[key].score || 0), 0);
+
+      const evaluationResult = {
+        totalMarks,
+        obtainedMarks,
+        summaryFeedback: `Self-Evaluation completed. You answered ${attemptedCount} of ${totalQuestions} questions. You rated your performance as ${obtainedMarks}/${totalMarks} total marks. Check the breakdown below to review your answers.`,
+        details: questions.map((q) => ({
+          questionId: q._id,
+          marksAwarded: responses[q._id]?.score || 0,
+          feedback: `Self-graded as ${responses[q._id]?.selfScore || 'not answered'}.`
+        }))
+      };
+
       await fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: 'completed',
-          testAnalytics: { tabSwitches, focusLosses, fullscreenExits }
+          testAnalytics: { tabSwitches, focusLosses, fullscreenExits },
+          evaluationResult
         })
       });
       
@@ -317,8 +573,36 @@ function TestSolveContent() {
   }
 
   const currentQuestion = questions[currentIdx];
-  const currentQId = currentQuestion._id || currentIdx;
+  const currentQId = currentQuestion._id;
   const currentNote = userNotes[currentQId] || '';
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15, scale: 0.98 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { 
+        type: 'spring' as const, 
+        stiffness: 90, 
+        damping: 15 
+      } 
+    }
+  };
+
+  const isTimeUrgent = timeLeft < 300;
+  const isTimeCritical = timeLeft < 60;
 
   return (
     <div 
@@ -326,39 +610,52 @@ function TestSolveContent() {
       ref={containerRef}
     >
       {/* Background ambient space glows */}
-      <div className="absolute top-0 left-1/4 w-[400px] h-[400px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/3 blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-accent/8 blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] rounded-full bg-purple-500/5 blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 left-10 w-[450px] h-[450px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
 
-      {/* timed test header */}
-      <header className="border-b border-border-primary/50 bg-bg-secondary/80 backdrop-blur-md h-16 px-6 flex items-center justify-between sticky top-0 z-50 transition-all">
+      {/* Timed test header */}
+      <header className="border-b border-border-primary/45 bg-bg-secondary/70 backdrop-blur-xl h-16 px-6 flex items-center justify-between sticky top-0 z-50 shadow-lg shadow-black/5">
         <div className="flex items-center space-x-4">
-          <span className="font-display font-bold text-sm tracking-tight text-accent dark:gradient-heading">Exam Arena</span>
-          <span className="text-text-muted">|</span>
-          <nav className="flex items-center space-x-2 text-xs text-text-secondary font-medium">
-            <span>Q. <span className="text-accent font-semibold">{currentIdx + 1}</span> of <span className="text-text-primary font-semibold">{questions.length}</span></span>
+          <span className="font-display font-black text-sm tracking-widest uppercase bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent hover:scale-105 transition-all duration-300 select-none flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-accent animate-pulse" />
+            Exam Arena
+          </span>
+          <span className="text-border-primary/60">|</span>
+          <nav className="flex items-center space-x-2 text-xs text-text-secondary font-semibold">
+            <span>Q. <span className="text-accent font-extrabold">{currentIdx + 1}</span> of <span className="text-text-primary font-extrabold">{questions.length}</span></span>
           </nav>
         </div>
 
         {/* Action Widgets */}
         <div className="flex items-center space-x-6">
-          {/* Timer Countdown */}
-          <div className="flex items-center space-x-2 text-text-primary font-mono text-sm font-semibold bg-bg-secondary/80 backdrop-blur-sm border border-border-primary px-3 py-1.5 rounded-lg shadow-sm">
-            <Clock className="w-4 h-4 text-accent animate-pulse" />
+          {/* Timer Countdown Widget */}
+          <div className={`flex items-center space-x-2.5 font-mono text-sm font-bold bg-bg-secondary/40 border px-3.5 py-1.5 rounded-xl shadow-xl transition-all duration-300 ${
+            isTimeCritical 
+              ? 'border-red-500 text-red-500 animate-bounce shadow-red-500/10' 
+              : isTimeUrgent 
+                ? 'border-yellow-500 text-yellow-500 shadow-yellow-500/10 animate-pulse' 
+                : 'border-accent/25 text-text-primary shadow-accent/5'
+          }`}>
+            <Clock className={`w-4 h-4 ${isTimeCritical ? 'text-red-500' : isTimeUrgent ? 'text-yellow-500' : 'text-accent'} animate-pulse`} />
             <span>{formatTimer(timeLeft)}</span>
           </div>
 
           {/* Fullscreen focus button */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary transition-all hover:text-text-primary duration-200"
+            className="p-2 rounded-xl border border-border-primary/80 bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary hover:text-text-primary hover:border-accent/40 shadow-sm transition-all duration-300"
             title={isFullscreen ? 'Exit Focus Mode' : 'Enter Focus Mode'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
+          {/* Theme Toggle Button */}
+          <ThemeToggle />
+
           <button
             onClick={() => handleSubmitExam(false)}
-            className="px-4 py-2 rounded-lg bg-red-600/90 text-white font-semibold text-xs hover:bg-red-600 transition-all duration-200 shadow-sm shadow-red-900/10 hover:shadow-red-600/20 hover:scale-[1.02]"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-xs hover:from-rose-600 hover:to-red-700 hover:shadow-lg hover:shadow-rose-500/25 hover:scale-[1.03] active:scale-95 transition-all duration-300 shadow-md border border-rose-400/20"
           >
             Submit Exam
           </button>
@@ -366,59 +663,306 @@ function TestSolveContent() {
       </header>
 
       {/* Main timed test layout */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-8 grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10 items-start">
         
-        {/* Left Side: Question Sheet */}
-        <div className="p-6 md:p-8 rounded-xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm glow-hover flex flex-col justify-between shadow-lg min-h-[480px] transition-all duration-300">
+        {/* Left Side: Question Sheet (lg:col-span-5) */}
+        <motion.div 
+          key={`question-${currentIdx}`}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="lg:col-span-5 p-6 md:p-8 rounded-2xl border border-border-primary/80 bg-gradient-to-br from-bg-secondary/40 via-bg-secondary/60 to-bg-secondary/40 backdrop-blur-xl shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[520px] transition-all duration-300 hover:border-accent/30 group"
+        >
+          <div className="absolute -top-12 -left-12 w-32 h-32 rounded-full bg-accent/5 blur-2xl pointer-events-none" />
+          
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded badge-premium">
-                Descriptive Written Question • Unit {currentQuestion.unit}
+            <div className="flex items-center justify-between mb-6">
+              <span className="text-[10px] uppercase font-black tracking-wider px-3 py-1.5 rounded-lg border border-accent/25 bg-accent/5 text-accent shadow-sm flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 animate-pulse text-accent" />
+                Unit {currentQuestion.unit} • Descriptive
               </span>
-              <span className="text-[10px] uppercase font-bold px-2.5 py-1 rounded bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 border border-yellow-500/20">
+              <span className="text-[10px] uppercase font-black px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 border border-yellow-500/20 shadow-sm flex items-center gap-1">
+                <BadgeCheck className="w-3.5 h-3.5 text-yellow-500 dark:text-yellow-400" />
                 {currentQuestion.marks ? `${currentQuestion.marks} Marks` : '10 Marks'}
               </span>
             </div>
             
-            <div className="prose dark:prose-invert max-w-none text-text-primary leading-relaxed my-6">
+            <div className="p-6 rounded-xl border border-border-primary/45 bg-bg-primary/25 backdrop-blur-md leading-relaxed shadow-inner group-hover:border-accent/20 transition-all duration-300">
               <MathMarkdown content={currentQuestion.questionText} />
             </div>
           </div>
 
           {/* Guidelines */}
-          <div className="border-t border-border-primary/40 pt-4 text-[10px] text-text-secondary flex items-start space-x-2.5">
-            <div className="p-1 rounded-md bg-accent/5 text-accent border border-accent/15">
+          <div className="border-t border-border-primary/30 pt-5 mt-6 text-[10px] text-text-secondary flex items-start space-x-3 bg-bg-primary/10 p-3 rounded-lg border border-border-primary/20">
+            <div className="p-1.5 rounded-lg bg-accent/10 text-accent border border-accent/25 shadow-sm">
               <PenTool className="w-3.5 h-3.5" />
             </div>
-            <p className="leading-normal">
-              Please write the detailed descriptive step-by-step resolution on your physical examination sheet. Use the scratchpad on the right to outline your derivation parameters or scratch math.
+            <p className="leading-relaxed">
+              {evaluationMethod === 'self' 
+                ? "Solve this descriptive question on paper. Click 'Show Model Solution' when you are ready to compare and self-grade your answer."
+                : "Write the detailed descriptive resolution on your physical sheet. Use the scratchpad on the right to outline your derivation parameters."}
             </p>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Right Side: Outline / Scratchpad */}
-        <div className="p-6 md:p-8 rounded-xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm glow-hover flex flex-col justify-between shadow-lg transition-all duration-300">
-          <div className="flex-grow flex flex-col h-full">
-            <h3 className="font-display font-semibold text-xs uppercase tracking-wider text-text-secondary mb-3 flex items-center space-x-2">
-              <span className="p-1 rounded bg-accent/5 text-accent border border-accent/15">
-                <PenTool className="w-3.5 h-3.5" />
-              </span>
-              <span>Scratchpad Outline</span>
-            </h3>
+        {/* Right Side: Evaluation / Outline (lg:col-span-7) */}
+        {evaluationMethod === 'self' ? (
+          <motion.div 
+            key={`sol-panel-${currentIdx}`}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+            className="lg:col-span-7 p-6 md:p-8 rounded-2xl border border-border-primary/80 bg-bg-secondary/40 backdrop-blur-xl shadow-2xl transition-all duration-300 min-h-[520px] overflow-hidden flex flex-col justify-between hover:border-accent/20"
+          >
+            <div className="flex-grow flex flex-col h-full overflow-y-auto pr-1">
+              {!revealedQuestions[currentQuestion._id] ? (
+                <div className="flex-grow flex flex-col items-center justify-center text-center space-y-8 py-12 relative">
+                  {/* Glowing blurred background elements */}
+                  <div className="absolute inset-0 flex flex-col justify-center items-center opacity-10 pointer-events-none select-none">
+                    <div className="w-full max-w-md h-3 bg-text-secondary/30 rounded mb-3 animate-pulse" />
+                    <div className="w-full max-w-xs h-3 bg-text-secondary/30 rounded mb-6 animate-pulse" />
+                    <div className="w-32 h-16 bg-accent/20 rounded border border-accent/20 mb-6 flex items-center justify-center">
+                      <span className="font-mono text-[10px] text-accent">{"$$\\int x\\,dx = \\frac{x^2}{2} + C$$"}</span>
+                    </div>
+                    <div className="w-full max-w-sm h-3 bg-text-secondary/30 rounded mb-3" />
+                    <div className="w-full max-w-md h-3 bg-text-secondary/30 rounded" />
+                  </div>
+
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent/10 to-purple-500/10 border border-accent/30 flex items-center justify-center text-accent shadow-[0_0_30px_rgba(124,102,255,0.25)] relative transition-transform duration-500 hover:scale-105">
+                    <div className="absolute inset-0 rounded-2xl border border-accent/30 animate-pulse" />
+                    <Lock className="w-9 h-9 text-accent drop-shadow-[0_0_8px_rgba(124,102,255,0.5)]" />
+                  </div>
+                  
+                  <div className="space-y-3 max-w-sm relative z-10">
+                    <h3 className="font-display font-black text-xl text-text-primary tracking-wide">Model Answer Locked</h3>
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      Complete your calculation on paper, then unlock the syllabus-compliant model derivation to check your steps and self-grade.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      const qId = currentQuestion._id;
+                      setRevealedQuestions(prev => ({ ...prev, [qId]: true }));
+                      if (!solutions[qId]) {
+                        fetchSolutionForQuestion(qId);
+                      }
+
+                      // Sync viewedSolution to database history
+                      const updatedHistory = history.map((item: HistoryEntry) => {
+                        const itemQId = typeof item.questionId === 'object' && item.questionId !== null ? (item.questionId as { _id: string })._id : item.questionId;
+                        if (itemQId === qId) {
+                          return { ...item, viewedSolution: true };
+                        }
+                        return item;
+                      });
+                      setHistory(updatedHistory);
+                      
+                      fetch(`/api/sessions/${sessionId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ history: updatedHistory })
+                      }).catch(e => console.error("Error syncing history:", e));
+                    }}
+                    className="relative z-10 px-8 py-4 rounded-xl bg-gradient-to-r from-accent to-purple-600 text-white font-extrabold text-xs tracking-wider uppercase shadow-[0_8px_20px_rgba(124,102,255,0.25)] hover:shadow-[0_8px_25px_rgba(124,102,255,0.4)] hover:scale-105 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 border-0 flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4 text-white animate-spin-slow" />
+                    <span>Show Model Solution</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-border-primary/40 pb-3">
+                    <h3 className="font-display font-black text-sm tracking-wide text-text-primary bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                      Model Solution
+                    </h3>
+                    <span className="text-[9px] px-2.5 py-1 rounded-md bg-accent/10 text-accent border border-accent/20 uppercase tracking-widest font-black">
+                      {solutions[currentQuestion._id]?.type || 'descriptive'}
+                    </span>
+                  </div>
+
+                  {solutionsLoading[currentQuestion._id] ? (
+                    <div className="py-24 text-center space-y-4">
+                      <div className="w-10 h-10 rounded-full border-2 border-accent/20 border-t-accent animate-spin mx-auto" />
+                      <p className="text-xs text-text-secondary animate-pulse">Generating premium model answer...</p>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-text-secondary space-y-5">
+                      {solutions[currentQuestion._id] && !solutions[currentQuestion._id].error ? (
+                        <>
+                          <div className="leading-relaxed bg-bg-primary/20 backdrop-blur-md p-5 rounded-xl border border-border-primary/45 shadow-sm">
+                            <MathMarkdown content={solutions[currentQuestion._id].content || ''} />
+                          </div>
+                          
+                          {solutions[currentQuestion._id]?.steps && (solutions[currentQuestion._id]?.steps?.length ?? 0) > 0 && (
+                            <div className="space-y-5 mt-6">
+                              <h4 className="font-black text-text-primary text-xs uppercase tracking-wider pl-1 border-l-2 border-accent flex items-center gap-1.5">
+                                <Trophy className="w-3.5 h-3.5 text-accent animate-pulse" />
+                                <span>Evaluation Steps:</span>
+                              </h4>
+                              
+                              {/* Step Timeline */}
+                              <motion.div 
+                                variants={containerVariants}
+                                initial="hidden"
+                                animate="show"
+                                className="relative border-l border-border-primary/30 pl-6 ml-3 space-y-6 mt-4"
+                              >
+                                {solutions[currentQuestion._id]?.steps?.map((step: SolutionStep, sIdx: number) => (
+                                  <motion.div 
+                                    key={sIdx} 
+                                    variants={itemVariants}
+                                    className="relative group"
+                                  >
+                                    {/* Timeline Circle */}
+                                    <span className="absolute -left-[35px] top-0 w-6 h-6 rounded-full bg-bg-secondary border border-accent text-accent shadow-[0_0_12px_rgba(124,102,255,0.3)] flex items-center justify-center text-xs font-black select-none z-10 transition-transform duration-300 group-hover:scale-110">
+                                      {step.stepNumber}
+                                    </span>
+                                    
+                                    {/* Step Card */}
+                                    <div className="p-5 rounded-2xl border border-border-primary bg-bg-primary/25 backdrop-blur-md hover:border-accent/30 hover:bg-accent/[0.015] hover:shadow-lg transition-all duration-300 space-y-3">
+                                      <div className="text-xs font-black text-text-primary tracking-wide flex items-center gap-2">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                                        {step.heading}
+                                      </div>
+                                      <div className="text-[11px] leading-relaxed text-text-secondary">
+                                        <MathMarkdown content={step.content} />
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                ))}
+                              </motion.div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 border border-rose-500/20 bg-rose-500/5 rounded-xl p-6">
+                          <AlertTriangle className="w-8 h-8 text-rose-500 animate-pulse" />
+                          <div className="space-y-1">
+                            <p className="text-xs font-bold text-text-primary">Failed to load model solution</p>
+                            <p className="text-[10px] text-text-secondary">There was an issue retrieving the derivation steps from the server.</p>
+                          </div>
+                          <button
+                            onClick={() => fetchSolutionForQuestion(currentQuestion._id)}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-xs hover:from-rose-600 hover:to-red-700 hover:shadow-lg hover:shadow-rose-500/25 active:scale-95 transition-all duration-300 shadow-md border border-rose-400/20"
+                          >
+                            Retry Loading
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Rating Dashboard */}
+                  {!solutionsLoading[currentQuestion._id] && solutions[currentQuestion._id] && !solutions[currentQuestion._id].error && (
+                    <div className="mt-8 border-t border-border-primary/40 pt-6 space-y-5 bg-gradient-to-b from-bg-primary/20 to-bg-primary/45 -mx-6 md:-mx-8 px-6 md:px-8 pb-4 rounded-b-2xl border-x-0">
+                      <div className="text-center space-y-1">
+                        <h4 className="font-display font-black text-[11px] text-text-primary uppercase tracking-widest flex items-center justify-center gap-1.5">
+                          <Trophy className="w-3.5 h-3.5 text-yellow-500" />
+                          <span>Self-Grade Your Answer</span>
+                        </h4>
+                        <p className="text-[10px] text-text-muted">Rate your response honestly based on the model steps above.</p>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3.5">
+                        {([
+                          { 
+                            id: 'correct', 
+                            label: 'Fully Correct', 
+                            desc: '100% Marks', 
+                            icon: CheckCircle2,
+                            color: 'border-emerald-500/20 hover:border-emerald-500/50 hover:bg-emerald-500/5 text-emerald-500/80', 
+                            activeColor: 'border-emerald-500 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.15)] font-extrabold border-2' 
+                          },
+                          { 
+                            id: 'partial', 
+                            label: 'Partially Correct', 
+                            desc: '50% Marks', 
+                            icon: AlertTriangle,
+                            color: 'border-amber-500/20 hover:border-amber-500/50 hover:bg-amber-500/5 text-amber-500/80', 
+                            activeColor: 'border-amber-500 bg-amber-500/10 text-amber-400 dark:text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.15)] font-extrabold border-2' 
+                          },
+                          { 
+                            id: 'incorrect', 
+                            label: 'Incorrect', 
+                            desc: '0% Marks', 
+                            icon: XCircle,
+                            color: 'border-rose-500/20 hover:border-rose-500/50 hover:bg-rose-500/5 text-rose-500/80', 
+                            activeColor: 'border-rose-500 bg-rose-500/10 text-rose-400 dark:text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.15)] font-extrabold border-2' 
+                          }
+                        ] as const).map((opt) => {
+                          const active = responses[currentQuestion._id]?.selfScore === opt.id;
+                          const Icon = opt.icon;
+                          return (
+                            <motion.button
+                              key={opt.id}
+                              type="button"
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleGradeResponse(opt.id)}
+                              className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all duration-300 ${
+                                active ? opt.activeColor : `bg-bg-primary/20 text-text-secondary ${opt.color}`
+                              }`}
+                            >
+                              <Icon className={`w-4 h-4 mb-1.5 transition-transform duration-300 ${active ? 'scale-110 rotate-[360deg]' : 'opacity-70'}`} />
+                              <span className="text-[10px] font-black">{opt.label}</span>
+                              <span className="text-[8px] uppercase tracking-wider font-bold opacity-75 mt-0.5">{opt.desc}</span>
+                            </motion.button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             
-            <textarea
-              value={currentNote}
-              onChange={(e) => handleNotesChange(e.target.value)}
-              placeholder="Outline your steps, write down variables, matrices equations, or type pseudo-code here..."
-              className="w-full flex-grow p-4 rounded-lg bg-bg-primary/50 text-xs font-mono border border-border-primary/80 text-text-primary focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all duration-200 resize-none min-h-[320px]"
-            />
-          </div>
-          
-          <div className="mt-4 flex justify-between items-center text-[10px] text-text-muted">
-            <span>Notes auto-saved per question.</span>
-            <span>Character Count: <span className="text-text-secondary font-semibold">{currentNote.length}</span></span>
-          </div>
-        </div>
+          </motion.div>
+        ) : (
+          /* Photo upload solver view */
+          <motion.div 
+            key={`notes-panel-${currentIdx}`}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+            className="lg:col-span-7 p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-xl shadow-2xl transition-all duration-300 min-h-[520px] flex flex-col justify-between hover:border-accent/20"
+          >
+            <div className="space-y-6">
+              {/* Exam Info Card */}
+              <div className="p-5 rounded-xl border border-yellow-500/20 bg-yellow-500/5 space-y-2.5">
+                <h4 className="text-xs font-black text-yellow-600 dark:text-yellow-400 flex items-center space-x-1.5 uppercase tracking-widest">
+                  <span>📝 Offline Answer Sheet Mode</span>
+                </h4>
+                <p className="text-[10px] text-text-secondary leading-relaxed">
+                  Solve your answers on physical paper sheets. Draw clear margins, write question numbers visibly (e.g., <strong>&quot;Ans 1&quot;</strong>), and keep the writing neat. 
+                  Once the exam ends or you submit, you will use our premium visual captures flow to submit your pages.
+                </p>
+              </div>
+
+              <div className="flex-grow flex flex-col h-full">
+                <h3 className="font-display font-black text-xs uppercase tracking-wider text-text-secondary mb-3 flex items-center space-x-2">
+                  <span className="p-1.5 rounded-lg bg-accent/5 text-accent border border-accent/15 shadow-sm">
+                    <PenTool className="w-3.5 h-3.5" />
+                  </span>
+                  <span>Scratchpad Outline</span>
+                </h3>
+                
+                <textarea
+                  value={currentNote}
+                  onChange={(e) => handleNotesChange(e.target.value)}
+                  placeholder="Outline your steps, write down variables, matrices equations, or type pseudo-code here..."
+                  className="w-full p-4 rounded-xl bg-bg-primary/50 text-xs font-mono border border-border-primary/80 text-text-primary focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/20 transition-all duration-200 resize-none min-h-[240px]"
+                />
+              </div>
+            </div>
+            
+            <div className="mt-4 flex justify-between items-center text-[10px] text-text-muted pt-4 border-t border-border-primary/30">
+              <span>Notes auto-saved per question.</span>
+              <span>Character Count: <span className="text-text-secondary font-bold">{currentNote.length}</span></span>
+            </div>
+          </motion.div>
+        )}
 
         {/* Subtle Floating Anti-Cheat Warnings */}
         <AnimatePresence>
@@ -427,7 +971,7 @@ function TestSolveContent() {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
-              className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 flex items-center space-x-2.5 px-4.5 py-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 text-xs font-semibold shadow-xl backdrop-blur-md"
+              className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50 flex items-center space-x-2.5 px-5 py-3 rounded-xl border border-yellow-500/20 bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 text-xs font-bold shadow-2xl backdrop-blur-md"
             >
               <ShieldAlert className="w-4 h-4 flex-shrink-0 animate-bounce" />
               <span>{cheatNoticeMsg} (Focus Breaches: <span className="font-bold">{tabSwitches + focusLosses}</span>)</span>
@@ -437,32 +981,34 @@ function TestSolveContent() {
       </main>
 
       {/* Bottom control row */}
-      <footer className="border-t border-border-primary/50 bg-bg-secondary/60 backdrop-blur-md py-4 px-6 flex items-center justify-between sticky bottom-0 z-40">
+      <footer className="border-t border-border-primary/45 bg-bg-secondary/80 backdrop-blur-md py-4 px-6 flex items-center justify-between sticky bottom-0 z-40">
         <div className="flex items-center space-x-2">
           {/* Integrity indicators */}
-          <div className="flex items-center space-x-1.5 text-[9px] uppercase tracking-wider font-semibold text-text-secondary bg-bg-secondary/40 border border-border-primary/50 px-2.5 py-1 rounded-md">
+          <div className="flex items-center space-x-2 text-[9px] uppercase tracking-wider font-extrabold text-text-secondary bg-bg-primary/50 border border-border-primary/60 px-3 py-1.5 rounded-lg shadow-sm">
             <span>Security Violations:</span>
-            <span className={`font-bold ${tabSwitches + focusLosses > 0 ? 'text-red-500' : 'text-green-500'}`}>
+            <span className={`font-bold ${tabSwitches + focusLosses > 0 ? 'text-red-500 animate-pulse' : 'text-green-500'}`}>
               {tabSwitches + focusLosses}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3.5">
           <button
             onClick={() => setCurrentIdx(Math.max(0, currentIdx - 1))}
             disabled={currentIdx === 0}
-            className="px-4 py-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-xs font-bold text-text-primary hover:text-accent transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-text-primary"
+            className="px-4 py-2 rounded-xl border border-border-primary/80 bg-bg-secondary/50 hover:bg-bg-tertiary text-xs font-black text-text-primary hover:text-accent transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95 flex items-center gap-1.5"
           >
-            Previous
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Previous</span>
           </button>
           
           <button
             onClick={() => setCurrentIdx(Math.min(questions.length - 1, currentIdx + 1))}
             disabled={currentIdx === questions.length - 1}
-            className="px-4 py-2 rounded-lg border border-border-primary bg-bg-secondary/50 hover:bg-bg-tertiary text-xs font-bold text-text-primary hover:text-accent transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-text-primary"
+            className="px-4 py-2 rounded-xl border border-border-primary/80 bg-bg-secondary/50 hover:bg-bg-tertiary text-xs font-black text-text-primary hover:text-accent transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-95 flex items-center gap-1.5"
           >
-            Next
+            <span>Next</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </footer>
@@ -496,6 +1042,9 @@ function TestSolveContent() {
                 </button>
                 <button
                   onClick={() => {
+                    if (sessionId) {
+                      localStorage.removeItem(`test_time_left_${sessionId}`);
+                    }
                     setShowLeaveModal(false);
                     router.push(`/subjects/${subjectId}`);
                   }}
@@ -550,7 +1099,45 @@ function TestSolveContent() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Viewport-Fixed Scroll Stack Container */}
+      <div className="fixed bottom-24 right-8 z-[99] flex flex-col gap-3.5">
+        {/* Scroll to Top Button */}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToTop}
+              className="p-3 rounded-full bg-gradient-to-r from-accent to-purple-600 text-white shadow-[0_4px_20px_rgba(124,102,255,0.4)] border border-accent/30 hover:shadow-[0_6px_25px_rgba(124,102,255,0.6)] hover:border-accent/60 transition-all duration-300 flex items-center justify-center cursor-pointer"
+              title="Scroll to Top"
+            >
+              <ArrowUp className="w-5 h-5 animate-pulse" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {/* Scroll to Bottom Button */}
+        <AnimatePresence>
+          {showScrollBottom && (
+            <motion.button
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={scrollToBottom}
+              className="p-3 rounded-full bg-gradient-to-r from-accent to-purple-600 text-white shadow-[0_4px_20px_rgba(124,102,255,0.4)] border border-accent/30 hover:shadow-[0_6px_25px_rgba(124,102,255,0.6)] hover:border-accent/60 transition-all duration-300 flex items-center justify-center cursor-pointer"
+              title="Scroll to Bottom"
+            >
+              <ArrowDown className="w-5 h-5 animate-bounce" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
-

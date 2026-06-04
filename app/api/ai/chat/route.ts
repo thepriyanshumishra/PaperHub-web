@@ -68,16 +68,26 @@ Instructions:
 2. If they ask for hints, do NOT give the full answer immediately. Guide them step-by-step.
 3. Keep all answers aligned with standard university syllabus methods.
 4. Formatting and Layout Guidelines:
-   - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
-     * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
-     * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in $$ ... $$.
-     * Use inline math (enclosed in $ ... $) ONLY for single variables (like $x$) or very short references (like $f(x)$). NEVER use inline math for actual equations or steps.
-     * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
-     * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
-     * Use bullet points to list properties or assumptions clearly.
+   - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, Laplace transforms, Fourier series, differential equations, etc.):
+     * CRITICAL MATH DELIMITERS RULES (MUST BE STRICTLY FOLLOWED):
+       1. EVERY SINGLE mathematical variable, symbol, expression, or equation MUST be wrapped in either inline ($ ... $) or block ($$ ... $$) math delimiters. NEVER output raw LaTeX (like \\frac, \\int, \\mathcal, \\tau, etc.) or mathematical equations/variables without delimiters directly in prose text!
+       2. INLINE MATH ($...$): ONLY use inline math for single variables (e.g., $x$, $y$, $t$, $m$, $\\tau$), single numbers/constants (e.g., $2$, $a$, $C_1$), or extremely simple terms (e.g., $x^2$, $e^{-st}$). NEVER write equations with equal signs (=), fractions, derivatives, integrals, or multi-term algebraic steps inline inside a sentence!
+       3. DISPLAY MATH ($$...$$): EVERY equation, derivative, integral, matrix, system of equations, substitution, algebraic calculation, simplification, or final result MUST be written on its own separate line wrapped in double dollar signs $$ ... $$.
+       4. EXPLANATION TEXT SPACING: You MUST precede and follow every double dollar sign block ($$ ... $$) with a double newline (\\n\\n) in your response. Keep explanations short, clear, and highly spaced out.
+       5. PROOFS AND DERIVATIONS: Explain a transition in 1-2 lines of text, write the equation as a display math block on its own separate line, explain the next step in 1-2 lines of text, and then write the next equation on its own separate line.
+       6. GOLD STANDARD MATH FORMATTING EXAMPLE (MUST BE FOLLOWED FOR EVERY MATH CONTENT GENERATED):
+          Instead of writing a sentence with inline equations or algebraic operations like this (BAD / STRICTLY FORBIDDEN):
+          "The given partial differential equation can be written as $x^2 \\\\frac{\\\\partial^2 z}{\\\\partial x^2} - x = 0$. We need to find..."
+          
+          You MUST split the sentence and place the equation/derivation on its own separate line wrapped in double dollar signs preceded and followed by double newlines inside the JSON text, like this (GOOD / REQUIRED):
+          "The given partial differential equation can be written as:
+          
+          $$x^2 \\\\frac{\\\\partial^2 z}{\\\\partial x^2} - x = 0$$
+          
+          We need to find..."
    - For all other subjects (Computer Science, Web Development, Electronics, etc.):
      * Make explanations highly structured, readable, and neat.
-     * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
+     * Use bold text (**term**) to highlight key terminology, variable names, and core concepts.
      * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
 5. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.`;
         dbChatLogAllowed = true;
@@ -101,16 +111,26 @@ Instructions:
       2. If they ask for hints, do NOT give the full answer immediately. Guide them step-by-step.
       3. Keep all answers aligned with standard university syllabus methods.
       4. Formatting and Layout Guidelines:
-         - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
-           * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
-           * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in $$ ... $$.
-           * Use inline math (enclosed in $ ... $) ONLY for single variables (like $x$) or very short references (like $f(x)$). NEVER use inline math for actual equations or steps.
-           * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
-           * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
-           * Use bullet points to list properties or assumptions clearly.
+         - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, Laplace transforms, Fourier series, differential equations, etc.):
+           * CRITICAL MATH DELIMITERS RULES (MUST BE STRICTLY FOLLOWED):
+             1. EVERY SINGLE mathematical variable, symbol, expression, or equation MUST be wrapped in either inline ($ ... $) or block ($$ ... $$) math delimiters. NEVER output raw LaTeX (like \\frac, \\int, \\mathcal, \\tau, etc.) or mathematical equations/variables without delimiters directly in prose text!
+             2. INLINE MATH ($...$): ONLY use inline math for single variables (e.g., $x$, $y$, $t$, $m$, $\\tau$), single numbers/constants (e.g., $2$, $a$, $C_1$), or extremely simple terms (e.g., $x^2$, $e^{-st}$). NEVER write equations with equal signs (=), fractions, derivatives, integrals, or multi-term algebraic steps inline inside a sentence!
+             3. DISPLAY MATH ($$...$$): EVERY equation, derivative, integral, matrix, system of equations, substitution, algebraic calculation, simplification, or final result MUST be written on its own separate line wrapped in double dollar signs $$ ... $$.
+             4. EXPLANATION TEXT SPACING: You MUST precede and follow every double dollar sign block ($$ ... $$) with a double newline (\\n\\n) in your response. Keep explanations short, clear, and highly spaced out.
+             5. PROOFS AND DERIVATIONS: Explain a transition in 1-2 lines of text, write the equation as a display math block on its own separate line, explain the next step in 1-2 lines of text, and then write the next equation on its own separate line.
+             6. GOLD STANDARD MATH FORMATTING EXAMPLE (MUST BE FOLLOWED FOR EVERY MATH CONTENT GENERATED):
+                Instead of writing a sentence with inline equations or algebraic operations like this (BAD / STRICTLY FORBIDDEN):
+                "The given partial differential equation can be written as $x^2 \\\\frac{\\\\partial^2 z}{\\\\partial x^2} - x = 0$. We need to find..."
+                
+                You MUST split the sentence and place the equation/derivation on its own separate line wrapped in double dollar signs preceded and followed by double newlines inside the JSON text, like this (GOOD / REQUIRED):
+                "The given partial differential equation can be written as:
+                
+                $$x^2 \\\\frac{\\\\partial^2 z}{\\\\partial x^2} - x = 0$$
+                
+                We need to find..."
          - For all other subjects (Computer Science, Web Development, Electronics, etc.):
            * Make explanations highly structured, readable, and neat.
-           * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
+           * Use bold text (**term**) to highlight key terminology, variable names, and core concepts.
            * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
       5. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.`;
     }
@@ -128,7 +148,7 @@ Instructions:
     ];
 
     const completion = await groq!.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       messages
     });
 

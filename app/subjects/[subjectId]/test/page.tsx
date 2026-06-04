@@ -32,6 +32,7 @@ export default function TestSelection() {
   const [timeMode, setTimeMode] = useState<'major' | 'minor' | 'custom'>('minor');
   const [customHours, setCustomHours] = useState(1);
   const [customMinutes, setCustomMinutes] = useState(30);
+  const [evaluationMethod, setEvaluationMethod] = useState<'self' | 'photo'>('self');
 
   useEffect(() => {
     const college = localStorage.getItem('selectedCollege') || 'MMMUT';
@@ -82,7 +83,7 @@ export default function TestSelection() {
     const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true';
 
     if (isLocalFallback) {
-      router.push(`/subjects/${subjectId}/test/solve?type=${testType}&duration=${minutes}&count=${count}`);
+      router.push(`/subjects/${subjectId}/test/solve?type=${testType}&duration=${minutes}&count=${count}&evaluationMethod=${evaluationMethod}`);
     } else {
       try {
         const res = await fetch('/api/sessions', {
@@ -93,6 +94,7 @@ export default function TestSelection() {
             subjectId,
             type: 'test',
             subType: testType,
+            evaluationMethod,
             config: {
               units: subject ? subject.syllabus.map((u) => u.unitNumber) : [],
               topics: [],
@@ -104,10 +106,10 @@ export default function TestSelection() {
         if (data.session) {
           router.push(`/subjects/${subjectId}/test/solve?sessionId=${data.session._id}&duration=${minutes}`);
         } else {
-          router.push(`/subjects/${subjectId}/test/solve?type=${testType}&duration=${minutes}&count=${count}`);
+          router.push(`/subjects/${subjectId}/test/solve?type=${testType}&duration=${minutes}&count=${count}&evaluationMethod=${evaluationMethod}`);
         }
       } catch {
-        router.push(`/subjects/${subjectId}/test/solve?type=${testType}&duration=${minutes}&count=${count}`);
+        router.push(`/subjects/${subjectId}/test/solve?type=${testType}&duration=${minutes}&count=${count}&evaluationMethod=${evaluationMethod}`);
       }
     }
   };
@@ -266,6 +268,35 @@ export default function TestSelection() {
               <p>⏰ Total Duration: <strong className="text-text-primary font-extrabold">{getDurationMinutes()} minutes</strong></p>
               <p>📝 Questions Count: <strong className="text-text-primary font-extrabold">{getQuestionsCount()} questions</strong></p>
               <p>⚡ Pacing Guideline: <strong className="text-accent font-bold">~{Math.round(getDurationMinutes() / getQuestionsCount())} minutes</strong> per question.</p>
+            </div>
+          </div>
+
+          {/* Card 3: Choose Evaluation Mode */}
+          <div className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,0,0,0.25)] space-y-5">
+            <h3 className="font-display font-bold text-text-primary flex items-center space-x-2.5">
+              <Award className="w-5 h-5 text-accent" />
+              <span>Grading Scheme</span>
+            </h3>
+            
+            <div className="grid grid-cols-1 gap-2.5">
+              {([
+                { id: 'self', title: 'Self-Evaluation', desc: 'Grade yourself against model answers during test' },
+                { id: 'photo', title: 'AI Answer Sheet Grading', desc: 'Solve on paper, snap/upload photos for AI vision review' }
+              ] as const).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setEvaluationMethod(t.id)}
+                  className={`p-4 rounded-xl border text-left transition-all duration-200 ${
+                    evaluationMethod === t.id 
+                      ? 'border-accent/40 bg-accent/10 shadow-[0_0_12px_rgba(124,102,255,0.15)]' 
+                      : 'border-border-primary bg-bg-primary/50 hover:bg-bg-tertiary hover:border-accent/20'
+                  }`}
+                >
+                  <h4 className={`text-xs font-extrabold ${evaluationMethod === t.id ? 'text-accent' : 'text-text-primary'}`}>{t.title}</h4>
+                  <p className="text-[10px] text-text-secondary mt-0.5">{t.desc}</p>
+                </button>
+              ))}
             </div>
           </div>
         </div>

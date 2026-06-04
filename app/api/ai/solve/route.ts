@@ -68,69 +68,112 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ solution: mockSolution });
     }
 
-    // Call Groq Llama 3 API for dynamic solution generation
     const subjectName = subject?.name || 'the subject';
     const syllabus = subject?.syllabus || [];
     const topic = question.topic;
 
-    const prompt = `You are a university mathematics and computer science professor teaching "${subjectName}". 
-Generate a clear, step-by-step solution for the following university exam question:
+    const prompt = `You are a university mathematics and computer science professor teaching "${subjectName}".
+Generate a clear, highly structured, syllabus-aligned solution for the following university exam question:
 "${question.questionText}"
 
 The question is from Unit ${question.unit}, Topic: "${topic}".
 Syllabus detail: ${JSON.stringify(syllabus)}
 
-Instructions:
-1. Provide the response as a JSON object containing:
-   - "content": A brief introductory paragraph about the problem approach.
-   - "steps": A list of steps. Each step must have:
-     - "stepNumber": integer starting from 1
-     - "heading": brief 2-5 word title of what the step does (e.g. "Differentiate Both Sides")
-     - "content": detailed mathematical/algorithmic text explaining the derivation.
-2. Formatting and Layout Guidelines for Content:
-   - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
-     * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
-     * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in double dollar signs (example: $$ y = mx + c $$).
-     * Use inline math ONLY for single variables or very short references, wrapped in single dollar signs (example: $x$ or $f(x)$). NEVER use inline math for actual equations or steps.
-     * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
-     * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
-     * Use bullet points to list properties or assumptions clearly.
-   - For all other subjects (Computer Science, Web Development, Electronics, etc.):
-     * Make explanations highly structured, readable, and neat.
-     * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
-     * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
-3. The explanation must resemble a university exam model answer. Use clear, step-by-step reasoning. Do NOT use olympiad shortcuts or off-syllabus tricks. Focus on step-oriented grading points.
-4. Keep all LaTeX equations mathematically sound.
-5. LaTeX delimiters and JSON escaping rules:
-   - YOU MUST EXCLUSIVELY USE $$ ... $$ for block math and $ ... $ for inline math.
-   - Never use other delimiters like parentheses, brackets, or \\( ... \\) for math.
-   - Because you are returning JSON, you MUST double-escape all backslashes in LaTeX commands. For example, write \\\\begin{bmatrix} instead of \\begin{bmatrix}, \\\\frac instead of \\frac, \\\\lambda instead of \\lambda, and \\\\rightarrow instead of \\rightarrow.
-   - Row separators in matrices must be written as \\\\\\\\ (four backslashes in JSON) so that they parse to \\\\ (two backslashes) in standard LaTeX.
-   - Do NOT wrap matrices inside literal brackets like [ \\\\begin{bmatrix} ... \\\\end{bmatrix} ]. Use $$ \\\\begin{bmatrix} ... \\\\end{bmatrix} $$ instead.
-6. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.
+CRITICAL: You MUST classify the question into exactly ONE of the following four categories and format your JSON response to match that category's keys.
 
-Output must be ONLY valid JSON matching this schema:
+--- PATHWAY A: "coding" (If the question asks to write a programming solution, C code, function, or algorithm)
+JSON structure required:
 {
-  "content": "string",
+  "type": "coding",
+  "content": "Introductory paragraph explaining the algorithm, program logic, approach, and implementation details in plain text.",
+  "code": "The complete, pristine, ready-to-run programming code in the target language (usually C). Use proper comments and formatting. Do NOT include markdown code blocks inside the string (no triple backticks). Just raw code.",
+  "explanation": "Detailed line-by-line or conceptual description of the code segments, key variables, and operations, written in clean markdown.",
+  "complexity": {
+    "time": "Time complexity analysis (e.g. O(N)) with short justification.",
+    "space": "Space complexity analysis (e.g. O(1)) with short justification."
+  },
+  "inputOutput": "Sample Input and matching Sample Output showing how the program runs."
+}
+
+--- PATHWAY B: "flowchart" (If the question explicitly asks to draw or construct a flowchart, or says "Draw a flowchart...")
+JSON structure required:
+{
+  "type": "flowchart",
+  "content": "Introductory paragraph describing the logic and structure of the flow control.",
+  "mermaid": "The raw Mermaid.js graph definition. Start with 'graph TD' or 'graph LR'. You MUST strictly adhere to these visual and logical rules: 1) ACADEMIC GRAPH LOGIC (CRITICAL): Flowcharts must represent mathematically and structurally correct program logic, including realistic loops, conditional statements, and binary forks. They must NOT be simple linear chains of boxes. All control paths must eventually converge correctly. 2) BINARY BRANCHING: Every decision diamond (e.g. D{Condition}) MUST branch into exactly two paths: a positive branch and a negative branch, cleanly labeled using transitions like -->|Yes| and -->|No| or -->|True| and -->|False| leading to different nodes. 3) CYCLIC ITERATIVE LOOPS: For loops or conditional repetition (e.g., printing a series up to n, counting, finding prime numbers), you must loop back. The process/update node at the end of the loop MUST point an arrow backwards to the original decision/condition check node (e.g., UpdateNode --> ConditionCheck). Do NOT display repetitive steps vertically in a straight linear sequence. 4) SHAPE STANDARDS & ESCAPED QUOTED LABELS (CRITICAL): You MUST strictly use standard flowchart shapes and ALWAYS wrap every label in double quotes. In your JSON response, you MUST escape these double quotes as \\\" to keep the JSON valid. Use Rounded Ovals for Terminators like Start([\\\"Start\\\"]) or End([\\\"End\\\"]), Parallelograms for Input/Output (I/O) like ReadInput[/\\\"Read N\\\"/] or PrintOutput[/\\\"Print Result\\\"/], Rectangles for Processes/Operations like ProcessNode[\\\"Initialize i=1, sum=0\\\"] or Add[\\\"sum = sum + i\\\"], and Diamonds for Decisions like Decision{\\\"Is i <= N?\\\"}. DO NOT write labels without double quotes if they contain brackets, parentheses, or operators (e.g. do NOT write Init[Initialize i=1, F[i]=1] as it breaks the parser; instead write Init[\\\"Initialize i=1, F[i]=1\\\"]). 5) NO MARKDOWN CODE BLOCKS: Do NOT wrap the mermaid definition inside triple backticks. Provide only the raw mermaid code. Example correct Mermaid loop graph: graph TD\\n    Start([\\\"Start\\\"]) --> ReadInput[/\\\"Read N\\\"/]\\n    ReadInput --> CheckInput{\\\"Is N > 0?\\\"}\\n    CheckInput -->|No| Invalid[/\\\"Print Error\\\"/]\\n    Invalid --> End([\\\"End\\\"])\\n    CheckInput -->|Yes| Init[\\\"Initialize i = 1, sum = 0\\\"]\\n    Init --> LoopCheck{\\\"i <= N\\\"}\\n    LoopCheck -->|No| PrintSum[/\\\"Print sum\\\"/]\\n    PrintSum --> End\\n    LoopCheck -->|Yes| Add[\\\"sum = sum + i\\\"]\\n    Add --> Inc[\\\"i = i + 1\\\"]\\n    Inc --> LoopCheck",
+  "explanation": "Step-by-step description of the flow control and logic paths in clean markdown."
+}
+
+--- PATHWAY C: "maths" (If the question involves mathematical derivations, proofs, equations, calculations, or matrices)
+JSON structure required:
+{
+  "type": "maths",
+  "content": "Introductory plain-text paragraph describing the analytical approach.",
   "steps": [
-    { "stepNumber": number, "heading": "string", "content": "string" }
+    {
+      "stepNumber": 1,
+      "heading": "Step title (e.g. Differentiate Both Sides)",
+      "content": "Full explanation and mathematical equations for this step. Use proper LaTeX delimiters ($...$ inline and $$...$$ display blocks on their own lines)."
+    }
   ]
-}`;
+}
 
-    const completion = await groq!.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' }
-    });
+--- PATHWAY D: "theory" (If the question is theoretical, explanatory, definitions, differences, e.g. 'Differentiate compiler and assembler')
+JSON structure required:
+{
+  "type": "theory",
+  "content": "Introductory paragraph stating the core concept.",
+  "explanation": "A complete, beautifully formatted, textbook-style conceptual breakdown in clean markdown using headers (###), bold key terms, and bulleted or structured lists."
+}
 
-    const responseText = completion.choices[0]?.message?.content || '{}';
+MATH FORMATTING RULES (Apply to all markdown/text prose fields except 'code' and 'mermaid'):
+1. ALWAYS wrap single mathematical variables/constants in inline $...$ (e.g. $x$, $y_1$, $O(N)$).
+2. EVERY equation, formula, derivative, or multi-term expression MUST be wrapped in display $$...$$ on its own line, preceded and followed by a blank line (\\n\\n in JSON).
+3. ABSOLUTELY FORBIDDEN: Writing math inside regular parentheses or raw LaTeX commands outside delimiters.
+
+STRICT JSON FORMATTING AND ESCAPING RULES:
+1. Every string value in your JSON output must be a perfectly valid, standard JSON string.
+2. Absolutely DO NOT include raw, literal unescaped newlines inside any string values. If you want a line break, represent it strictly as the escaped character sequence "\\n".
+3. Escape all double quotes inside string values (e.g. use \\\" for quotes in strings like printf(\\\"Hello\\\");).
+4. Output ONLY valid JSON. Nothing else. Do not wrap the JSON block in triple backticks.`;
+
+    // Solve Pass: primary model Llama 3.3 70B for maximum premium formatting and academic accuracy, fallback to 8B on failure.
+    let modelToUse = 'llama-3.3-70b-versatile';
+    let completion;
+    let responseText = '{}';
+
+    try {
+      completion = await groq!.chat.completions.create({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4096,
+        response_format: { type: 'json_object' }
+      });
+      responseText = completion.choices[0]?.message?.content || '{}';
+    } catch (err70b) {
+      console.warn('Llama 70B solve failed, falling back to Llama 8B:', err70b);
+      modelToUse = 'llama-3.1-8b-instant';
+      completion = await groq!.chat.completions.create({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4096,
+        response_format: { type: 'json_object' }
+      });
+      responseText = completion.choices[0]?.message?.content || '{}';
+    }
+
     const parsedSolution = JSON.parse(responseText);
-    // Sanitize LaTeX in AI output BEFORE caching so the client always gets clean standard LaTeX
     const sanitizedSolution = sanitizeSolutionObject(parsedSolution);
 
     question.cachedSolution = {
       content: sanitizedSolution.content || 'Generated Solution:',
       steps: sanitizedSolution.steps || [],
+      type: sanitizedSolution.type || 'maths',
+      code: sanitizedSolution.code,
+      explanation: sanitizedSolution.explanation,
+      complexity: sanitizedSolution.complexity,
+      inputOutput: sanitizedSolution.inputOutput,
+      mermaid: sanitizedSolution.mermaid,
       generatedAt: new Date()
     };
     await question.save();
@@ -191,65 +234,109 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const prompt = `You are a university mathematics and computer science professor teaching "${subjectName || 'the subject'}". 
-Generate a clear, step-by-step solution for the following university exam question:
+    const prompt = `You are a university mathematics and computer science professor teaching "${subjectName || 'the subject'}".
+Generate a clear, highly structured, syllabus-aligned solution for the following university exam question:
 "${questionText}"
 
 The question is from Unit ${unit || 1}, Topic: "${topic || 'General'}".
 Syllabus detail: ${JSON.stringify(syllabus || [])}
 
-Instructions:
-1. Provide the response as a JSON object containing:
-   - "content": A brief introductory paragraph about the problem approach.
-   - "steps": A list of steps. Each step must have:
-     - "stepNumber": integer starting from 1
-     - "heading": brief 2-5 word title of what the step does (e.g. "Differentiate Both Sides")
-     - "content": detailed mathematical/algorithmic text explaining the derivation.
-2. Formatting and Layout Guidelines for Content:
-   - For Mathematics and Math-related subjects (calculus, matrices, algebra, vector fields, etc.):
-     * VERY IMPORTANT: Visually separate all mathematical derivations from your text. Do NOT merge them into one giant paragraph.
-     * EVERY formula, equation, substitution, or calculation MUST be on its own separate line as a display block wrapped in double dollar signs (example: $$ y = mx + c $$).
-     * Use inline math ONLY for single variables or very short references, wrapped in single dollar signs (example: $x$ or $f(x)$). NEVER use inline math for actual equations or steps.
-     * Example of BAD formatting: "Using the formula $ \\nabla \\times \\vec{F} = 0 $, we substitute $ F_x $..."
-     * Example of GOOD formatting: "Using the formula:\n\n$$ \\nabla \\times \\vec{F} = 0 $$\n\nWe substitute the values:"
-     * Use bullet points to list properties or assumptions clearly.
-   - For all other subjects (Computer Science, Web Development, Electronics, etc.):
-     * Make explanations highly structured, readable, and neat.
-     * Use bold text (\`**term**\`) to highlight key terminology, variable names, and core concepts.
-     * Use bullet points or numbered lists to break down explanations, features, parameters, or steps instead of writing them in messy, dense paragraphs.
-3. The explanation must resemble a university exam model answer. Use clear, step-by-step reasoning. Do NOT use olympiad shortcuts or off-syllabus tricks. Focus on step-oriented grading points.
-4. Keep all LaTeX equations mathematically sound.
-5. LaTeX delimiters and JSON escaping rules:
-   - YOU MUST EXCLUSIVELY USE $$ ... $$ for block math and $ ... $ for inline math.
-   - Never use other delimiters like parentheses, brackets, or \\( ... \\) for math.
-   - Because you are returning JSON, you MUST double-escape all backslashes in LaTeX commands. For example, write \\\\begin{bmatrix} instead of \\begin{bmatrix}, \\\\frac instead of \\frac, \\\\lambda instead of \\lambda, and \\\\rightarrow instead of \\rightarrow.
-   - Row separators in matrices must be written as \\\\\\\\ (four backslashes in JSON) so that they parse to \\\\ (two backslashes) in standard LaTeX.
-   - Do NOT wrap matrices inside literal brackets like [ \\\\begin{bmatrix} ... \\\\end{bmatrix} ]. Use $$ \\\\begin{bmatrix} ... \\\\end{bmatrix} $$ instead.
-6. For any programming code (C, C++, etc.), you MUST format it inside standard Markdown fenced code blocks using triple backticks and the language (e.g. \`\`\`c ... \`\`\`) with normal newlines and indentation. Do NOT use inline code blocks (\`...\`), and do NOT use LaTeX spacing commands (like \\quad, \\qquad) or literal 'quad' inside code blocks.
+CRITICAL: You MUST classify the question into exactly ONE of the following four categories and format your JSON response to match that category's keys.
 
-Output must be ONLY valid JSON matching this schema:
+--- PATHWAY A: "coding" (If the question asks to write a programming solution, C code, function, or algorithm)
+JSON structure required:
 {
-  "content": "string",
+  "type": "coding",
+  "content": "Introductory paragraph explaining the algorithm, program logic, approach, and implementation details in plain text.",
+  "code": "The complete, pristine, ready-to-run programming code in the target language (usually C). Use proper comments and formatting. Do NOT include markdown code blocks inside the string (no triple backticks). Just raw code.",
+  "explanation": "Detailed line-by-line or conceptual description of the code segments, key variables, and operations, written in clean markdown.",
+  "complexity": {
+    "time": "Time complexity analysis (e.g. O(N)) with short justification.",
+    "space": "Space complexity analysis (e.g. O(1)) with short justification."
+  },
+  "inputOutput": "Sample Input and matching Sample Output showing how the program runs."
+}
+
+--- PATHWAY B: "flowchart" (If the question explicitly asks to draw or construct a flowchart, or says "Draw a flowchart...")
+JSON structure required:
+{
+  "type": "flowchart",
+  "content": "Introductory paragraph describing the logic and structure of the flow control.",
+  "mermaid": "The raw Mermaid.js graph definition. Start with 'graph TD' or 'graph LR'. You MUST strictly adhere to these visual and logical rules: 1) ACADEMIC GRAPH LOGIC (CRITICAL): Flowcharts must represent mathematically and structurally correct program logic, including realistic loops, conditional statements, and binary forks. They must NOT be simple linear chains of boxes. All control paths must eventually converge correctly. 2) BINARY BRANCHING: Every decision diamond (e.g. D{Condition}) MUST branch into exactly two paths: a positive branch and a negative branch, cleanly labeled using transitions like -->|Yes| and -->|No| or -->|True| and -->|False| leading to different nodes. 3) CYCLIC ITERATIVE LOOPS: For loops or conditional repetition (e.g., printing a series up to n, counting, finding prime numbers), you must loop back. The process/update node at the end of the loop MUST point an arrow backwards to the original decision/condition check node (e.g., UpdateNode --> ConditionCheck). Do NOT display repetitive steps vertically in a straight linear sequence. 4) SHAPE STANDARDS & ESCAPED QUOTED LABELS (CRITICAL): You MUST strictly use standard flowchart shapes and ALWAYS wrap every label in double quotes. In your JSON response, you MUST escape these double quotes as \\\" to keep the JSON valid. Use Rounded Ovals for Terminators like Start([\\\"Start\\\"]) or End([\\\"End\\\"]), Parallelograms for Input/Output (I/O) like ReadInput[/\\\"Read N\\\"/] or PrintOutput[/\\\"Print Result\\\"/], Rectangles for Processes/Operations like ProcessNode[\\\"Initialize i=1, sum=0\\\"] or Add[\\\"sum = sum + i\\\"], and Diamonds for Decisions like Decision{\\\"Is i <= N?\\\"}. DO NOT write labels without double quotes if they contain brackets, parentheses, or operators (e.g. do NOT write Init[Initialize i=1, F[i]=1] as it breaks the parser; instead write Init[\\\"Initialize i=1, F[i]=1\\\"]). 5) NO MARKDOWN CODE BLOCKS: Do NOT wrap the mermaid definition inside triple backticks. Provide only the raw mermaid code. Example correct Mermaid loop graph: graph TD\\n    Start([\\\"Start\\\"]) --> ReadInput[/\\\"Read N\\\"/]\\n    ReadInput --> CheckInput{\\\"Is N > 0?\\\"}\\n    CheckInput -->|No| Invalid[/\\\"Print Error\\\"/]\\n    Invalid --> End([\\\"End\\\"])\\n    CheckInput -->|Yes| Init[\\\"Initialize i = 1, sum = 0\\\"]\\n    Init --> LoopCheck{\\\"i <= N\\\"}\\n    LoopCheck -->|No| PrintSum[/\\\"Print sum\\\"/]\\n    PrintSum --> End\\n    LoopCheck -->|Yes| Add[\\\"sum = sum + i\\\"]\\n    Add --> Inc[\\\"i = i + 1\\\"]\\n    Inc --> LoopCheck",
+  "explanation": "Step-by-step description of the flow control and logic paths in clean markdown."
+}
+
+--- PATHWAY C: "maths" (If the question involves mathematical derivations, proofs, equations, calculations, or matrices)
+JSON structure required:
+{
+  "type": "maths",
+  "content": "Introductory plain-text paragraph describing the analytical approach.",
   "steps": [
-    { "stepNumber": number, "heading": "string", "content": "string" }
+    {
+      "stepNumber": 1,
+      "heading": "Step title (e.g. Differentiate Both Sides)",
+      "content": "Full explanation and mathematical equations for this step. Use proper LaTeX delimiters ($...$ inline and $$...$$ display blocks on their own lines)."
+    }
   ]
-}`;
+}
 
-    const completion = await groq!.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' }
-    });
+--- PATHWAY D: "theory" (If the question is theoretical, explanatory, definitions, differences, e.g. 'Differentiate compiler and assembler')
+JSON structure required:
+{
+  "type": "theory",
+  "content": "Introductory paragraph stating the core concept.",
+  "explanation": "A complete, beautifully formatted, textbook-style conceptual breakdown in clean markdown using headers (###), bold key terms, and bulleted or structured lists."
+}
 
-    const responseText = completion.choices[0]?.message?.content || '{}';
+MATH FORMATTING RULES (Apply to all markdown/text prose fields except 'code' and 'mermaid'):
+1. ALWAYS wrap single mathematical variables/constants in inline $...$ (e.g. $x$, $y_1$, $O(N)$).
+2. EVERY equation, formula, derivative, or multi-term expression MUST be wrapped in display $$...$$ on its own line, preceded and followed by a blank line (\\n\\n in JSON).
+3. ABSOLUTELY FORBIDDEN: Writing math inside regular parentheses or raw LaTeX commands outside delimiters.
+
+STRICT JSON FORMATTING AND ESCAPING RULES:
+1. Every string value in your JSON output must be a perfectly valid, standard JSON string.
+2. Absolutely DO NOT include raw, literal unescaped newlines inside any string values. If you want a line break, represent it strictly as the escaped character sequence "\\n".
+3. Escape all double quotes inside string values (e.g. use \\\" for quotes in strings like printf(\\\"Hello\\\");).
+4. Output ONLY valid JSON. Nothing else. Do not wrap the JSON block in triple backticks.`;
+
+    // Solve Pass: primary model Llama 3.3 70B for maximum premium formatting and academic accuracy, fallback to 8B on failure.
+    let modelToUse = 'llama-3.3-70b-versatile';
+    let completion;
+    let responseText = '{}';
+
+    try {
+      completion = await groq!.chat.completions.create({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4096,
+        response_format: { type: 'json_object' }
+      });
+      responseText = completion.choices[0]?.message?.content || '{}';
+    } catch (err70b) {
+      console.warn('Llama 70B solve failed in POST, falling back to Llama 8B:', err70b);
+      modelToUse = 'llama-3.1-8b-instant';
+      completion = await groq!.chat.completions.create({
+        model: modelToUse,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 4096,
+        response_format: { type: 'json_object' }
+      });
+      responseText = completion.choices[0]?.message?.content || '{}';
+    }
+
     const parsedSolution = JSON.parse(responseText);
-    // Sanitize LaTeX before sending to client
     const sanitizedSolution = sanitizeSolutionObject(parsedSolution);
 
     return NextResponse.json({
       solution: {
         content: sanitizedSolution.content || 'Generated Solution:',
         steps: sanitizedSolution.steps || [],
+        type: sanitizedSolution.type || 'maths',
+        code: sanitizedSolution.code,
+        explanation: sanitizedSolution.explanation,
+        complexity: sanitizedSolution.complexity,
+        inputOutput: sanitizedSolution.inputOutput,
+        mermaid: sanitizedSolution.mermaid,
         generatedAt: new Date()
       }
     });

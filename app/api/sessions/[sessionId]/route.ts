@@ -33,7 +33,7 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const { currentQuestionIndex, history, testAnalytics, status } = body;
+    const { currentQuestionIndex, history, testAnalytics, status, evaluationMethod, testResponses, uploadedImages, evaluationResult } = body;
 
     if (currentQuestionIndex !== undefined) {
       session.currentQuestionIndex = currentQuestionIndex;
@@ -49,6 +49,22 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
         focusLosses: testAnalytics.focusLosses !== undefined ? testAnalytics.focusLosses : session.testAnalytics.focusLosses,
         fullscreenExits: testAnalytics.fullscreenExits !== undefined ? testAnalytics.fullscreenExits : session.testAnalytics.fullscreenExits
       };
+    }
+    
+    if (evaluationMethod !== undefined) {
+      session.evaluationMethod = evaluationMethod;
+    }
+    
+    if (testResponses !== undefined) {
+      session.testResponses = testResponses;
+    }
+    
+    if (uploadedImages !== undefined) {
+      session.uploadedImages = uploadedImages;
+    }
+    
+    if (evaluationResult !== undefined) {
+      session.evaluationResult = evaluationResult;
     }
     
     if (status !== undefined) {
