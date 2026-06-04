@@ -92,9 +92,11 @@ ${JSON.stringify(questionsContext)}
 
 Instructions:
 1. Carefully perform optical character recognition (OCR) on each page.
-2. Identify which written sections correspond to which question.
-3. Grade each question strictly according to university model answer criteria (deduct marks for calculation mistakes, step omissions, or conceptual errors).
-4. Return ONLY a valid JSON object matching this schema:
+2. Verify that the uploaded images actually contain handwritten or typed solutions for this exam.
+3. CRITICAL SECURITY GUARDRAIL: If the uploaded images contain unrelated content, spam, blank pages, or documents completely unrelated to the exam (e.g., a grocery list, receipt, cartoon, random sketches, or text from other unrelated subjects), you MUST immediately identify this. For any question where the student submitted unrelated or invalid content (or if the entire upload is unrelated), award EXACTLY 0 marks for that question and explicitly state in the feedback: "Invalid submission: Submitting unrelated documents (such as grocery lists or spam) is not accepted." and award an overall obtainedMarks of 0.
+4. Identify which written sections correspond to which question.
+5. Grade each question strictly according to university model answer criteria (deduct marks for calculation mistakes, step omissions, or conceptual errors).
+6. Return ONLY a valid JSON object matching this schema:
 {
   "totalMarks": number,
   "obtainedMarks": number,
