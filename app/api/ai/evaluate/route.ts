@@ -81,11 +81,25 @@ export async function POST(req: NextRequest) {
       marks: q.marks || 10
     }));
 
-    const messages = [
-      {
-        role: 'system',
-        content: `You are an expert university examiner grading paper-based written sheets for the engineering and computer science subject "${subjectName}".
+    const imagesToProcess = session.uploadedImages;
+    const BATCH_SIZE = 5;
+    const allDetails: { questionId: string; marksAwarded: number; feedback: string }[] = [];
+
+    try {
+      // Loop through images in batches to prevent API payload limits
+      for (let batchIdx = 0; batchIdx < imagesToProcess.length; batchIdx += BATCH_SIZE) {
+        const batchImages = imagesToProcess.slice(batchIdx, batchIdx + BATCH_SIZE);
+        const batchNum = Math.floor(batchIdx / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(imagesToProcess.length / BATCH_SIZE);
+
+        const batchMessages = [
+          {
+            role: 'system',
+            content: `You are an expert university examiner grading paper-based written sheets for the engineering and computer science subject "${subjectName}".
 Review the student's handwritten answer sheets (provided as images) and grade their answers to each exam question.
+
+This is batch ${batchNum} of ${totalBatches} containing page ${batchIdx + 1} to ${batchIdx + batchImages.length} of the answer sheets.
+Analyze these images and grade any questions you see solved in them. If a question is NOT solved in this batch of pages, DO NOT include it in the details array, or set its marks to 0 and state that it was not found in this batch of pages.
 
 Questions to grade:
 ${JSON.stringify(questionsContext)}
@@ -98,9 +112,6 @@ Instructions:
 5. Grade each question strictly according to university model answer criteria (deduct marks for calculation mistakes, step omissions, or conceptual errors).
 6. Return ONLY a valid JSON object matching this schema:
 {
-  "totalMarks": number,
-  "obtainedMarks": number,
-  "summaryFeedback": "string of consolidated summary evaluation",
   "details": [
     {
       "questionId": "string (the question's MongoDB _id)",
@@ -109,108 +120,116 @@ Instructions:
     }
   ]
 }`
-      },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Here are the photo captures of my exam answer sheet. Please evaluate them:' },
-          ...session.uploadedImages.map((base64Img: string) => ({
-            type: 'image_url',
-            image_url: {
-              url: base64Img.startsWith('data:') ? base64Img : `data:image/jpeg;base64,${base64Img}`
-            }
-          }))
-        ]
-      }
-    ];
+          },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: `Here is batch ${batchNum} of the exam answer sheet photos. Please evaluate them:` },
+              ...batchImages.map((base64Img: string) => ({
+                type: 'image_url',
+                image_url: {
+                  url: base64Img.startsWith('data:') ? base64Img : `data:image/jpeg;base64,${base64Img}`
+                }
+              }))
+            ]
+          }
+        ];
 
-    let evaluationResult;
-
-    try {
-      const completion = await groq!.chat.completions.create({
-        model: 'llama-3.2-11b-vision-preview',
-        messages: messages as unknown as Parameters<NonNullable<typeof groq>['chat']['completions']['create']>[0]['messages'],
-        response_format: { type: 'json_object' }
-      });
-
-      const responseText = completion.choices[0]?.message?.content || '{}';
-      const parsedResult = JSON.parse(responseText);
-
-      evaluationResult = {
-        totalMarks: parsedResult.totalMarks || totalQuestionsMarks,
-        obtainedMarks: parsedResult.obtainedMarks !== undefined ? parsedResult.obtainedMarks : 0,
-        summaryFeedback: parsedResult.summaryFeedback || 'AI Vision evaluation completed.',
-        details: parsedResult.details || []
-      };
-    } catch (apiError: unknown) {
-      const errMsg = apiError instanceof Error ? apiError.message : String(apiError);
-      console.warn('Vision grading failed or model was decommissioned. Running premium fallback evaluator:', errMsg);
-      
-      try {
-        const fallbackCompletion = await groq!.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an expert university examiner grading written sheets for the engineering/CS subject "${subjectName}".
-Due to a camera/OCR scanner service delay, we are grading the student based on their outlined answers and exam parameters.
-Please evaluate their exam submission and award marks for each question. Be a fair but thorough examiner.
-
-Questions to grade:
-${JSON.stringify(questionsContext)}
-
-Return ONLY a valid JSON object matching this schema:
-{
-  "totalMarks": number,
-  "obtainedMarks": number,
-  "summaryFeedback": "string of consolidated summary evaluation, explaining that vision/camera inputs were evaluated via fallback OCR guidelines.",
-  "details": [
-    {
-      "questionId": "string (the question's MongoDB _id)",
-      "marksAwarded": number,
-      "feedback": "detailed review comments outlining specific mistakes or strengths for this question"
-    }
-  ]
-}`
-            },
-            {
-              role: 'user',
-              content: 'Please evaluate my test submission and compile the graded sheet.'
-            }
-          ],
+        const completion = await groq!.chat.completions.create({
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          messages: batchMessages as any,
           response_format: { type: 'json_object' }
         });
 
-        const responseText = fallbackCompletion.choices[0]?.message?.content || '{}';
+        const responseText = completion.choices[0]?.message?.content || '{}';
         const parsedResult = JSON.parse(responseText);
 
-        evaluationResult = {
-          totalMarks: parsedResult.totalMarks || totalQuestionsMarks,
-          obtainedMarks: parsedResult.obtainedMarks !== undefined ? parsedResult.obtainedMarks : 0,
-          summaryFeedback: parsedResult.summaryFeedback || 'Evaluation compiled via backup OCR criteria.',
-          details: parsedResult.details || []
-        };
-      } catch (fallbackError) {
-        console.error('Fallback evaluation also failed:', fallbackError);
-        evaluationResult = {
-          totalMarks: totalQuestionsMarks,
-          obtainedMarks: Math.round(totalQuestionsMarks * 0.78),
-          summaryFeedback: "AI Vision Evaluation (Fallback Mode): Your answers show good conceptual clarity and step-by-step progress. Scanning completed via backup guidelines.",
-          details: questions.map((q) => ({
-            questionId: String(q._id),
-            marksAwarded: Math.round((q.marks || 10) * 0.78),
-            feedback: `Good attempt on ${q.topic || 'Question'}. Formulas are correctly listed, and final calculation aligns perfectly with the model answer.`
-          }))
-        };
+        if (Array.isArray(parsedResult.details)) {
+          allDetails.push(...parsedResult.details);
+        }
       }
+
+      // Consolidate final grades for all questions in the test session
+      const finalDetails: { questionId: string; marksAwarded: number; feedback: string }[] = [];
+      
+      for (const q of questions) {
+        const qIdStr = String(q._id);
+        const qEvaluations = allDetails.filter((d) => String(d.questionId) === qIdStr);
+
+        if (qEvaluations.length > 0) {
+          // Find evaluation with the highest score
+          let bestEval = qEvaluations[0];
+          for (const evalEntry of qEvaluations) {
+            if (evalEntry.marksAwarded > bestEval.marksAwarded) {
+              bestEval = evalEntry;
+            }
+          }
+
+          // Combine unique feedbacks across page batches
+          const combinedFeedback = qEvaluations
+            .map((e) => e.feedback)
+            .filter((f, idx, self) => f && self.indexOf(f) === idx)
+            .join(' | ');
+
+          finalDetails.push({
+            questionId: qIdStr,
+            marksAwarded: bestEval.marksAwarded,
+            feedback: combinedFeedback || bestEval.feedback || 'Answer evaluated.'
+          });
+        } else {
+          finalDetails.push({
+            questionId: qIdStr,
+            marksAwarded: 0,
+            feedback: 'No solution found for this question in the uploaded pages.'
+          });
+        }
+      }
+
+      const obtainedMarks = finalDetails.reduce((sum, d) => sum + d.marksAwarded, 0);
+
+      // Synthesize overall performance summary using text model
+      let summaryFeedback = '';
+      try {
+        const summaryCompletion = await groq!.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an academic board examiner compiling the final report summary feedback for a student in "${subjectName}".
+Review the question-by-question grades and compile a high-level feedback summary (2-3 sentences) summarizing their strengths and areas of improvement.`
+            },
+            {
+              role: 'user',
+              content: `Grades breakdown:\n${JSON.stringify(finalDetails)}\nTotal Score: ${obtainedMarks} / ${totalQuestionsMarks}`
+            }
+          ]
+        });
+        summaryFeedback = summaryCompletion.choices[0]?.message?.content || 'AI Vision evaluation completed successfully across all uploaded pages.';
+      } catch (e) {
+        console.warn('Summary generation failed, using fallback summary:', e);
+        summaryFeedback = `Exam evaluation successfully compiled across ${imagesToProcess.length} pages. Total score obtained is ${obtainedMarks}/${totalQuestionsMarks}.`;
+      }
+
+      const evaluationResult = {
+        totalMarks: totalQuestionsMarks,
+        obtainedMarks,
+        summaryFeedback,
+        details: finalDetails
+      };
+
+      session.evaluationResult = evaluationResult;
+      session.status = 'completed';
+      session.endedAt = new Date();
+      await session.save();
+
+      return NextResponse.json({ evaluationResult });
+    } catch (apiError: unknown) {
+      const errMsg = apiError instanceof Error ? apiError.message : String(apiError);
+      console.error('Vision grading API request failed:', errMsg);
+      return NextResponse.json({ 
+        error: 'Evaluation service temporarily unavailable. Please verify your connection or try again later.' 
+      }, { status: 503 });
     }
-
-    session.evaluationResult = evaluationResult;
-    session.status = 'completed';
-    session.endedAt = new Date();
-    await session.save();
-
-    return NextResponse.json({ evaluationResult });
   } catch (error) {
     console.error('API Error in /api/ai/evaluate:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';

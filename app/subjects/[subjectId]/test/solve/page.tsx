@@ -214,6 +214,7 @@ function TestSolveContent() {
     if (qId && revealedQuestions[qId] && !solutions[qId] && !solutionsLoading[qId]) {
       fetchSolutionForQuestion(qId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIdx, revealedQuestions, solutions, loading, questions]);
 
   // Listen to window scroll events to toggle Scroll to Top / Bottom buttons
@@ -289,6 +290,7 @@ function TestSolveContent() {
     }, 1000);
 
     return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, sessionId]);
 
   // Anti-cheat event listeners
@@ -615,36 +617,36 @@ function TestSolveContent() {
       <div className="absolute bottom-0 left-10 w-[450px] h-[450px] rounded-full bg-accent/5 blur-[120px] pointer-events-none" />
 
       {/* Timed test header */}
-      <header className="border-b border-border-primary/45 bg-bg-secondary/70 backdrop-blur-xl h-16 px-6 flex items-center justify-between sticky top-0 z-50 shadow-lg shadow-black/5">
-        <div className="flex items-center space-x-4">
-          <span className="font-display font-black text-sm tracking-widest uppercase bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent hover:scale-105 transition-all duration-300 select-none flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-accent animate-pulse" />
-            Exam Arena
+      <header className="border-b border-border-primary/45 bg-bg-secondary/70 backdrop-blur-xl h-16 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50 shadow-lg shadow-black/5">
+        <div className="flex items-center space-x-2 md:space-x-4">
+          <span className="font-display font-black text-xs md:text-sm tracking-widest uppercase bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent hover:scale-105 transition-all duration-300 select-none flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" />
+            <span className="hidden xs:inline">Exam Arena</span>
           </span>
-          <span className="text-border-primary/60">|</span>
-          <nav className="flex items-center space-x-2 text-xs text-text-secondary font-semibold">
+          <span className="text-border-primary/60 hidden xs:inline">|</span>
+          <nav className="flex items-center space-x-1 md:space-x-2 text-[10px] md:text-xs text-text-secondary font-semibold">
             <span>Q. <span className="text-accent font-extrabold">{currentIdx + 1}</span> of <span className="text-text-primary font-extrabold">{questions.length}</span></span>
           </nav>
         </div>
 
         {/* Action Widgets */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-6">
           {/* Timer Countdown Widget */}
-          <div className={`flex items-center space-x-2.5 font-mono text-sm font-bold bg-bg-secondary/40 border px-3.5 py-1.5 rounded-xl shadow-xl transition-all duration-300 ${
+          <div className={`flex items-center space-x-1.5 md:space-x-2.5 font-mono text-xs md:text-sm font-bold bg-bg-secondary/40 border px-2 py-1 md:px-3.5 md:py-1.5 rounded-xl shadow-xl transition-all duration-300 ${
             isTimeCritical 
               ? 'border-red-500 text-red-500 animate-bounce shadow-red-500/10' 
               : isTimeUrgent 
                 ? 'border-yellow-500 text-yellow-500 shadow-yellow-500/10 animate-pulse' 
                 : 'border-accent/25 text-text-primary shadow-accent/5'
           }`}>
-            <Clock className={`w-4 h-4 ${isTimeCritical ? 'text-red-500' : isTimeUrgent ? 'text-yellow-500' : 'text-accent'} animate-pulse`} />
+            <Clock className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isTimeCritical ? 'text-red-500' : isTimeUrgent ? 'text-yellow-500' : 'text-accent'} animate-pulse`} />
             <span>{formatTimer(timeLeft)}</span>
           </div>
 
           {/* Fullscreen focus button */}
           <button
             onClick={toggleFullscreen}
-            className="p-2 rounded-xl border border-border-primary/80 bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary hover:text-text-primary hover:border-accent/40 shadow-sm transition-all duration-300"
+            className="hidden sm:inline-flex p-2 rounded-xl border border-border-primary/80 bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary hover:text-text-primary hover:border-accent/40 shadow-sm transition-all duration-300"
             title={isFullscreen ? 'Exit Focus Mode' : 'Enter Focus Mode'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -655,9 +657,10 @@ function TestSolveContent() {
 
           <button
             onClick={() => handleSubmitExam(false)}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-xs hover:from-rose-600 hover:to-red-700 hover:shadow-lg hover:shadow-rose-500/25 hover:scale-[1.03] active:scale-95 transition-all duration-300 shadow-md border border-rose-400/20"
+            className="px-2.5 py-1.5 sm:px-5 sm:py-2.5 rounded-xl bg-gradient-to-r from-rose-500 to-red-600 text-white font-bold text-[10px] md:text-xs hover:from-rose-600 hover:to-red-700 hover:shadow-lg hover:shadow-rose-500/25 hover:scale-[1.03] active:scale-95 transition-all duration-300 shadow-md border border-rose-400/20"
           >
-            Submit Exam
+            <span className="hidden xs:inline">Submit Exam</span>
+            <span className="xs:hidden">Submit</span>
           </button>
         </div>
       </header>

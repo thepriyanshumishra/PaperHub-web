@@ -63,25 +63,75 @@ function setTextColor(doc: jsPDF, color: RGB) {
   doc.setTextColor(color[0], color[1], color[2]);
 }
 
+/** Strip markdown/LaTeX delimiters to plain readable text for PDF rendering */
+function stripToPlainText(text: string): string {
+  return text
+    // ── LaTeX block math: \[ ... \] → keep content, wrap in newlines
+    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_, inner) => '\n' + inner.trim() + '\n')
+    // ── LaTeX inline math: \( ... \) → keep content
+    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_, inner) => inner.trim())
+    // ── Display math $$ ... $$ → keep content, wrap in newlines
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, inner) => '\n' + inner.trim() + '\n')
+    // ── Inline math $ ... $ → keep content
+    .replace(/\$([^$\n]+?)\$/g, (_, inner) => inner.trim())
+    // ── Code blocks → keep content, mark as code
+    .replace(/```[\w]*\n?([\s\S]*?)```/g, (_, inner) => inner.trim())
+    // ── Headings → keep text, remove # prefix
+    .replace(/^#{1,6}\s+/gm, '')
+    // ── Bold/italic → keep text
+    .replace(/\*\*\*([^*]+)\*\*\*/g, '$1')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*\n]+)\*/g, '$1')
+    .replace(/___([^_]+)___/g, '$1')
+    .replace(/__([^_]+)__/g, '$1')
+    // ── Links → keep label
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    // ── Blockquotes
+    .replace(/^>\s*/gm, '')
+    // ── List bullets
+    .replace(/^[-*+]\s+/gm, '• ')
+    // ── Numbered lists: keep as-is
+    // ── LaTeX common commands: make human-readable
+    .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '($1)/($2)')
+    .replace(/\\sqrt\{([^}]*)\}/g, 'sqrt($1)')
+    .replace(/\\sum_\{([^}]*)\}\^\{([^}]*)\}/g, 'sum($1 to $2)')
+    .replace(/\\int_\{([^}]*)\}\^\{([^}]*)\}/g, 'integral($1 to $2)')
+    .replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')
+    .replace(/\\left\[/g, '[').replace(/\\right\]/g, ']')
+    .replace(/\\left\{/g, '{').replace(/\\right\}/g, '}')
+    .replace(/\\begin\{[^}]+\}/g, '').replace(/\\end\{[^}]+\}/g, '')
+    .replace(/\\cdot/g, '·').replace(/\\times/g, '×').replace(/\\div/g, '÷')
+    .replace(/\\infty/g, '∞').replace(/\\partial/g, '∂').replace(/\\nabla/g, '∇')
+    .replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β').replace(/\\gamma/g, 'γ')
+    .replace(/\\delta/g, 'δ').replace(/\\Delta/g, 'Δ').replace(/\\epsilon/g, 'ε')
+    .replace(/\\theta/g, 'θ').replace(/\\lambda/g, 'λ').replace(/\\mu/g, 'μ')
+    .replace(/\\sigma/g, 'σ').replace(/\\Sigma/g, 'Σ').replace(/\\pi/g, 'π')
+    .replace(/\\omega/g, 'ω').replace(/\\Omega/g, 'Ω').replace(/\\phi/g, 'φ')
+    .replace(/\\psi/g, 'ψ').replace(/\\rho/g, 'ρ').replace(/\\xi/g, 'ξ')
+    .replace(/\\eta/g, 'η').replace(/\\tau/g, 'τ').replace(/\\nu/g, 'ν')
+    .replace(/\\leq/g, '≤').replace(/\\geq/g, '≥').replace(/\\neq/g, '≠')
+    .replace(/\\approx/g, '≈').replace(/\\equiv/g, '≡')
+    .replace(/\\pm/g, '±').replace(/\\mp/g, '∓')
+    .replace(/\\forall/g, '∀').replace(/\\exists/g, '∃')
+    .replace(/\\in/g, '∈').replace(/\\notin/g, '∉')
+    .replace(/\\subset/g, '⊂').replace(/\\supset/g, '⊃')
+    .replace(/\\cup/g, '∪').replace(/\\cap/g, '∩')
+    .replace(/\\rightarrow/g, '→').replace(/\\leftarrow/g, '←')
+    .replace(/\\Rightarrow/g, '⇒').replace(/\\Leftarrow/g, '⇐')
+    .replace(/\\to/g, '→').replace(/\\gets/g, '←')
+    .replace(/\\_\{([^}]*)\}/g, '_$1').replace(/\\\^\{([^}]*)\}/g, '^$1')
+    .replace(/\\_([a-zA-Z0-9])/g, '_$1').replace(/\\\^([a-zA-Z0-9])/g, '^$1')
+    // ── Clean up remaining backslash commands
+    .replace(/\\[a-zA-Z]+\{([^}]*)\}/g, '$1')
+    .replace(/\\[a-zA-Z]+/g, '')
+    // ── Collapse excessive blank lines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** Wrap text to a max width and return lines array */
 function wrapText(doc: jsPDF, text: string, maxWidth: number): string[] {
-  // Strip markdown/LaTeX for clean plain text in PDF
-  const plain = text
-    .replace(/\$\$[\s\S]*?\$\$/g, '[Math Expression]')
-    .replace(/\$[^$\n]+?\$/g, '[math]')
-    .replace(/\\\[[\s\S]*?\\\]/g, '[Math Expression]')
-    .replace(/\\\([\s\S]*?\\\)/g, '[math]')
-    .replace(/```[\s\S]*?```/g, '[Code Block]')
-    .replace(/#{1,6}\s/g, '')
-    .replace(/\*{1,2}([^*]+)\*{1,2}/g, '$1')
-    .replace(/__([^_]+)__/g, '$1')
-    .replace(/\*([^*]+)\*/g, '$1')
-    .replace(/_([^_]+)_/g, '$1')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/>\s/g, '')
-    .replace(/[-*+]\s/g, '• ')
-    .trim();
-
+  const plain = stripToPlainText(text);
   return doc.splitTextToSize(plain, maxWidth) as string[];
 }
 

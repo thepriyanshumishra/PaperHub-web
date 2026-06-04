@@ -13,6 +13,16 @@ export function middleware(req: NextRequest) {
 
   // Rate-limit AI endpoints to prevent abusive API token consumption and protect backend scalability
   if (url.pathname.startsWith('/api/ai')) {
+    // Periodic pruning to prevent memory leak
+    if (rateLimitMap.size > 1000) {
+      const nowTime = Date.now();
+      rateLimitMap.forEach((value, key) => {
+        if (nowTime > value.resetTime) {
+          rateLimitMap.delete(key);
+        }
+      });
+    }
+
     const ip = req.ip || req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'global';
 
     const now = Date.now();

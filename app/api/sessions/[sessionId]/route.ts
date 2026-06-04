@@ -60,6 +60,41 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
     }
     
     if (uploadedImages !== undefined) {
+      if (!Array.isArray(uploadedImages)) {
+        return NextResponse.json({ error: 'Invalid payload: uploadedImages must be an array' }, { status: 400 });
+      }
+
+      const maxPhotos = Math.min(30, Math.max(1, session.questions.length) * 3);
+      if (uploadedImages.length > maxPhotos) {
+        return NextResponse.json({ 
+          error: `Too many images: For this ${session.questions.length}-question test, you can upload at most ${maxPhotos} pages (3 pages per question, capped at 30 pages).` 
+        }, { status: 400 });
+      }
+
+      const base64ImageRegex = /^data:image\/(jpeg|jpg|png|webp);base64,/i;
+      const MAX_BASE64_LENGTH = 14500000; // ~10MB (binary size is roughly length * 0.75)
+
+      for (let i = 0; i < uploadedImages.length; i++) {
+        const img = uploadedImages[i];
+        if (typeof img !== 'string') {
+          return NextResponse.json({ error: `Invalid image at index ${i}: Must be a base64 string` }, { status: 400 });
+        }
+
+        // Validate MIME type structure
+        if (!base64ImageRegex.test(img)) {
+          return NextResponse.json({ 
+            error: `Invalid file type at index ${i}. Only JPEG, PNG, and WEBP image formats are supported.` 
+          }, { status: 400 });
+        }
+
+        // Validate file size limit (10MB)
+        if (img.length > MAX_BASE64_LENGTH) {
+          return NextResponse.json({ 
+            error: `File size too large at index ${i}. Uploaded images must be smaller than 10MB each.` 
+          }, { status: 400 });
+        }
+      }
+
       session.uploadedImages = uploadedImages;
     }
     

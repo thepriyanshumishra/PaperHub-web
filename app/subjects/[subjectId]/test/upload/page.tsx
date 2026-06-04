@@ -12,7 +12,9 @@ import {
   Sparkles, 
   Loader2, 
   FileText, 
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle2,
+  Circle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -47,6 +49,7 @@ function TestUploadContent() {
 
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
   const [evaluating, setEvaluating] = useState(false);
   const [evalProgress, setEvalProgress] = useState(0);
   const [evalMessage, setEvalMessage] = useState('Initializing AI Examiner...');
@@ -69,6 +72,7 @@ function TestUploadContent() {
       })
       .then((data) => {
         if (data.session) {
+          setSession(data.session);
           setLoading(false);
           // If session is already evaluated, redirect to summary
           if (data.session.status === 'completed' && data.session.evaluationResult) {
@@ -114,15 +118,33 @@ function TestUploadContent() {
     if (!files) return;
     setErrorMsg(null);
 
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    const maxAllowedPhotos = Math.min(30, Math.max(1, session?.questions?.length || 1) * 3);
+
+    if (images.length + files.length > maxAllowedPhotos) {
+      setErrorMsg(`Too many pages. For this ${session?.questions?.length || 1}-question test, you can upload at most ${maxAllowedPhotos} pages (3 pages per question, capped at 30 pages).`);
+      return;
+    }
+
     Array.from(files).forEach((file) => {
-      if (!file.type.startsWith('image/')) {
-        setErrorMsg('Only image uploads are allowed.');
+      // 1. Validate MIME type strictly
+      if (!allowedMimeTypes.includes(file.type)) {
+        setErrorMsg('Invalid file type. Only JPEG, PNG, and WEBP images are allowed.');
+        return;
+      }
+
+      // 2. Validate file extension strictly (case-insensitive)
+      const fileNameParts = file.name.split('.');
+      const fileExt = fileNameParts.length > 1 ? fileNameParts.pop()?.toLowerCase() : '';
+      if (!fileExt || !allowedExtensions.includes(fileExt)) {
+        setErrorMsg('Invalid file extension. Only .jpg, .jpeg, .png, and .webp files are allowed.');
         return;
       }
       
-      // Limit file size to 8MB
-      if (file.size > 8 * 1024 * 1024) {
-        setErrorMsg('Images must be smaller than 8MB each.');
+      // 3. Limit file size to 10MB
+      if (file.size > 10 * 1024 * 1024) {
+        setErrorMsg('Images must be smaller than 10MB each.');
         return;
       }
 
@@ -161,6 +183,12 @@ function TestUploadContent() {
   const handleAIRegistration = async () => {
     if (images.length === 0) {
       setErrorMsg('Please upload at least one page of your answer sheet.');
+      return;
+    }
+
+    const maxAllowedPhotos = Math.min(30, Math.max(1, session?.questions?.length || 1) * 3);
+    if (images.length > maxAllowedPhotos) {
+      setErrorMsg(`Too many pages. For this ${session?.questions?.length || 1}-question test, you can upload at most ${maxAllowedPhotos} pages (3 pages per question, capped at 30 pages).`);
       return;
     }
 
@@ -414,25 +442,48 @@ function TestUploadContent() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="max-w-md mx-auto py-20 px-8 rounded-2xl border border-border-primary/80 bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_50px_rgba(0,0,0,0.3)] space-y-8 text-center relative overflow-hidden"
+              className="max-w-md mx-auto py-12 px-8 rounded-2xl border border-border-primary/80 bg-bg-secondary/60 backdrop-blur-sm shadow-[0_0_50px_rgba(0,0,0,0.3)] space-y-6 text-center relative overflow-hidden"
             >
               {/* Pulsing glow under the loader */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-accent/10 rounded-full blur-[40px] pointer-events-none animate-pulse"></div>
 
               <div className="relative z-10 space-y-6">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-accent/5 border border-accent/25 flex items-center justify-center text-accent shadow-md shadow-accent/5">
-                  <Loader2 className="w-8 h-8 animate-spin" />
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-accent/5 border border-accent/25 flex items-center justify-center text-accent shadow-md shadow-accent/5">
+                  <Loader2 className="w-7 h-7 animate-spin" />
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="font-display font-extrabold text-base text-text-primary">Grading In Progress</h3>
                   <p className="text-xs text-text-secondary leading-relaxed max-w-xs mx-auto">
-                    The Llama 3.2 Multimodal Vision Engine is actively scanning your physical sheets to compile detailed grading and feedback.
+                    The Llama 4 Multimodal Vision Engine is actively scanning your physical sheets to compile detailed grading and feedback.
                   </p>
                 </div>
 
+                {/* Progress checklist */}
+                <div className="py-4 border-y border-border-primary/30 text-left space-y-3">
+                  {[
+                    { label: "Uploading Answer Sheets Securely", active: evalProgress >= 10 && evalProgress <= 25, done: evalProgress > 25 },
+                    { label: "Llama 4 Vision OCR Transcription", active: evalProgress > 25 && evalProgress <= 55, done: evalProgress > 55 },
+                    { label: "Validating Calculation Steps", active: evalProgress > 55 && evalProgress <= 80, done: evalProgress > 80 },
+                    { label: "Compiling Rubrics & Feedback", active: evalProgress > 80, done: evalProgress >= 100 }
+                  ].map((step, sIdx) => (
+                    <div key={sIdx} className="flex items-center space-x-3 text-xs">
+                      {step.done ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 stroke-[2.5px] animate-in zoom-in duration-200" />
+                      ) : step.active ? (
+                        <Loader2 className="w-4 h-4 text-accent shrink-0 animate-spin stroke-[2.5px]" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-text-muted shrink-0 stroke-[2px]" />
+                      )}
+                      <span className={`font-medium ${step.done ? 'text-text-secondary line-through opacity-75' : step.active ? 'text-text-primary font-semibold' : 'text-text-muted'}`}>
+                        {step.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
                 {/* Progress bar container */}
-                <div className="space-y-2.5 pt-4">
+                <div className="space-y-2.5">
                   <div className="h-2 w-full rounded-full bg-bg-primary border border-border-primary overflow-hidden relative">
                     <motion.div
                       className="absolute inset-y-0 left-0 bg-accent shadow-[0_0_12px_rgba(124,102,255,0.8)]"
