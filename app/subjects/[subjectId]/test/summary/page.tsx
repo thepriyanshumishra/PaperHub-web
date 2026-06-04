@@ -100,6 +100,7 @@ function TestSummaryContent() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -224,7 +225,6 @@ function TestSummaryContent() {
     }
   };
 
-  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   const handleDownloadPDF = async () => {
     if (generatingPDF) return;
