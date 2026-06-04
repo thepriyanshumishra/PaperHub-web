@@ -38,6 +38,9 @@ export interface IQuestion extends Document {
   sourcePapers: ISourcePaper[];
   cachedSolution?: ICachedSolution;
   humanVerified: boolean;
+  verificationStatus: 'pending' | 'verified' | 'flagged';
+  verificationComment?: string;
+  verifiedBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,6 +84,13 @@ const QuestionSchema = new Schema<IQuestion>(
     sourcePapers: [SourcePaperSchema],
     cachedSolution: CachedSolutionSchema,
     humanVerified: { type: Boolean, default: false },
+    verificationStatus: { 
+      type: String, 
+      enum: ['pending', 'verified', 'flagged'], 
+      default: 'pending' 
+    },
+    verificationComment: { type: String, default: '' },
+    verifiedBy: { type: String },
   },
   { timestamps: true }
 );

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/components/auth-provider';
 import { 
   BookOpen, 
   Sparkles, 
@@ -11,7 +12,12 @@ import {
   Clock, 
   ChevronRight, 
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  User as UserIcon,
+  LogOut,
+  Flame,
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -55,6 +61,8 @@ function AnimatedNumber({ value }: { value: number }) {
 }
 
 export default function Home() {
+  const { user, fbUser, loading: authLoading, logout } = useAuth();
+  
   const [stats, setStats] = useState({
     totalQuestions: 0,
     totalSubjects: 0,
@@ -62,6 +70,22 @@ export default function Home() {
     totalActiveBranches: 0,
   });
 
+  const [localCollege, setLocalCollege] = useState<string | null>(null);
+  const [localBranch, setLocalBranch] = useState<string | null>(null);
+  const [localSemester, setLocalSemester] = useState<string | null>(null);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [loadingSubjects, setLoadingSubjects] = useState(false);
+
+  // Retrieve fallback settings from local storage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setLocalCollege(localStorage.getItem('selectedCollege'));
+      setLocalBranch(localStorage.getItem('selectedBranch'));
+      setLocalSemester(localStorage.getItem('selectedSemester'));
+    }
+  }, []);
+
+  // Fetch real-time ecosystem stats
   useEffect(() => {
     const fetchStats = () => {
       fetch('/api/stats')
@@ -86,6 +110,38 @@ export default function Home() {
     const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch personalized subjects dynamically
+  useEffect(() => {
+    if (authLoading) return;
+
+    const college = user?.profile?.college || localCollege;
+    const branch = user?.profile?.branch || localBranch;
+    const semester = user?.profile?.semester || (localSemester ? Number(localSemester) : null);
+
+    if (college && branch) {
+      setLoadingSubjects(true);
+      const semQuery = semester ? `&semester=${semester}` : '';
+      fetch(`/api/subjects?collegeCode=${college}&branchCode=${branch}${semQuery}`)
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((data) => {
+          setSubjects(data.subjects || []);
+        })
+        .catch((err) => {
+          console.error('Failed to load subjects:', err);
+          setSubjects([]);
+        })
+        .finally(() => setLoadingSubjects(false));
+    } else {
+      setSubjects([]);
+    }
+  }, [user, authLoading, localCollege, localBranch, localSemester]);
+
+  const hasLocalParams = !!(localCollege && localBranch);
+  const isDashboardVisible = (user && user.onboardingCompleted) || (!fbUser && hasLocalParams);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -132,68 +188,257 @@ export default function Home() {
             <a href="#how-it-works" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Blueprint</a>
             <a href="#ai-solving" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">AI Assistant</a>
             <a href="#faq" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">FAQ</a>
-            <Link href="/onboarding" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Explorer</Link>
+            {isDashboardVisible && (
+              <Link href="/onboarding?reset=true" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Reset Setup</Link>
+            )}
           </nav>
           
           <div className="flex items-center space-x-4">
-            <span className="text-xs font-semibold px-2.5 py-1 rounded border border-border-primary text-text-secondary hidden sm:inline-block bg-bg-secondary/40 backdrop-blur-sm">Syllabus Mapped</span>
+            {/* Authenticated user control block */}
+            {authLoading ? (
+              <Loader2 className="w-4 h-4 text-accent animate-spin" />
+            ) : fbUser && user ? (
+              <div className="flex items-center space-x-3.5">
+                {/* Role-based dashboard quick-redirect flags */}
+                {(user.role === 'verifier' || user.role === 'admin' || user.role === 'moderator') && (
+                  <Link 
+                    href="/verifier" 
+                    className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 hover:bg-emerald-500/20 transition-all hidden sm:inline-block"
+                  >
+                    Verifier Dashboard
+                  </Link>
+                )}
+                {(user.role === 'moderator' || user.role === 'admin') && (
+                  <Link 
+                    href="/moderator" 
+                    className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded bg-red-500/10 border border-red-500/25 text-red-500 hover:bg-red-500/20 transition-all hidden sm:inline-block"
+                  >
+                    Moderator Dashboard
+                  </Link>
+                )}
+                
+                {/* Profile Pill */}
+                <div className="flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full border border-border-primary bg-bg-secondary/40">
+                  <UserIcon className="w-3.5 h-3.5 text-accent" />
+                  <span className="hidden sm:inline">{user.profile?.name || user.displayName || 'Explorer'}</span>
+                </div>
+
+                <button 
+                  onClick={() => logout()}
+                  className="p-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <Link 
+                href="/login" 
+                className="text-xs font-bold px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent-hover shadow-sm transition-all"
+              >
+                Sign In
+              </Link>
+            )}
+
             <ThemeToggle />
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-16 md:py-24 flex flex-col justify-center relative z-10">
-        <div className="text-center max-w-3xl mx-auto mb-16 md:mb-24">
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold mb-6 tracking-wide shadow-sm"
-          >
-            <span>Now Live for MMMUT CSE/IT</span>
-            <ChevronRight className="w-3 h-3" />
-          </motion.div>
-
-          <motion.h1
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.1, duration: 0.5 }}
-            className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight sm:leading-none mb-6"
-          >
-            Master Descriptive University Exams, <span className="text-accent dark:gradient-heading">Concept by Concept.</span>
-          </motion.h1>
-
-          <motion.p
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
-            className="text-lg md:text-xl text-text-secondary leading-relaxed mb-10 font-normal"
-          >
-            We transform scattered PDF papers, WhatsApp drive links, and unorganized PYQs into syllabus-mapped practice, exam-like tests, and step-by-step academic explanations.
-          </motion.p>
-
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
-            <Link
-              href="/onboarding?reset=true"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all shadow-md hover:scale-[1.02] flex items-center justify-center space-x-2 group"
+      {/* Hero / Workspace Dynamic Main Panel */}
+      <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-12 md:py-16 flex flex-col justify-center relative z-10">
+        
+        {/* Onboarding Incomplete Warning Box */}
+        {fbUser && user && !user.onboardingCompleted && (
+          <div className="max-w-md w-full mx-auto mb-16 p-8 rounded-3xl border border-accent/20 bg-accent/5 backdrop-blur-md shadow-lg text-center space-y-6">
+            <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mx-auto animate-bounce">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-display font-extrabold text-lg text-text-primary">Personalize Your Syllabus</h3>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                You are registered! Let&apos;s map your college syllabus, subjects, and custom PYQ practice workspace in 30 seconds.
+              </p>
+            </div>
+            <Link 
+              href="/onboarding"
+              className="w-full py-3.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-bold transition-all flex items-center justify-center space-x-2"
             >
-              <span>Get Started</span>
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              <span>Complete Profile Onboarding</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
-            <Link
-              href="/onboarding?demo=true"
-              className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm text-text-primary hover:bg-bg-tertiary transition-all flex items-center justify-center space-x-2 hover:scale-[1.02]"
+          </div>
+        )}
+
+        {/* Dashboard Content OR General Hero */}
+        {isDashboardVisible ? (
+          <div className="space-y-12 py-6">
+            {/* Welcome Header & Gamification Stats */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-8 rounded-3xl border border-border-primary/80 bg-bg-secondary/40 backdrop-blur-md shadow-lg">
+              <div className="space-y-2.5">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent">
+                    {user?.profile?.college || localCollege || 'MMMUT'}
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-bg-primary text-text-secondary border border-border-primary">
+                    {user?.profile?.branch || localBranch || 'CSE'}
+                  </span>
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-bg-primary text-text-secondary border border-border-primary">
+                    Sem {user?.profile?.semester || localSemester || '1'}
+                  </span>
+                </div>
+                <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">
+                  Welcome back, <span className="text-accent">{user?.profile?.name || user?.displayName || 'Explorer'}</span>! 🌟
+                </h2>
+                <p className="text-xs text-text-secondary leading-relaxed max-w-md">
+                  Here is your syllabus-mapped preparation workspace. Select a subject below to view structured PYQs and timed focus tests.
+                </p>
+              </div>
+
+              {/* Gamification Stats */}
+              <div className="flex items-center gap-4 sm:gap-6 self-start lg:self-auto">
+                <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/60 text-center min-w-[95px] shadow-sm flex flex-col justify-between h-22">
+                  <Flame className="w-5 h-5 text-orange-500 mx-auto" />
+                  <div>
+                    <span className="font-display font-black text-sm block">{user?.engagement?.streakCount || 0}</span>
+                    <span className="text-[8px] uppercase tracking-wider text-text-muted font-bold block">Day Streak</span>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/60 text-center min-w-[95px] shadow-sm flex flex-col justify-between h-22">
+                  <Zap className="w-5 h-5 text-yellow-400 mx-auto" />
+                  <div>
+                    <span className="font-display font-black text-sm block">{user?.engagement?.totalXp || 0}</span>
+                    <span className="text-[8px] uppercase tracking-wider text-text-muted font-bold block">Total XP</span>
+                  </div>
+                </div>
+                <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/60 text-center min-w-[95px] shadow-sm flex flex-col justify-between h-22">
+                  <Award className="w-5 h-5 text-accent mx-auto" />
+                  <div>
+                    <span className="font-display font-black text-sm block">{user?.engagement?.sessionsCompleted || 0}</span>
+                    <span className="text-[8px] uppercase tracking-wider text-text-muted font-bold block">Sessions</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Subjects List Grid */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-display font-extrabold text-lg text-text-primary flex items-center space-x-2">
+                  <BookOpen className="w-5 h-5 text-accent" />
+                  <span>Your Subjects</span>
+                </h3>
+                <Link 
+                  href="/onboarding?reset=true" 
+                  className="text-xs font-semibold text-accent hover:underline flex items-center space-x-1"
+                >
+                  <span>Reset syllabus config</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+
+              {loadingSubjects ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[1, 2, 3].map((n) => (
+                    <div key={n} className="animate-pulse border border-border-primary rounded-2xl bg-bg-secondary/40 h-44 p-6 flex flex-col justify-between">
+                      <div className="space-y-2">
+                        <div className="h-4 bg-border-primary rounded w-16" />
+                        <div className="h-5 bg-border-primary rounded w-4/5" />
+                      </div>
+                      <div className="h-8 bg-border-primary rounded w-full" />
+                    </div>
+                  ))}
+                </div>
+              ) : subjects.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {subjects.map((sub) => (
+                    <div 
+                      key={sub._id}
+                      className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-48 hover:border-accent/40 transition-all duration-300 shadow-md group relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/10 transition-all duration-300" />
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-accent bg-accent/5 px-2 py-0.5 rounded border border-accent/15 inline-block mb-3.5">
+                          {sub.code}
+                        </span>
+                        <h4 className="font-display font-extrabold text-sm text-text-primary group-hover:text-accent transition-colors leading-snug line-clamp-2">
+                          {sub.name}
+                        </h4>
+                      </div>
+                      <Link 
+                        href={`/subjects/${sub._id}`}
+                        className="w-full py-2.5 rounded-xl bg-bg-primary hover:bg-bg-tertiary border border-border-primary text-text-primary font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 group-hover:bg-accent group-hover:text-white group-hover:border-transparent shadow-sm"
+                      >
+                        <span>Open Dashboard</span>
+                        <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center border border-dashed border-border-primary rounded-2xl bg-bg-secondary/20">
+                  <p className="text-xs text-text-secondary">No subjects configured in the database for your branch and semester combination.</p>
+                  <Link href="/onboarding?reset=true" className="mt-4 inline-block text-xs font-bold text-accent hover:underline">
+                    Redo Onboarding Setup
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Normal Marketing Hero for Anonymous Guests */
+          <div className="text-center max-w-3xl mx-auto mb-16 md:mb-24">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold mb-6 tracking-wide shadow-sm"
             >
-              <span>Solve Demo Paper</span>
-            </Link>
-          </motion.div>
-        </div>
+              <span>Now Live for MMMUT CSE/IT</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </motion.div>
+
+            <motion.h1
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.5 }}
+              className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight sm:leading-none mb-6"
+            >
+              Master Descriptive University Exams, <span className="text-accent dark:gradient-heading">Concept by Concept.</span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+              className="text-lg md:text-xl text-text-secondary leading-relaxed mb-10 font-normal"
+            >
+              We transform scattered PDF PYQs, WhatsApp drive links, and university papers into syllabus-mapped practice, timed focus exams, and step-by-step academic explanations.
+            </motion.p>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            >
+              <Link
+                href="/login"
+                className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all shadow-md hover:scale-[1.02] flex items-center justify-center space-x-2 group"
+              >
+                <span>Get Started Now</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/onboarding?demo=true"
+                className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm text-text-primary hover:bg-bg-tertiary transition-all flex items-center justify-center space-x-2 hover:scale-[1.02]"
+              >
+                <span>Solve Demo Paper</span>
+              </Link>
+            </motion.div>
+          </div>
+        )}
+
 
         {/* Bento Grid Features */}
         <section id="features" className="scroll-mt-20">

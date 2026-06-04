@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@types/react-syntax-highlighter": "^15.5.13",
+    "firebase": "^12.14.0",
     "framer-motion": "^12.40.0",
     "groq-sdk": "^1.2.0",
     "html2canvas": "^1.4.1",
