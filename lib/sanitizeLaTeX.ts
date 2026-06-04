@@ -254,9 +254,10 @@ function autoWrapMathLines(text: string): string {
     if (isMathLine(line)) {
       const cleaned = cleanMathDelimiters(line);
       if (cleaned.startsWith('$$') && cleaned.endsWith('$$')) {
-        return `\n\n${cleaned}\n\n`;
+        const inner = cleaned.slice(2, -2).trim();
+        return `\n\n$$\n${inner}\n$$\n\n`;
       }
-      return `\n\n$$${cleaned.trim()}$$\n\n`;
+      return `\n\n$$\n${cleaned.trim()}\n$$\n\n`;
     }
     return line;
   });
@@ -285,7 +286,7 @@ function wrapProsemath(prose: string): string {
           const inner = prose.slice(i + 1, j - 1).trim();
           if (hasMathIndicators(inner)) {
             if (needsDisplayBlock(inner)) {
-              result.push(`\n\n$$${inner}$$\n\n`);
+              result.push(`\n\n$$\n${inner}\n$$\n\n`);
             } else {
               result.push(`$${inner}$`);
             }
@@ -310,7 +311,7 @@ function wrapProsemath(prose: string): string {
           const inner = prose.slice(i + 1, j - 1).trim();
           if (hasMathIndicators(inner)) {
             if (needsDisplayBlock(inner)) {
-              result.push(`\n\n$$${inner}$$\n\n`);
+              result.push(`\n\n$$\n${inner}\n$$\n\n`);
             } else {
               result.push(`$${inner}$`);
             }
@@ -621,7 +622,7 @@ function validateAndUnwrapMathErrors(text: string): string {
         }
       });
       if (isDisplay) {
-        return `\n\n$$${cleanedInner}$$\n\n`;
+        return `\n\n$$\n${cleanedInner}\n$$\n\n`;
       }
       return `$${cleanedInner}$`;
     } catch {
@@ -699,7 +700,7 @@ export function sanitizeAILatex(text: string): string {
     .replace(/\\\)/g, () => '$');
 
   // Pre-sanitize: Restore missing backslashes on highly specific math-only keywords globally
-  s = s.replace(/(?<![a-zA-Z\\])(frac|dfrac|tfrac|cfrac|binom|dbinom|tbinom|sqrt|cbrt|mathcal|mathrm|mathbf|mathbb|boldsymbol|bm|partial|nabla|infty)\b/g, '\\$1');
+  s = s.replace(/(?<![a-zA-Z\\])(frac|dfrac|tfrac|cfrac|binom|dbinom|tbinom|sqrt|cbrt|mathcal|mathrm|mathbf|mathbb|boldsymbol|bm|nabla|infty)\b/g, '\\$1');
   s = s.replace(/(?<![a-zA-Z\\])(begin|end)\b\s*\{\s*(matrix|pmatrix|bmatrix|vmatrix|Vmatrix|Bmatrix|cases|dcases|rcases|drcases|array|align|aligned|gather|gathered|split|equation)\*?\s*\}/g, '\\$1{$2}');
 
   // Wrap any LaTeX environments (matrix, aligned, cases, etc.) in $$ block delimiters and strip outer brackets
@@ -758,7 +759,7 @@ export function sanitizeAILatex(text: string): string {
       const isMultiTerm = (mathContent.includes('+') || mathContent.includes('-')) && mathContent.length > 20;
 
       if (hasComplexCommand || hasDerivatives || hasEqualWithLength || isMultiTerm) {
-        return `\n\n$$${mathContent}$$\n\n`;
+        return `\n\n$$\n${mathContent}\n$$\n\n`;
       }
 
       return seg.content;
