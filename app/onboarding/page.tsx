@@ -363,17 +363,14 @@ function OnboardingContent() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 gap-3.5">
-                      {colleges.map((col) => (
+                       {colleges.map((col) => (
                         <button
                           key={col._id}
-                          disabled={!col.isActive}
                           onClick={() => { setSelectedCollege(col.code); setStep(3); }}
                           className={`p-5 rounded-2xl border text-left flex items-start justify-between group transition-all duration-300 relative overflow-hidden ${
-                            col.isActive 
-                              ? selectedCollege === col.code
-                                ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
-                                : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-0.5 hover:bg-bg-secondary'
-                              : 'opacity-50 bg-bg-secondary/30 border-border-primary/50 cursor-not-allowed'
+                            selectedCollege === col.code
+                              ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
+                              : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-0.5 hover:bg-bg-secondary'
                           }`}
                         >
                           <div className="flex items-start space-x-3.5 z-10">
@@ -390,13 +387,11 @@ function OnboardingContent() {
                                 <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-bold uppercase tracking-wider">{col.code}</span>
                               </div>
                               <p className="text-[10px] text-text-secondary">
-                                {col.isActive ? '🟢 Course blueprints & PYQs available' : '🟠 Mapping university syllabus'}
+                                {col.isActive ? '🟢 Course blueprints & PYQs available' : '🟠 Coming Soon: Mapping university syllabus'}
                               </p>
                             </div>
                           </div>
-                          {col.isActive && (
-                            <ChevronRight className="w-4 h-4 text-text-muted mt-3 group-hover:text-accent group-hover:translate-x-0.5 transition-transform" />
-                          )}
+                          <ChevronRight className="w-4 h-4 text-text-muted mt-3 group-hover:text-accent group-hover:translate-x-0.5 transition-transform" />
                         </button>
                       ))}
                     </div>
@@ -414,35 +409,35 @@ function OnboardingContent() {
                   className="grid grid-cols-1 sm:grid-cols-2 gap-4"
                 >
                   {[
-                    { code: 'B.Tech', label: 'Bachelor of Technology', desc: '4-Year Engineering program' },
-                    { code: 'MCA', label: 'Master of Computer Applications', desc: '2-Year Postgraduate computing (Coming Soon)', disabled: true },
-                    { code: 'M.Tech', label: 'Master of Technology', desc: 'Postgraduate specialized research (Coming Soon)', disabled: true },
-                    { code: 'BCA', label: 'Bachelor of Computer Applications', desc: '3-Year undergrad program (Coming Soon)', disabled: true }
+                    { code: 'B.Tech', label: 'Bachelor of Technology', desc: '4-Year Engineering program', isComingSoon: false },
+                    { code: 'MCA', label: 'Master of Computer Applications', desc: '2-Year Postgraduate computing', isComingSoon: true },
+                    { code: 'M.Tech', label: 'Master of Technology', desc: 'Postgraduate specialized research', isComingSoon: true },
+                    { code: 'BCA', label: 'Bachelor of Computer Applications', desc: '3-Year undergrad program', isComingSoon: true }
                   ].map((c) => (
                     <button
                       key={c.code}
-                      disabled={c.disabled}
                       onClick={() => { setSelectedCourse(c.code); setStep(4); }}
                       className={`p-6 rounded-2xl border text-left flex flex-col justify-between h-36 transition-all duration-300 relative overflow-hidden group ${
-                        c.disabled
-                          ? 'opacity-35 bg-bg-secondary/10 border-border-primary/40 cursor-not-allowed filter grayscale'
-                          : selectedCourse === c.code
-                            ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
-                            : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-1 hover:bg-bg-secondary hover:shadow-lg hover:shadow-accent/5'
+                        selectedCourse === c.code
+                          ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
+                          : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-1 hover:bg-bg-secondary hover:shadow-lg hover:shadow-accent/5'
                       }`}
                     >
                       <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none" />
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all ${
-                        c.disabled
-                          ? 'bg-bg-secondary/20 border-border-primary/50 text-text-muted'
-                          : selectedCourse === c.code 
-                            ? 'bg-accent text-white border-transparent' 
-                            : 'bg-bg-primary border-border-primary text-text-secondary group-hover:text-accent group-hover:border-accent/35'
+                        selectedCourse === c.code 
+                          ? 'bg-accent text-white border-transparent' 
+                          : 'bg-bg-primary border-border-primary text-text-secondary group-hover:text-accent group-hover:border-accent/35'
                       }`}>
                         <GraduationCap className="w-4 h-4" />
                       </div>
                       <div>
-                        <h4 className="font-display font-extrabold text-sm text-text-primary group-hover:text-accent transition-colors">{c.code}</h4>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-display font-extrabold text-sm text-text-primary group-hover:text-accent transition-colors">{c.code}</h4>
+                          {c.isComingSoon && (
+                            <span className="text-[8px] font-bold px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-amber-500 uppercase tracking-wide">Soon</span>
+                          )}
+                        </div>
                         <p className="text-[9px] text-text-muted mt-0.5">{c.desc}</p>
                       </div>
                     </button>
@@ -470,14 +465,11 @@ function OnboardingContent() {
                       return (
                         <button
                           key={b._id}
-                          disabled={!b.isActive}
                           onClick={() => { setSelectedBranch(b.code); setStep(5); }}
                           className={`p-6 rounded-2xl border text-left flex flex-col justify-between h-36 transition-all duration-300 relative overflow-hidden group ${
-                            !b.isActive
-                              ? 'opacity-40 bg-bg-secondary/20 border-border-primary/50 cursor-not-allowed'
-                              : selectedBranch === b.code
-                                ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
-                                : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-1 hover:bg-bg-secondary hover:shadow-lg'
+                            selectedBranch === b.code
+                              ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
+                              : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-1 hover:bg-bg-secondary hover:shadow-lg'
                           }`}
                         >
                           <div className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all ${
@@ -487,7 +479,9 @@ function OnboardingContent() {
                           </div>
                           <div>
                             <h4 className="font-display font-extrabold text-xs text-text-primary group-hover:text-accent leading-snug">{b.name}</h4>
-                            <p className="text-[9px] text-green-400 mt-0.5">{b.isActive ? '🟢 Active Syllabus' : 'Soon'}</p>
+                            <p className={`text-[9px] mt-0.5 font-bold ${b.isActive ? 'text-green-400' : 'text-amber-500'}`}>
+                              {b.isActive ? '🟢 Active Syllabus' : '🟠 Coming Soon'}
+                            </p>
                           </div>
                         </button>
                       );
