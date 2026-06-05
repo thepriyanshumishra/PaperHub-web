@@ -118,15 +118,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = (): Promise<void> => {
+    const promise = signInWithPopup(auth, googleProvider);
     setLoading(true);
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      console.error('Google sign-in error:', err);
-      setLoading(false);
-      throw err;
-    }
+    return promise
+      .then(async (result) => {
+        await fetchUserProfile(result.user);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
 
   const loginWithEmail = async (email: string, password: string): Promise<FirebaseUser> => {

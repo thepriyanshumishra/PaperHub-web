@@ -41,14 +41,15 @@ export default function Login() {
     }
   }, [user, fbUser, loading, router]);
 
-  const handleGoogleLogin = async () => {
-    setAuthError(null);
-    setAuthSuccess(null);
-    try {
-      await loginWithGoogle();
-    } catch (err: any) {
-      setAuthError(err.message || 'Failed to authenticate with Google. Please retry.');
-    }
+  const handleGoogleLogin = () => {
+    loginWithGoogle()
+      .then(() => {
+        setAuthError(null);
+        setAuthSuccess(null);
+      })
+      .catch((err: any) => {
+        setAuthError(err.message || 'Failed to authenticate with Google. Please retry.');
+      });
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
