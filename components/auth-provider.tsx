@@ -121,7 +121,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginWithGoogle = async () => {
     setLoading(true);
     try {
-      const { signInWithPopup } = await import('firebase/auth');
       await signInWithPopup(auth, googleProvider);
     } catch (err) {
       console.error('Google sign-in error:', err);
