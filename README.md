@@ -31,6 +31,54 @@ PaperHub transforms scattered PDFs, disorganized WhatsApp PYQs, and random Drive
 
 ---
 
+## 🔒 Launch Hardening & Beta Stabilization
+
+We implemented the following features to prepare PaperHub for 100–500 active beta users:
+
+### 1. 📈 Real & Dynamic Progression Stats
+- Replaced all hardcoded/mock progress statistics (e.g., the mockup `48%` circle and `58 Questions Available`) with dynamic calculations.
+- Solved counts and percentages are fetched from `/api/subjects/[subjectId]/heatmap` and computed against total unit-level question counts in real-time.
+- User profile statistics (attempts, correct questions, accuracy, and challenges) are populated via `/api/users/analytics`.
+
+### 2. 🏫 Onboarding Recovery (College Requests)
+- Added an onboarding escape hatch: if a student's college is not pre-loaded, they can request to add it from the onboarding interface.
+- Created an **Admin College Requests Queue** where administrators can review, approve, or reject submissions, instantly updating the global college directory.
+
+### 3. 🛡️ Upload Security Layer (Magic Bytes Validation)
+- Secured file uploads by verifying binary magic headers (magic bytes) on the server instead of relying on spoofable MIME types or file extensions:
+  - `%PDF-` verification for PDFs.
+  - `PK..` verification for ZIP archives.
+  - Standard byte sequences for images (`JPG`, `PNG`, `WEBP`).
+
+### 4. 📸 Client-Side Photo Compression
+- Solved high-latency uploads of high-resolution student answer photos: answer sheets are drawn onto an HTML5 Canvas, scaled (max width/height 1600px), and compressed to JPEG format (0.75 quality) in the browser before network transfer.
+
+### 5. 🔁 Resilient Vision OCR Retries
+- Created a robust retry layer (`groqRetry`) utilizing exponential backoff (up to 3 attempts) for Llama 4 Vision OCR grading API calls to mitigate network jitter or rate limits.
+- On permanent failure, the session status transitions to `'failed_eval'`, preserving the student's work for manual verifier review.
+
+### 6. ⛓️ ACID Mongoose Transactions
+- Multi-document write operations (awarding XP, logging learning activities, updating streak counters, and incrementing topic-wise solved progress) are wrapped in atomic MongoDB sessions to prevent partial writes.
+
+### 7. 🧼 Anti-XSS Sanitizer
+- Integrated dual-layer HTML stripping and character-escaping sanitizer before writing feedback messages, profile data, or custom suggestions to MongoDB, neutralizing HTML and script injection vectors.
+
+### 8. ⚡ In-Memory Cache Optimization
+- Introduced an in-memory TTL caching mechanism to optimize read performance and prevent database thrashing:
+  - **Leaderboard Cache**: Caches scoped rankings for 2 minutes.
+  - **Recommendations Cache**: Caches AI study suggestions for 5 minutes.
+
+### 9. 🚦 Quotas & Burst Rate Limiting
+- Protected our LLM/Vision APIs from quota exhaustion. Custom rate limiters track and enforce burst and daily quotas:
+  - **AI Chat**: 10 requests/min burst, 100 requests/day.
+  - **AI Evaluation**: 50 evaluations/day.
+  - Reaching limits yields standard `HTTP 429 Too Many Requests` status codes.
+
+### 10. 📊 System Monitor Dashboard
+- Added a high-level operational monitor panel for platform administrators to track system health, user count trends, DAU metrics, feedback categorizations, audit logs, and performance latency scores.
+
+---
+
 ## 🛠️ Technology Stack
 
 | Layer | Technologies |
@@ -50,35 +98,13 @@ PaperHub transforms scattered PDFs, disorganized WhatsApp PYQs, and random Drive
 ```
 paperhub-web/
 ├── app/
-│   ├── api/
-│   │   ├── ai/
-│   │   │   ├── chat/          # Syllabus-scoped Q&A chat (Groq Llama 8B)
-│   │   │   ├── solve/         # Step-by-step solution generation + caching
-│   │   │   ├── explain-step/  # Per-step deep explanation (Groq Llama 70B)
-│   │   │   └── evaluate/      # Llama 4 Vision exam OCR batching & grading endpoint
-│   │   ├── onboarding/        # Onboarding branch/college persistence
-│   │   ├── sessions/          # Practice/test session logs and anti-cheat tracking
-│   │   └── subjects/          # Subject metadata & dynamic question counts
-│   ├── onboarding/            # College/Branch/Semester selection flows
-│   ├── subjects/
-│   │   └── [subjectId]/
-│   │       ├── page.tsx       # Subject dashboard (units, topics, repeated PYQ logs)
-│   │       ├── practice/      # Practice mode carousel, hints, and AI drawer
-│   │       └── test/          # Test wizard, distraction-free environment, upload, and summaries
-│   └── globals.css            # Cozy typography tokens and dark-mode gradients
 ├── components/
-│   ├── math-markdown.tsx      # Multi-parser markdown + KaTeX renderer with Mermaid sanitizer
-│   ├── theme-provider.tsx     # Theme switcher engine
-│   └── theme-toggle.tsx       # Light / Dark mode UI toggle
 ├── lib/
-│   ├── db.ts                  # Singleton Mongoose DB connector
-│   ├── groq.ts                # Groq AI initializer & enablement checks
-│   ├── sanitizeLaTeX.ts       # Server & client LaTeX OCR validation and format correction
-│   ├── generatePDF.ts         # Human-readable LaTeX format rules for plain text output
-│   └── seedData.ts            # Seed database dataset (Colleges, branches, subjects, questions)
-├── models/                    # Mongoose schemas (Session, Chat, Subject, Question...)
+├── models/
+├── Raw Questions/             # Ingestion directory containing syllabus questions
 ├── scripts/
-│   └── seed.ts                # Database seeding script (run once on start)
+│   ├── seed.ts                # Database seeding script (seeds verified questions)
+│   └── runBenchmarks.ts       # AI evaluation benchmark tests
 ├── tailwind.config.ts         # Custom palette configuration
 └── tsconfig.json
 ```
