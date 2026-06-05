@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/components/auth-provider';
 import { 
   ArrowLeft, 
   Camera, 
@@ -22,6 +23,52 @@ interface UploadedImage {
   id: string;
   previewUrl: string;
   base64: string;
+  originalSize: number;
+  compressedSize: number;
+}
+
+function compressImage(file: File, quality = 0.75, maxWidth = 1600): Promise<{ base64: string; compressedSize: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Canvas context not available'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        const stringLength = dataUrl.length - dataUrl.indexOf(',') - 1;
+        const sizeInBytes = Math.round(stringLength * 3 / 4);
+
+        // Recursively lower quality if size still exceeds 300KB
+        if (sizeInBytes > 300 * 1024 && quality > 0.3) {
+          resolve(compressImage(file, quality - 0.15, maxWidth));
+        } else {
+          resolve({ base64: dataUrl, compressedSize: sizeInBytes });
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to load image into Image object'));
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 export default function TestUpload() {
@@ -46,6 +93,7 @@ function TestUploadContent() {
   
   const subjectId = params.subjectId as string;
   const sessionId = searchParams.get('sessionId');
+  const { fbUser, loading: authLoading } = useAuth();
 
   const [images, setImages] = useState<UploadedImage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,34 +107,52 @@ function TestUploadContent() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!sessionId) {
       router.push(`/subjects/${subjectId}`);
       return;
     }
 
+    if (!fbUser) {
+      router.push('/login');
+      return;
+    }
+
     // Verify session
-    fetch(`/api/sessions/${sessionId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Session not found');
-        return res.json();
-      })
-      .then((data) => {
-        if (data.session) {
-          setSession(data.session);
-          setLoading(false);
-          // If session is already evaluated, redirect to summary
-          if (data.session.status === 'completed' && data.session.evaluationResult) {
-            router.push(`/subjects/${subjectId}/test/summary?sessionId=${sessionId}`);
+    fbUser.getIdToken()
+      .then((idToken) => {
+        fetch(`/api/sessions/${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
           }
-        } else {
-          router.push(`/subjects/${subjectId}`);
-        }
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Session not found');
+            return res.json();
+          })
+          .then((data) => {
+            if (data.session) {
+              setSession(data.session);
+              setLoading(false);
+              // If session is already evaluated, redirect to summary
+              if (data.session.status === 'completed' && data.session.evaluationResult) {
+                router.push(`/subjects/${subjectId}/test/summary?sessionId=${sessionId}`);
+              }
+            } else {
+              router.push(`/subjects/${subjectId}`);
+            }
+          })
+          .catch((err) => {
+            console.error('Error verifying upload session:', err);
+            router.push(`/subjects/${subjectId}`);
+          });
       })
       .catch((err) => {
-        console.error('Error verifying upload session:', err);
+        console.error('Error getting id token:', err);
         router.push(`/subjects/${subjectId}`);
       });
-  }, [subjectId, sessionId, router]);
+  }, [subjectId, sessionId, router, fbUser, authLoading]);
 
   // Handle progress animation during AI evaluation
   useEffect(() => {
@@ -148,19 +214,23 @@ function TestUploadContent() {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setImages((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-${Math.random()}`,
-            previewUrl: URL.createObjectURL(file),
-            base64: base64String
-          }
-        ]);
-      };
-      reader.readAsDataURL(file);
+      compressImage(file)
+        .then(({ base64, compressedSize }) => {
+          setImages((prev) => [
+            ...prev,
+            {
+              id: `${Date.now()}-${Math.random()}`,
+              previewUrl: URL.createObjectURL(file),
+              base64,
+              originalSize: file.size,
+              compressedSize
+            }
+          ]);
+        })
+        .catch((err) => {
+          console.error('Failed to compress image:', err);
+          setErrorMsg('Failed to compress answer sheet image.');
+        });
     });
   };
 
@@ -199,10 +269,15 @@ function TestUploadContent() {
     try {
       const base64ImagesOnly = images.map((img) => img.base64);
 
+      const token = await fbUser?.getIdToken();
+
       // 1. Save uploadedImages base64 strings to session in DB
       const sessionUpdateRes = await fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           uploadedImages: base64ImagesOnly
         })
@@ -218,7 +293,10 @@ function TestUploadContent() {
 
       const evaluateRes = await fetch('/api/ai/evaluate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ sessionId })
       });
 
@@ -374,19 +452,34 @@ function TestUploadContent() {
               {/* Preview Grid */}
               {images.length > 0 && (
                 <div className="space-y-4 pt-6 border-t border-border-primary/40">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-text-secondary flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-accent" />
-                      <span>Uploaded Sheets ({images.length} pages)</span>
-                    </h3>
-                    <button
-                      onClick={() => setImages([])}
-                      className="text-[10px] font-bold text-red-500 hover:underline flex items-center space-x-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Clear All</span>
-                    </button>
-                  </div>
+                  {(() => {
+                    const totalOriginal = images.reduce((acc, img) => acc + (img.originalSize || 0), 0);
+                    const totalCompressed = images.reduce((acc, img) => acc + (img.compressedSize || 0), 0);
+                    const totalSavings = totalOriginal - totalCompressed;
+                    const savingsPercent = totalOriginal > 0 ? Math.round((totalSavings / totalOriginal) * 100) : 0;
+                    return (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1 text-left">
+                          <h3 className="font-display font-extrabold text-xs uppercase tracking-wider text-text-secondary flex items-center space-x-2">
+                            <FileText className="w-4 h-4 text-accent" />
+                            <span>Uploaded Sheets ({images.length} pages)</span>
+                          </h3>
+                          {totalOriginal > 0 && (
+                            <span className="inline-block text-[9px] text-green-400 font-extrabold bg-green-500/10 border border-green-500/25 px-2 py-0.5 rounded-md">
+                              ⚡ Compressed: Saved {Math.round(totalSavings / 1024)} KB ({savingsPercent}%)
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => setImages([])}
+                          className="text-[10px] font-bold text-red-500 hover:underline flex items-center space-x-1"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Clear All</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {images.map((img, idx) => (
@@ -407,16 +500,22 @@ function TestUploadContent() {
                             Page {idx + 1}
                           </span>
                         </div>
-                        <div className="p-2 border-t border-border-primary/50 flex justify-between items-center bg-bg-secondary/80 backdrop-blur-sm">
-                          <span className="text-[8px] text-text-muted font-mono truncate max-w-[100px]">Sheet ID: {img.id.split('-')[0]}</span>
-                          <button
-                            type="button"
-                            onClick={() => removeImage(img.id)}
-                            className="p-1.5 rounded-md hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-colors"
-                            title="Remove Page"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                        <div className="p-2 border-t border-border-primary/50 bg-bg-secondary/80 backdrop-blur-sm space-y-1">
+                          <div className="flex justify-between items-center text-[8px] text-text-muted font-mono">
+                            <span>Orig: {Math.round((img.originalSize || 0) / 1024)} KB</span>
+                            <span className="text-green-400 font-bold">New: {Math.round((img.compressedSize || 0) / 1024)} KB</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[8px] text-text-muted font-mono truncate max-w-[100px]">ID: {img.id.split('-')[0]}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeImage(img.id)}
+                              className="p-1 rounded-md hover:bg-red-500/10 text-text-secondary hover:text-red-500 transition-colors"
+                              title="Remove Page"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     ))}

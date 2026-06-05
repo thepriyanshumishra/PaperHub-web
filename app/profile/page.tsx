@@ -49,13 +49,38 @@ export default function ProfilePage() {
   const activeBranch = user?.profile?.branch || localBranch || 'CSE';
   const activeSemester = user?.profile?.semester || 1;
 
-  // Mock metrics based on user engagement
-  const stats = {
-    solved: user?.engagement?.dailyGoalSolved || 12,
-    correct: user?.engagement?.dailyGoalSolved ? Math.round(user.engagement.dailyGoalSolved * 0.8) : 10,
-    accuracy: 83,
-    challenges: user?.engagement?.sessionsCompleted || 4
-  };
+  const [stats, setStats] = useState({
+    solved: 0,
+    correct: 0,
+    accuracy: 0,
+    challenges: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    if (!fbUser) return;
+    setLoadingStats(true);
+    fbUser.getIdToken()
+      .then(token => fetch('/api/users/analytics', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }))
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data && data.metrics) {
+          setStats({
+            solved: data.metrics.questionsAttempted || 0,
+            correct: data.metrics.questionsSolved || 0,
+            accuracy: data.metrics.overallAccuracy || 0,
+            challenges: (data.metrics.totalPracticeSessions || 0) + (data.metrics.totalTestSessions || 0)
+          });
+        }
+      })
+      .catch(err => console.error('Failed to load user profile stats:', err))
+      .finally(() => setLoadingStats(false));
+  }, [fbUser]);
+
+  const dailySolved = user?.engagement?.dailyGoalSolved || 0;
+  const dailyPercent = Math.round((dailySolved / 30) * 100);
 
   return (
     <div className="flex min-h-screen bg-bg-primary text-text-primary overflow-hidden relative">
@@ -123,13 +148,13 @@ export default function ProfilePage() {
             <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary">My Learning Activity</h3>
             <div className="space-y-2">
               <div className="flex justify-between text-[11px] font-bold text-text-secondary">
-                <span>Daily Study Goal ({stats.solved}/30 Questions)</span>
-                <span>{Math.round((stats.solved / 30) * 100)}%</span>
+                <span>Daily Study Goal ({dailySolved}/30 Questions)</span>
+                <span>{dailyPercent}%</span>
               </div>
               <div className="w-full h-2.5 bg-bg-tertiary rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-accent transition-all duration-300"
-                  style={{ width: `${Math.min(100, (stats.solved / 30) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (dailySolved / 30) * 100)}%` }}
                 />
               </div>
             </div>
@@ -146,10 +171,10 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: 'Question Solved', value: stats.solved, icon: HelpCircle, color: 'text-blue-400 bg-blue-500/5 border-blue-500/10' },
-                { label: 'Correct Questions', value: stats.correct, icon: CheckCircle2, color: 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' },
-                { label: 'Average Accuracy', value: `${stats.accuracy}%`, icon: Target, color: 'text-amber-400 bg-amber-500/5 border-amber-500/10' },
-                { label: 'Challenges Taken', value: stats.challenges, icon: Compass, color: 'text-red-400 bg-red-500/5 border-red-500/10' }
+                { label: 'Question Attempted', value: loadingStats ? '...' : stats.solved, icon: HelpCircle, color: 'text-blue-400 bg-blue-500/5 border-blue-500/10' },
+                { label: 'Correct Questions', value: loadingStats ? '...' : stats.correct, icon: CheckCircle2, color: 'text-emerald-400 bg-emerald-500/5 border-emerald-500/10' },
+                { label: 'Average Accuracy', value: loadingStats ? '...' : `${stats.accuracy}%`, icon: Target, color: 'text-amber-400 bg-amber-500/5 border-amber-500/10' },
+                { label: 'Challenges Taken', value: loadingStats ? '...' : stats.challenges, icon: Compass, color: 'text-red-400 bg-red-500/5 border-red-500/10' }
               ].map((item, idx) => {
                 const Icon = item.icon;
                 return (

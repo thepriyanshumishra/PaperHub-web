@@ -77,7 +77,7 @@ function PracticeSolveContent() {
   const sessionId = searchParams.get('sessionId');
 
   // Auth & Database profile
-  const { user, fbUser, refreshProfile } = useAuth();
+  const { user, fbUser, loading: authLoading, refreshProfile } = useAuth();
 
   interface PracticeQuestion {
     _id?: string;
@@ -287,6 +287,8 @@ function PracticeSolveContent() {
 
   // Load configuration and filter questions
   useEffect(() => {
+    if (authLoading) return;
+
     const college = localStorage.getItem('selectedCollege') || 'MMMUT';
     const branch = localStorage.getItem('selectedBranch') || 'CSE';
     const semester = localStorage.getItem('selectedSemester') || '1';
@@ -297,28 +299,44 @@ function PracticeSolveContent() {
       return;
     }
 
-    // Fetch session details from real MongoDB API
-    fetch(`/api/sessions/${sessionId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch session');
-        return res.json();
-      })
-      .then((data) => {
-        if (data.session && data.session.questions) {
-          setQuestions(data.session.questions);
-          setCurrentIdx(data.session.currentQuestionIndex || 0);
-        } else {
-          router.push(`/subjects/${subjectId}`);
-        }
+    if (!fbUser) {
+      router.push('/login');
+      return;
+    }
+
+    // Fetch session details from real MongoDB API with Authorization token
+    fbUser.getIdToken()
+      .then((idToken) => {
+        fetch(`/api/sessions/${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Failed to fetch session');
+            return res.json();
+          })
+          .then((data) => {
+            if (data.session && data.session.questions) {
+              setQuestions(data.session.questions);
+              setCurrentIdx(data.session.currentQuestionIndex || 0);
+            } else {
+              router.push(`/subjects/${subjectId}`);
+            }
+          })
+          .catch((err) => {
+            console.error('Error loading session:', err);
+            router.push(`/subjects/${subjectId}`);
+          })
+          .finally(() => {
+            setLoading(false);
+          });
       })
       .catch((err) => {
-        console.error('Error loading session:', err);
+        console.error('Error getting id token:', err);
         router.push(`/subjects/${subjectId}`);
-      })
-      .finally(() => {
-        setLoading(false);
       });
-  }, [subjectId, sessionId, router]);
+  }, [subjectId, sessionId, router, fbUser, authLoading]);
 
   // Load current bookmarks & personal notes from authenticated user context
   useEffect(() => {
@@ -406,51 +424,41 @@ function PracticeSolveContent() {
     playSoundEffect('click');
 
     try {
-      const prompt = `You are a strict university sessional exam grader. Evaluate the student's solution attempt for this question:
-Question: "${currentQuestion.questionText}"
-Student Attempt: "${userAttempt}"
+      const token = await fbUser?.getIdToken();
+      const localDateStr = new Date().toISOString().split('T')[0];
 
-Compare it to correct textbook solution concepts.
-Grade their accuracy as a percentage score between 0 and 100.
-Provide brief, highly constructive feedback (1-2 sentences) about their attempt.
-Return your evaluation strictly in the following JSON format:
-{
-  "accuracy": number,
-  "feedback": "string"
-}
-Output only the JSON. Do not write any markdown code blocks, explanations, or anything else outside the JSON.`;
-
-      const res = await fetch('/api/ai/chat', {
+      const res = await fetch(`/api/sessions/${sessionId}/practice-grade`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          userId: localStorage.getItem('anonymousUserId') || 'guest',
           questionId: currentQuestion._id,
-          message: prompt,
-          history: []
+          userAttempt,
+          localDateStr
         })
       });
 
+      if (!res.ok) {
+        throw new Error('API server returned a non-200 status');
+      }
+
       const data = await res.json();
-      let cleanedReply = data.reply || '{}';
-      cleanedReply = cleanedReply.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const result = JSON.parse(cleanedReply);
-      
-      const accuracy = typeof result.accuracy === 'number' ? result.accuracy : 50;
-      const feedback = result.feedback || 'AI verification completed successfully.';
+      const { accuracy, feedback } = data.evaluation;
 
       setEvaluationResult({ accuracy, feedback });
       setHasCheckedAnswer(true);
 
       if (accuracy >= 70) {
         playSoundEffect('success');
-        await awardXpAndProgress(15);
       } else {
         playSoundEffect('failure');
         await logIncorrectAttempt();
       }
+      refreshProfile();
     } catch (err) {
-      console.error("AI Attempt evaluation parser failed, using heuristic fallback:", err);
+      console.error("AI Attempt evaluation failed, using heuristic fallback:", err);
       const fallbackAccuracy = userAttempt.length > 30 ? 80 : 40;
       const result = {
         accuracy: fallbackAccuracy,
@@ -462,37 +470,12 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
       setHasCheckedAnswer(true);
       if (fallbackAccuracy >= 70) {
         playSoundEffect('success');
-        await awardXpAndProgress(15);
       } else {
         playSoundEffect('failure');
         await logIncorrectAttempt();
       }
     } finally {
       setEvaluationLoading(false);
-    }
-  };
-
-  // DB XP & Daily goals solved helper
-  const awardXpAndProgress = async (xpAmount: number) => {
-    if (!user) return;
-    try {
-      const updatedEngagement = {
-        ...user.engagement,
-        totalXp: (user.engagement.totalXp || 0) + xpAmount,
-        dailyGoalSolved: (user.engagement.dailyGoalSolved || 0) + 1,
-      };
-      const token = await fbUser?.getIdToken();
-      await fetch('/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ engagement: updatedEngagement })
-      });
-      refreshProfile();
-    } catch (err) {
-      console.error("Failed to update user engagement XP:", err);
     }
   };
 
@@ -585,11 +568,15 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
 
     setHintLoading(true);
     try {
+      const token = await fbUser?.getIdToken();
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          userId: localStorage.getItem('anonymousUserId') || 'guest',
+          userId: user?._id || 'student',
           questionId: currentQuestion._id,
           message: "Please give me a short, highly conceptual hint for this question that helps me solve it on my own without writing down the direct final answer. Format equations in LaTeX.",
           history: []
@@ -680,12 +667,16 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
       });
     }, 100);
 
-    fetch(`/api/ai/solve?questionId=${currentQuestion._id}`)
-      .then((res) => {
+    const getAiSolve = async () => {
+      try {
+        const token = await fbUser?.getIdToken();
+        const res = await fetch(`/api/ai/solve?questionId=${currentQuestion._id}`, {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          }
+        });
         if (!res.ok) throw new Error('API server returned a non-200 status');
-        return res.json();
-      })
-      .then((data) => {
+        const data = await res.json();
         clearInterval(interval);
         setSolutionProgress(100);
         setTimeout(() => {
@@ -697,17 +688,18 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
           setSolutionLoading(false);
           setSolutionVisible(true);
         }, 300);
-      })
-      .catch((err: unknown) => {
+      } catch (err: any) {
         clearInterval(interval);
         setSolutionProgress(100);
         setTimeout(() => {
-          setSolutionError((err as Error).message || "MongoDB/Groq API server returned an error.");
+          setSolutionError(err.message || "MongoDB/Groq API server returned an error.");
           setActiveSolution(null);
           setSolutionLoading(false);
           setSolutionVisible(false);
         }, 300);
-      });
+      }
+    };
+    getAiSolve();
   };
 
   const handleExplainStep = (stepNumber: number, stepText: string, event: React.MouseEvent) => {
@@ -719,28 +711,34 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
     setStepExplanationLoading(true);
     setStepExplanation(null);
 
-    fetch('/api/ai/explain-step', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        questionId: currentQuestion._id,
-        stepNumber,
-        stepText,
-        subjectId,
-        fallbackContext: {
-          solutionType: activeSolution?.type
-        }
-      })
-    })
-      .then((res) => res.json())
-      .then((data) => {
+    const getExplainStep = async () => {
+      try {
+        const token = await fbUser?.getIdToken();
+        const res = await fetch('/api/ai/explain-step', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            questionId: currentQuestion._id,
+            stepNumber,
+            stepText,
+            subjectId,
+            fallbackContext: {
+              solutionType: activeSolution?.type
+            }
+          })
+        });
+        const data = await res.json();
         setStepExplanation(data.explanation);
         setStepExplanationLoading(false);
-      })
-      .catch(() => {
+      } catch {
         setStepExplanation("Failed to load step explanation from server.");
         setStepExplanationLoading(false);
-      });
+      }
+    };
+    getExplainStep();
   };
 
   const handleAskAi = () => {
@@ -765,11 +763,15 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
     setChatLoading(true);
 
     try {
+      const token = await fbUser?.getIdToken();
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          userId: localStorage.getItem('anonymousUserId') || 'guest',
+          userId: user?._id || 'student',
           questionId: currentQuestion._id,
           message: userMsg,
           history: chatMessages
@@ -784,6 +786,23 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
     }
   };
 
+  const completeSession = async () => {
+    try {
+      const token = await fbUser?.getIdToken();
+      await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'completed' })
+      });
+      refreshProfile();
+    } catch (err) {
+      console.error("Failed to complete practice session:", err);
+    }
+  };
+
   const nextQuestion = () => {
     if (currentIdx < questions.length - 1) {
       setCurrentIdx(currentIdx + 1);
@@ -795,6 +814,7 @@ Output only the JSON. Do not write any markdown code blocks, explanations, or an
       setChatMessages([]);
     } else {
       setIsCompleted(true);
+      completeSession();
     }
   };
 

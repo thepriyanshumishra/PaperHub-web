@@ -3,55 +3,56 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── Light Mode: Warm Cream + Orange ─────────────────────────────────────── */
   :root {
-    --bg-primary: 24 45% 97%;      /* #FFF8F4 (Warm peach off-white) */
-    --bg-secondary: 24 40% 95%;    /* #FFF6F1 */
-    --bg-tertiary: 24 35% 92%;     /* #FFF1E6 */
-    --text-primary: 24 10% 15%;    /* #2D2926 (Charcoal/brown warm black) */
-    --text-secondary: 24 8% 40%;   /* Softer text */
-    --text-muted: 24 5% 60%;
-    --border-primary: 24 10% 86%;  /* #E5E0DB */
-    --accent: 18 85% 58%;          /* Premium warm coral red */
-    --accent-hover: 18 85% 48%;
+    --bg-primary:    30 40% 96%;     /* #F9F3EC — warm cream base */
+    --bg-secondary:  30 35% 92%;     /* #F2E8DC — slightly deeper cream card */
+    --bg-tertiary:   30 30% 87%;     /* #E8D9C8 — input / hover surface */
+    --text-primary:  22 30% 12%;     /* #231A10 — rich warm dark brown */
+    --text-secondary:22 15% 38%;     /* #6B5644 — warm mid-tone */
+    --text-muted:    22 10% 58%;     /* #9E8F82 — muted warm grey */
+    --border-primary:28 20% 82%;     /* #DDD0C0 — warm cream border */
+    --accent:        24 92% 52%;     /* #F97316 — vibrant warm orange */
+    --accent-hover:  24 92% 43%;     /* #C05A0A — deeper orange */
   }
 
+  /* ─── Dark Mode: Deep Midnight Violet ──────────────────────────────────────── */
   .dark {
-    --bg-primary: 244 50% 3.5%;      /* #05040a (Exquisite Deep Midnight Violet) */
-    --bg-secondary: 244 40% 7.5%;     /* #0c0b16 (Rich Dark Purple/Indigo Card Background) */
-    --bg-tertiary: 244 30% 11.5%;    /* #141223 (Lighter Violet/Purple Input background) */
-    --text-primary: 240 25% 97%;     /* #f6f6f9 (Luminous Lilac-White) */
-    --text-secondary: 226 20% 78%;   /* #b9c3d9 (Lavender Muted text) */
-    --text-muted: 226 12% 58%;       /* #818ba0 (Muted Slate Purple text) */
-    --border-primary: 244 25% 15%;   /* #1e1b33 (Elegant Dark Violet Border) */
-    --accent: 250 85% 68%;           /* #7c66ff (Neon Purple Accent) */
-    --accent-hover: 250 85% 58%;     /* #5a3eff */
+    --bg-primary:    244 50% 3.5%;   /* #05040a — deep midnight violet */
+    --bg-secondary:  244 40% 7.5%;   /* #0c0b16 — card background */
+    --bg-tertiary:   244 30% 11.5%;  /* #141223 — input background */
+    --text-primary:  240 25% 97%;    /* #f6f6f9 — luminous lilac-white */
+    --text-secondary:226 20% 78%;    /* #b9c3d9 — lavender muted */
+    --text-muted:    226 12% 58%;    /* #818ba0 — slate purple muted */
+    --border-primary:244 25% 15%;    /* #1e1b33 — dark violet border */
+    --accent:        250 85% 68%;    /* #7c66ff — neon purple */
+    --accent-hover:  250 85% 58%;    /* #5a3eff */
   }
 
   body {
     background-color: hsl(var(--bg-primary));
     color: hsl(var(--text-primary));
-    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:
+      background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
 
-/* Custom premium scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border-primary));
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--text-muted));
-}
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: hsl(var(--border-primary)); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--text-muted)); }
 
-/* MathJax — display (block) equations */
+.scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ─── Dark mode: scrollbar tweak ──────────────────────────────────────────── */
+.dark ::-webkit-scrollbar-thumb { background: hsl(var(--border-primary) / 1); }
+
+/* ─── MathJax ───────────────────────────────────────────────────────────────── */
 mjx-container[display="true"] {
   display: block !important;
   overflow-x: auto;
@@ -64,23 +65,56 @@ mjx-container[display="true"] {
   border-radius: 12px;
   border: 1px solid hsl(var(--border-primary) / 0.5);
 }
+.dark mjx-container[display="true"] { background-color: rgba(255, 255, 255, 0.02); }
+mjx-container:not([display="true"]) { font-size: 1.05em; padding: 0 3px; color: hsl(var(--accent)); }
 
-.dark mjx-container[display="true"] {
-  background-color: rgba(255, 255, 255, 0.02);
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES — Cream + Orange
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Sidebar background in light mode */
+html:not(.dark) aside,
+html:not(.dark) .sidebar-bg {
+  background-color: hsl(30 35% 90%) !important;
+  border-color: hsl(28 20% 78%) !important;
 }
 
-/* MathJax — general inline */
-mjx-container:not([display="true"]) {
-  font-size: 1.05em;
-  padding: 0 3px;
-  color: hsl(var(--accent)); /* Slightly highlight inline variables */
+/* Sidebar active nav item */
+html:not(.dark) .sidebar-active {
+  background-color: hsl(24 92% 52% / 0.12) !important;
+  border-color: hsl(24 92% 52% / 0.30) !important;
+  color: hsl(24 92% 38%) !important;
 }
 
-/* Premium midnight-purple design enhancements inspired by student.mmmut.xyz */
+/* Upgrade card in light mode */
+html:not(.dark) .upgrade-card {
+  background: linear-gradient(135deg, hsl(30 50% 88%), hsl(28 45% 84%)) !important;
+  border-color: hsl(24 60% 75%) !important;
+}
+
+/* Streak card in light mode */
+html:not(.dark) .streak-card {
+  background-color: hsl(30 35% 88%) !important;
+  border-color: hsl(28 20% 76%) !important;
+}
+
+/* Primary accent button — light mode */
+.bg-accent {
+  background-color: hsl(var(--accent)) !important;
+  color: white !important;
+  box-shadow: 0 4px 14px hsl(24 92% 52% / 0.30) !important;
+}
+.bg-accent:hover {
+  background-color: hsl(var(--accent-hover)) !important;
+  box-shadow: 0 6px 20px hsl(24 92% 52% / 0.40) !important;
+  transform: translateY(-1px);
+}
+
+/* Dark mode: purple gradient buttons */
 .dark .bg-accent {
   background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%) !important;
   border: none !important;
-  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.30) !important;
 }
 .dark .bg-accent:hover {
   background: linear-gradient(135deg, #5f52ff 0%, #a855f7 100%) !important;
@@ -91,35 +125,49 @@ mjx-container:not([display="true"]) {
   background: linear-gradient(135deg, #5f52ff 0%, #a855f7 100%) !important;
 }
 
-/* Custom premium scrollbar in dark mode */
-.dark ::-webkit-scrollbar-thumb {
-  background: hsl(var(--border-primary) / 1);
-}
-
-/* Glassmorphism card shadows & borders */
+/* Card backgrounds */
 .dark .bg-bg-secondary {
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4) !important;
   background-color: hsl(var(--bg-secondary)) !important;
 }
-
 .dark .border-border-primary {
   border-color: hsl(var(--border-primary) / 0.85) !important;
 }
 
-/* Gorgeous glowing gradient badges for units and subheadings */
+/* Light mode cards get warm shadows */
+html:not(.dark) .bg-bg-secondary {
+  box-shadow: 0 2px 16px hsl(24 30% 60% / 0.10) !important;
+}
+
+/* Badge — light mode warm orange tint */
+.badge-premium {
+  background: hsl(24 92% 52% / 0.10) !important;
+  border: 1px solid hsl(24 92% 52% / 0.28) !important;
+  color: hsl(24 92% 38%) !important;
+}
 .dark .badge-premium {
   background: rgba(124, 102, 255, 0.08) !important;
   border: 1px solid rgba(124, 102, 255, 0.25) !important;
   color: #a855f7 !important;
 }
 
+/* Gradient heading */
+.gradient-heading {
+  background: linear-gradient(135deg, hsl(24 92% 48%) 0%, hsl(14 90% 55%) 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
 .dark .gradient-heading {
   background: linear-gradient(135deg, #60a5fa 0%, #c084fc 100%) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
 
-/* Soft glowing glow borders for hover state of active elements */
+/* Glow hover — light mode: warm orange glow */
+.glow-hover:hover {
+  border-color: hsl(24 92% 52% / 0.45) !important;
+  box-shadow: 0 0 15px hsl(24 92% 52% / 0.12) !important;
+}
 .dark .glow-hover:hover {
   border-color: rgba(124, 102, 255, 0.5) !important;
   box-shadow: 0 0 15px rgba(124, 102, 255, 0.15) !important;

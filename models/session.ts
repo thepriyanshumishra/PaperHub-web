@@ -23,7 +23,7 @@ export interface ISession extends Document {
   userId: string; // Anonymous UUID
   subjectId: mongoose.Types.ObjectId;
   type: 'practice' | 'test';
-  subType: 'topic' | 'unit' | 'syllabus' | 'custom';
+  subType: 'topic' | 'unit' | 'syllabus' | 'custom' | 'minor' | 'major';
   config: {
     units: number[];
     topics: string[];
@@ -35,7 +35,7 @@ export interface ISession extends Document {
   testAnalytics: ISessionTestAnalytics;
   startedAt: Date;
   endedAt?: Date;
-  status: 'active' | 'completed';
+  status: 'active' | 'completed' | 'failed_eval';
   evaluationMethod?: 'self' | 'photo';
   testResponses?: ITestResponse[];
   uploadedImages?: string[]; // Array of base64 image strings
@@ -47,8 +47,22 @@ export interface ISession extends Document {
       questionId: string;
       marksAwarded: number;
       feedback: string;
+      status?: 'completed' | 'needs_review' | 'reviewed';
+      confidence?: number;
+      reasoning?: string;
+      missingPoints?: string[];
+      originalAnswer?: string;
+      reviewerComment?: string;
+      reviewedBy?: string;
+      reviewedAt?: Date;
     }[];
   };
+  blueprintId?: mongoose.Types.ObjectId;
+  isExamMode?: boolean;
+  examDuration?: number; // in seconds
+  timeRemaining?: number; // in seconds
+  timerLastSyncedAt?: Date;
+  seed?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -77,7 +91,7 @@ const SessionSchema = new Schema<ISession>(
     userId: { type: String, required: true, index: true },
     subjectId: { type: Schema.Types.ObjectId, ref: 'Subject', required: true, index: true },
     type: { type: String, enum: ['practice', 'test'], required: true },
-    subType: { type: String, enum: ['topic', 'unit', 'syllabus', 'custom'], required: true },
+    subType: { type: String, enum: ['topic', 'unit', 'syllabus', 'custom', 'minor', 'major'], required: true },
     config: {
       units: [{ type: Number }],
       topics: [{ type: String }],
@@ -89,7 +103,7 @@ const SessionSchema = new Schema<ISession>(
     testAnalytics: { type: SessionTestAnalyticsSchema, default: () => ({}) },
     startedAt: { type: Date, default: Date.now },
     endedAt: { type: Date },
-    status: { type: String, enum: ['active', 'completed'], default: 'active' },
+    status: { type: String, enum: ['active', 'completed', 'failed_eval'], default: 'active' },
     evaluationMethod: { type: String, enum: ['self', 'photo'], default: 'self' },
     testResponses: [TestResponseSchema],
     uploadedImages: [{ type: String }],
@@ -101,11 +115,46 @@ const SessionSchema = new Schema<ISession>(
         questionId: { type: String },
         marksAwarded: { type: Number },
         feedback: { type: String },
+        status: { type: String, enum: ['completed', 'needs_review', 'reviewed'], default: 'completed' },
+        confidence: { type: Number },
+        reasoning: { type: String },
+        missingPoints: [{ type: String }],
+        originalAnswer: { type: String },
+        reviewerComment: { type: String },
+        reviewedBy: { type: String },
+        reviewedAt: { type: Date },
       }],
     },
+    blueprintId: { type: Schema.Types.ObjectId, ref: 'TestBlueprint' },
+    isExamMode: { type: Boolean, default: false },
+    examDuration: { type: Number },
+    timeRemaining: { type: Number },
+    timerLastSyncedAt: { type: Date },
+    seed: { type: Number },
   },
   { timestamps: true }
 );
 
 const Session: Model<ISession> = mongoose.models.Session || mongoose.model<ISession>('Session', SessionSchema);
+
+SessionSchema.index({ userId: 1, type: 1, status: 1 });
+
+export function syncSessionTimer(session: any) {
+  if (session.status !== 'active' || !session.isExamMode) return;
+
+  const now = new Date();
+  const lastSync = session.timerLastSyncedAt || session.startedAt || now;
+  const elapsedSeconds = Math.floor((now.getTime() - new Date(lastSync).getTime()) / 1000);
+
+  if (elapsedSeconds > 0) {
+    session.timeRemaining = Math.max(0, (session.timeRemaining ?? 3600) - elapsedSeconds);
+    session.timerLastSyncedAt = now;
+
+    if (session.timeRemaining <= 0) {
+      session.status = 'completed';
+      session.endedAt = now;
+    }
+  }
+}
+
 export default Session;

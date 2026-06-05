@@ -11,6 +11,7 @@ const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mo
 });
 
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/components/auth-provider';
 import {
   ArrowLeft,
   Award,
@@ -94,6 +95,7 @@ function TestSummaryContent() {
 
   const subjectId = params.subjectId as string;
   const sessionId = searchParams.get('sessionId');
+  const { fbUser, loading: authLoading } = useAuth();
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,32 +103,52 @@ function TestSummaryContent() {
   const [shared, setShared] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+
     if (!sessionId) {
       setErrorMsg('No active test session ID provided.');
       setLoading(false);
       return;
     }
 
-    fetch(`/api/sessions/${sessionId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Session details could not be retrieved');
-        return res.json();
-      })
-      .then((data) => {
-        if (data.session) {
-          setSession(data.session);
-        } else {
-          setErrorMsg('Session not found on DB.');
-        }
+    if (!fbUser) {
+      setErrorMsg('Unauthorized: Please log in.');
+      setLoading(false);
+      return;
+    }
+
+    fbUser.getIdToken()
+      .then((idToken) => {
+        fetch(`/api/sessions/${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Session details could not be retrieved');
+            return res.json();
+          })
+          .then((data) => {
+            if (data.session) {
+              setSession(data.session);
+            } else {
+              setErrorMsg('Session not found on DB.');
+            }
+          })
+          .catch((err) => {
+            console.error('Error fetching session summary:', err);
+            setErrorMsg('Failed to sync session with database.');
+          })
+          .finally(() => {
+            setLoading(false);
+          });
       })
       .catch((err) => {
-        console.error('Error fetching session summary:', err);
-        setErrorMsg('Failed to sync session with database.');
-      })
-      .finally(() => {
+        console.error('Error getting id token:', err);
+        setErrorMsg('Failed to authenticate request.');
         setLoading(false);
       });
-  }, [sessionId]);
+  }, [sessionId, fbUser, authLoading]);
 
   if (loading) {
     return (

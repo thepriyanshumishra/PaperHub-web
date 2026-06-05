@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
+import University from '../models/university';
 import College from '../models/college';
+import Course from '../models/course';
 import Branch from '../models/branch';
 import Subject from '../models/subject';
 import Question from '../models/question';
@@ -131,15 +133,12 @@ function cleanQuestionText(str: string): string {
 }
 
 function parseMarkdownFile(fileContent: string): ParsedPaper[] {
-  // Split the file by "# Paper Metadata" to get individual paper sections
-  // Note: We search for optional dashes/newlines before the header
   const sections = fileContent.split(/(?:^|\n)(?:---\s*)?# Paper Metadata\s*\n/);
   const parsedPapers: ParsedPaper[] = [];
 
   for (const section of sections) {
     if (!section.trim()) continue;
 
-    // Split section into metadata/syllabus and questions
     const questionStartIndex = section.search(/(?:^|\n)# Question\s+/i);
     let paperPart = section;
     let questionsPart = '';
@@ -149,7 +148,6 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
       questionsPart = section.substring(questionStartIndex);
     }
 
-    // 1. Parse Paper Metadata
     const metadata: Record<string, string> = {};
     const paperLines = paperPart.split('\n');
     for (const line of paperLines) {
@@ -161,13 +159,11 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
       }
     }
 
-    // 2. Parse Syllabus Mapping
     const syllabus: ParsedUnit[] = [];
     let currentUnit: ParsedUnit | null = null;
     let inTopics = false;
 
     for (const line of paperLines) {
-      // Matches unit headers: "## Unit 1 — Basics", "## Unit 2 : Arrays"
       const unitMatch = line.match(/^##\s+Unit\s+(\d+)\s*[—:-]\s*(.*)$/i);
       if (unitMatch) {
         const unitNumber = parseInt(unitMatch[1], 10);
@@ -193,13 +189,11 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
         }
       }
 
-      // If we see another heading, stop reading topics
       if (line.startsWith('##') || line.startsWith('# ')) {
         inTopics = false;
       }
     }
 
-    // 3. Parse Questions
     const questionBlocks = questionsPart.split(/(?=\n# Question\s+)/i).filter(Boolean);
     const questions: ParsedQuestion[] = [];
 
@@ -283,62 +277,123 @@ async function seed() {
   try {
     console.log('Connecting to database...');
     await mongoose.connect(MONGODB_URI!, { autoSelectFamily: false });
-    console.log('Connected successfully.');
-
-    // Clear existing collection data
-    console.log('Clearing existing collections...');
+    console.log('Clearing existing collections and indexes...');
+    try { await University.collection.dropIndexes(); } catch (e) {}
+    await University.deleteMany({});
+    
+    try { await College.collection.dropIndexes(); } catch (e) {}
     await College.deleteMany({});
+    
+    try { await Course.collection.dropIndexes(); } catch (e) {}
+    await Course.deleteMany({});
+    
+    try { await Branch.collection.dropIndexes(); } catch (e) {}
     await Branch.deleteMany({});
+    
+    try { await Subject.collection.dropIndexes(); } catch (e) {}
     await Subject.deleteMany({});
+    
+    try { await Question.collection.dropIndexes(); } catch (e) {}
     await Question.deleteMany({});
     console.log('Collections cleared.');
 
-    // 1. Seed base Colleges
-    console.log('Seeding colleges...');
-    const mmmut = await College.create({
+    // 1. Seed Universities
+    console.log('Seeding universities...');
+    const mmmutUniv = await University.create({
       name: "Madan Mohan Malaviya University of Technology",
       code: "MMMUT",
       isActive: true,
     });
-    // Placeholder colleges (marked inactive / Coming Soon)
-    const aktu = await College.create({
+    const aktuUniv = await University.create({
+      name: "Dr. A.P.J. Abdul Kalam Technical University",
+      code: "AKTU",
+      isActive: true,
+    });
+    const hbtuUniv = await University.create({
+      name: "Harcourt Butler Technical University",
+      code: "HBTU",
+      isActive: true,
+    });
+
+    // 2. Seed Colleges linked to parent Universities
+    console.log('Seeding colleges...');
+    const mmmutCol = await College.create({
+      universityId: mmmutUniv._id,
+      name: "Madan Mohan Malaviya University of Technology",
+      code: "MMMUT",
+      isActive: true,
+    });
+    const aktuCol = await College.create({
+      universityId: aktuUniv._id,
       name: "Dr. A.P.J. Abdul Kalam Technical University",
       code: "AKTU",
       isActive: false,
     });
-    const hbtu = await College.create({
+    const hbtuCol = await College.create({
+      universityId: hbtuUniv._id,
       name: "Harcourt Butler Technical University",
       code: "HBTU",
       isActive: false,
     });
 
-    // 2. Seed base Branches under MMMUT
+    // 3. Seed Courses linked to Universities
+    console.log('Seeding courses...');
+    const mmmutBtech = await Course.create({
+      universityId: mmmutUniv._id,
+      name: "Bachelor of Technology",
+      code: "B.TECH",
+      durationYears: 4,
+      maxSemesters: 8,
+      isBranchRequired: true,
+      isActive: true,
+    });
+    const aktuBtech = await Course.create({
+      universityId: aktuUniv._id,
+      name: "Bachelor of Technology",
+      code: "B.TECH",
+      durationYears: 4,
+      maxSemesters: 8,
+      isBranchRequired: true,
+      isActive: false,
+    });
+    const hbtuBtech = await Course.create({
+      universityId: hbtuUniv._id,
+      name: "Bachelor of Technology",
+      code: "B.TECH",
+      durationYears: 4,
+      maxSemesters: 8,
+      isBranchRequired: true,
+      isActive: false,
+    });
+
+    // 4. Seed Branches under the Courses
     console.log('Seeding branches...');
     const cse = await Branch.create({
-      collegeId: mmmut._id,
+      courseId: mmmutBtech._id,
       name: "Computer Science & Engineering",
       code: "CSE",
       isActive: true,
     });
     const it = await Branch.create({
-      collegeId: mmmut._id,
+      courseId: mmmutBtech._id,
       name: "Information Technology",
       code: "IT",
       isActive: true,
     });
     const ece = await Branch.create({
-      collegeId: mmmut._id,
+      courseId: mmmutBtech._id,
       name: "Electronics & Communication Engineering",
       code: "ECE",
       isActive: true,
     });
     const eceIot = await Branch.create({
-      collegeId: mmmut._id,
+      courseId: mmmutBtech._id,
       name: "Electronics & Communication Engineering (IoT)",
       code: "ECE-IOT",
       isActive: true,
     });
-    // Inactive branches under MMMUT (marked inactive / Coming Soon)
+
+    // Inactive branches under MMMUT B.Tech
     const inactiveBranchCodes = ['EE', 'ME', 'CE'];
     const inactiveBranchNames: Record<string, string> = {
       EE: "Electrical Engineering",
@@ -348,15 +403,15 @@ async function seed() {
 
     for (const bCode of inactiveBranchCodes) {
       await Branch.create({
-        collegeId: mmmut._id,
+        courseId: mmmutBtech._id,
         name: inactiveBranchNames[bCode],
         code: bCode,
-        isActive: false, // Cleanly disabled
+        isActive: false,
       });
     }
 
-    // Seed branches under AKTU and HBTU as inactive (Coming Soon)
-    const otherColleges = [aktu, hbtu];
+    // Inactive branches under AKTU and HBTU B.Tech
+    const otherBtechs = [aktuBtech, hbtuBtech];
     const otherBranchCodes = ['CSE', 'IT', 'ECE', 'ECE-IOT', 'EE', 'ME', 'CE'];
     const otherBranchNames: Record<string, string> = {
       CSE: "Computer Science & Engineering",
@@ -368,21 +423,20 @@ async function seed() {
       CE: "Civil Engineering",
     };
 
-    for (const col of otherColleges) {
+    for (const bt of otherBtechs) {
       for (const bCode of otherBranchCodes) {
         await Branch.create({
-          collegeId: col._id,
+          courseId: bt._id,
           name: otherBranchNames[bCode],
           code: bCode,
-          isActive: false, // Inactive / Coming Soon
+          isActive: false,
         });
       }
     }
 
-    // Map subject codes to inserted Subject documents for question reference
     const subjectMap = new Map<string, mongoose.Types.ObjectId>();
 
-    // 3. Scan & Ingest Raw Markdown Files
+    // 5. Scan & Ingest Raw Markdown Files
     const rawQuestionsDir = path.join(process.cwd(), 'Raw Questions');
     if (!fs.existsSync(rawQuestionsDir)) {
       console.error(`Error: Ingestion folder "${rawQuestionsDir}" not found.`);
@@ -408,7 +462,6 @@ async function seed() {
           continue;
         }
 
-        // Map "ODD Semester" or "1" to number 1
         let semester = 1;
         if (semesterStr) {
           if (semesterStr.toLowerCase().includes('odd') || semesterStr.trim() === '1') {
@@ -438,7 +491,6 @@ async function seed() {
           targetSemester = subjectConf.semester;
           finalSubjectName = subjectConf.name;
           
-          // Map branch codes to MongoDB ObjectIds
           for (const bCode of subjectConf.branchCodes) {
             if (bCode === 'CSE') branchIds.push(cse._id as mongoose.Types.ObjectId);
             if (bCode === 'IT') branchIds.push(it._id as mongoose.Types.ObjectId);
@@ -446,7 +498,6 @@ async function seed() {
             if (bCode === 'ECE-IOT') branchIds.push(eceIot._id as mongoose.Types.ObjectId);
           }
         } else {
-          // Fallback to parsed metadata if not in configs
           const paperBranch = paper.metadata['Branch'] ? paper.metadata['Branch'].trim().toUpperCase() : 'CSE';
           const branchTokens = paperBranch.split(/[&,\/]/).map((s) => s.trim());
           for (const token of branchTokens) {
@@ -480,14 +531,11 @@ async function seed() {
           }
         }
 
-        // Find or create the Subject by code AND semester
         let subject = await Subject.findOne({ code: subjectCodeClean, semester: targetSemester });
         if (subject) {
-          // If subject exists, merge syllabus
           for (const newUnit of paper.syllabus) {
             const existingUnit = subject.syllabus.find((u) => u.unitNumber === newUnit.unitNumber);
             if (existingUnit) {
-              // Merge topics
               newUnit.topics.forEach((t) => {
                 if (!existingUnit.topics.includes(t)) {
                   existingUnit.topics.push(t);
@@ -497,17 +545,14 @@ async function seed() {
               subject.syllabus.push(newUnit as any);
             }
           }
-          // Merge branchIds
           branchIds.forEach((bId) => {
             if (!subject!.branchIds.some((existingId) => existingId.equals(bId))) {
               subject!.branchIds.push(bId);
             }
           });
-          // Sort syllabus units by unitNumber
           subject.syllabus.sort((a, b) => a.unitNumber - b.unitNumber);
           await subject.save();
         } else {
-          // Create subject
           subject = await Subject.create({
             branchIds,
             semester: targetSemester,
@@ -519,12 +564,9 @@ async function seed() {
 
         subjectMap.set(subjectCode.toUpperCase(), subject._id as mongoose.Types.ObjectId);
 
-        // Seed questions for this paper
         for (const q of paper.questions) {
-          // Check if this question already exists in DB
           let existingQ = await Question.findOne({ questionId: q.questionId });
           if (existingQ) {
-            // Append paper source if not already present
             q.sourcePapers.forEach((sp) => {
               const alreadyHasPaper = existingQ!.sourcePapers.some(
                 (p) => p.year === sp.year && p.examType === sp.examType
@@ -536,7 +578,6 @@ async function seed() {
             });
             await existingQ.save();
           } else {
-            // Create question
             await Question.create({
               questionId: q.questionId,
               subjectId: subject._id,
@@ -548,19 +589,16 @@ async function seed() {
               marks: q.marks,
               sourcePapers: q.sourcePapers,
               humanVerified: q.humanVerified,
+              verificationStatus: 'verified',
             });
           }
         }
       }
     }
 
-    // 4. Post-processing: Clone Technical Writing (BHS-152) for ECE & ECE-IOT Semester 1
     console.log('Post-processing: Checking Technical Writing (BHS-152) for ECE & ECE-IOT Sem 1...');
-    
-    // Find the CSE/IT Sem 2 Technical Writing subject
     const technicalWritingSem2 = await Subject.findOne({ code: 'BHS-152', semester: 2 });
     if (technicalWritingSem2) {
-      // Find or create the Sem 1 version for ECE and ECE-IoT
       let technicalWritingSem1 = await Subject.findOne({ code: 'BHS-152', semester: 1 });
       if (!technicalWritingSem1) {
         console.log('Creating Technical Writing (BHS-152) for ECE & ECE-IOT Semester 1...');
@@ -577,15 +615,11 @@ async function seed() {
         });
       }
       
-      // Clone all questions associated with Sem 2 subject into Sem 1 subject
       const questionsToClone = await Question.find({ subjectId: technicalWritingSem2._id });
       console.log(`Cloning ${questionsToClone.length} Technical Writing questions for ECE & ECE-IOT Sem 1...`);
       
       for (const q of questionsToClone) {
-        // We need a unique questionId for the cloned questions
         const clonedQuestionId = `${q.questionId}-ECE`;
-        
-        // Check if the clone already exists
         const existingClone = await Question.findOne({ questionId: clonedQuestionId });
         if (!existingClone) {
           await Question.create({
@@ -600,6 +634,7 @@ async function seed() {
             sourcePapers: q.sourcePapers,
             humanVerified: q.humanVerified,
             cachedSolution: q.cachedSolution,
+            verificationStatus: 'verified',
           });
         }
       }

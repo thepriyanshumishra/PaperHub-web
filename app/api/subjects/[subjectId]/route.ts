@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Subject from '@/models/subject';
 import Question from '@/models/question';
+import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
 
@@ -87,7 +88,6 @@ export async function GET(req: NextRequest, { params }: { params: { subjectId: s
     return NextResponse.json({ subject, stats });
   } catch (error) {
     console.error(`API Error in /api/subjects/${params.subjectId}:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: safeErrorResponse(error) }, { status: 500 });
   }
 }

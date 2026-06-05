@@ -3,6 +3,9 @@ import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/components/auth-provider";
+import { StatusGuard } from "@/components/status-guard";
+import { BetaBanner } from "@/components/BetaBanner";
+import { FeedbackButton } from "@/components/FeedbackButton";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -44,9 +47,13 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased min-h-screen bg-bg-primary text-text-primary">
         <AuthProvider>
-          <ThemeProvider>
-            {children}
-          </ThemeProvider>
+          <StatusGuard>
+            <ThemeProvider>
+              <BetaBanner />
+              {children}
+              <FeedbackButton />
+            </ThemeProvider>
+          </StatusGuard>
         </AuthProvider>
       </body>
     </html>

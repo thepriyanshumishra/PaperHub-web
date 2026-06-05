@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/components/theme-provider';
 import { useAuth } from '@/components/auth-provider';
 import { 
   User as UserIcon,
@@ -20,9 +20,11 @@ import {
   TrendingUp,
   X,
   Compass,
-  FileText
+  FileText,
+  Bell
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
+import { BetaBadge } from '@/components/BetaBadge';
 
 interface NavbarProps {
   onMenuToggle?: () => void;
@@ -41,6 +43,59 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
   
   const [selectedStream, setSelectedStream] = useState('Engineering');
   const [hasLocalParams, setHasLocalParams] = useState(false);
+
+  // Notifications states
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  useEffect(() => {
+    if (!fbUser) return;
+    const fetchNotifications = async () => {
+      try {
+        const idToken = await fbUser.getIdToken();
+        const res = await fetch('/api/notifications', {
+          headers: {
+            Authorization: `Bearer ${idToken}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.notifications?.filter((n: any) => !n.isRead).length || 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      }
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fbUser]);
+
+  const handleMarkAllRead = async () => {
+    if (!fbUser || notifications.length === 0) return;
+    try {
+      const idToken = await fbUser.getIdToken();
+      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+      if (unreadIds.length === 0) return;
+      
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ ids: unreadIds })
+      });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error('Failed to mark notifications as read:', err);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -162,6 +217,24 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Pricing & Billing Links */}
+            <Link 
+              href="/pricing"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/25 bg-purple-500/5 hover:bg-purple-500/10 text-xs font-bold transition-all text-purple-400"
+              title="View Plans"
+            >
+              <span>Plans</span>
+              <BetaBadge size="sm" />
+            </Link>
+            
+            <Link 
+              href="/billing"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-xs font-bold transition-all text-text-secondary hover:text-text-primary"
+              title="Billing & Usage"
+            >
+              <span>Billing</span>
+            </Link>
+
             {/* League Star Badge */}
             <button 
               onClick={() => setLeagueModalOpen(true)}
@@ -179,6 +252,62 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
             >
               <Trophy className="w-4 h-4 text-purple-500" />
             </button>
+
+            {/* Notifications Bell */}
+            <div className="relative">
+              <button 
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="relative p-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-text-secondary transition-all"
+                title="Notifications"
+              >
+                <Bell className="w-4 h-4 text-accent" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setNotificationsOpen(false)} />
+                  <div className="absolute right-0 mt-2 z-40 w-80 rounded-2xl border border-border-primary bg-bg-secondary p-4 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between border-b border-border-primary pb-2 mb-2">
+                      <h4 className="text-xs font-bold text-text-primary">Notifications</h4>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={handleMarkAllRead}
+                          className="text-[10px] font-bold text-accent hover:underline"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="max-h-64 overflow-y-auto space-y-2">
+                      {notifications.length === 0 ? (
+                        <p className="text-[11px] text-text-muted text-center py-4">No notifications yet.</p>
+                      ) : (
+                        notifications.map((n) => (
+                          <div 
+                            key={n._id} 
+                            className={`p-2.5 rounded-xl border text-left transition-all ${n.isRead ? 'bg-bg-primary/20 border-border-primary/50' : 'bg-accent/5 border-accent/20'}`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-text-primary">{n.title}</span>
+                              <span className="text-[8px] text-text-muted">
+                                {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-text-secondary mt-1">{n.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Profile Pill */}
             <Link 
@@ -361,8 +490,12 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
         {/* Marketing Navigation Links */}
         <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-text-secondary">
           <Link href="/#features" className="hover:text-text-primary transition-all">Features</Link>
-          <Link href="/#blueprint" className="hover:text-text-primary transition-all">Blueprint</Link>
-          <Link href="/#ai-solving" className="hover:text-text-primary transition-all">AI Assistant</Link>
+          <Link href="/pricing" className="hover:text-text-primary transition-all flex items-center gap-1.5">
+            Pricing <BetaBadge size="sm" />
+          </Link>
+          {fbUser && (
+            <Link href="/billing" className="hover:text-text-primary transition-all">Billing</Link>
+          )}
           <Link href="/#faq" className="hover:text-text-primary transition-all">FAQ</Link>
           {(user || hasLocalParams) && (
             <Link href="/dashboard" className="hover:text-text-primary text-accent font-semibold">Dashboard</Link>

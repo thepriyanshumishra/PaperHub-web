@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import User from '@/models/user';
 import Question from '@/models/question';
+import Note from '@/models/note';
 import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +27,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Instantly deny access if suspended or banned
+    if (user.accountStatus !== 'active') {
+      return NextResponse.json({ error: 'Unauthorized: Account is suspended or banned' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'bookmarks';
 
@@ -37,21 +44,24 @@ export async function GET(req: NextRequest) {
       const questions = await Question.find({ _id: { $in: incorrectIds } });
       return NextResponse.json({ questions });
     } else if (type === 'notes') {
-      const notesMap = user.personalNotes || new Map();
-      const questionIds = Array.from(notesMap.keys());
+      // Find all notes for this user
+      const userNotes = await Note.find({ userId: user._id });
+      const questionIds = userNotes.map(n => n.questionId);
       const questions = await Question.find({ _id: { $in: questionIds } });
       
-      const notesWithQuestions = questions.map(q => ({
-        question: q,
-        note: notesMap.get(String(q._id)) || ''
-      }));
+      const questionsMap = new Map(questions.map(q => [String(q._id), q]));
+      
+      const notesWithQuestions = userNotes.map(n => ({
+        question: questionsMap.get(n.questionId) || null,
+        note: n.noteText
+      })).filter(item => item.question !== null);
+
       return NextResponse.json({ notes: notesWithQuestions });
     }
 
     return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 });
   } catch (error) {
     console.error('API Error in GET /api/users/notebook:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: safeErrorResponse(error) }, { status: 500 });
   }
 }

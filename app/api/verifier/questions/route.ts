@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import { getAuthenticatedUser } from '@/lib/verifyAuth';
+import { safeErrorResponse } from '@/lib/promptSafety';
+
+import { ROLES, hasPermission } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: User profile mismatch' }, { status: 401 });
     }
 
-    if (user.role !== 'verifier' && user.role !== 'moderator' && user.role !== 'admin') {
+    if (!hasPermission(user.role, ROLES.VERIFIER)) {
       return NextResponse.json({ error: 'Forbidden: Insufficient privileges' }, { status: 403 });
     }
 
@@ -20,6 +23,7 @@ export async function GET(req: NextRequest) {
     const subjectId = searchParams.get('subjectId');
     const yearStr = searchParams.get('year');
     const examType = searchParams.get('examType');
+    const status = searchParams.get('status');
 
     if (!subjectId || !yearStr || !examType) {
       return NextResponse.json({ error: 'Missing required parameters: subjectId, year, examType' }, { status: 400 });
@@ -43,6 +47,8 @@ export async function GET(req: NextRequest) {
     // If role is Moderator, filter exclusively for flagged questions
     if (user.role === 'moderator') {
       query.verificationStatus = 'flagged';
+    } else if (status && ['pending', 'verified', 'flagged'].includes(status)) {
+      query.verificationStatus = status;
     }
 
     const questions = await Question.find(query).sort({ unit: 1, topic: 1 });
@@ -50,7 +56,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ questions });
   } catch (error) {
     console.error('API Error in GET /api/verifier/questions:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: safeErrorResponse(error) }, { status: 500 });
   }
 }

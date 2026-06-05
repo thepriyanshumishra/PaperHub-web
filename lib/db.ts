@@ -7,6 +7,12 @@ import '../models/subject';
 import '../models/question';
 import '../models/session';
 import '../models/chat';
+import '../models/uploadedDocument';
+import '../models/appeal';
+import '../models/evaluationMetric';
+import '../models/feedback';
+import '../models/collegeRequest';
+import '../models/auditLog';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 

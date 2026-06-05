@@ -1,86 +1,82 @@
 import { NextRequest } from 'next/server';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import dbConnect from '@/lib/db';
 import User, { IUser } from '@/models/user';
 
-interface GoogleLookupResponse {
-  users?: {
-    localId: string;
-    email: string;
-    emailVerified: boolean;
-    displayName?: string;
-    photoUrl?: string;
-  }[];
-  error?: {
-    message: string;
-  };
+// Firebase public key endpoint for RS256 JWT verification
+const FIREBASE_JWK_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+
+// Cache the JWKS fetcher so keys are cached between requests
+const getFirebaseJWKS = createRemoteJWKSet(new URL(FIREBASE_JWK_URL));
+
+export interface VerifiedToken {
+  uid: string;
+  email: string;
+  displayName?: string;
+  photoURL?: string;
+  emailVerified: boolean;
 }
 
-export async function verifyFirebaseIdToken(idToken: string): Promise<{ uid: string; email: string; displayName?: string; photoURL?: string } | null> {
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!apiKey) {
-    console.error('Firebase public API key is not configured in environment.');
+/**
+ * Cryptographically verifies a Firebase ID token using RS256 signature
+ * verification against Google's public JWK endpoint.
+ *
+ * Security guarantees:
+ *  - RS256 signature is verified against Google's live public keys
+ *  - Token issuer is verified to be this specific Firebase project
+ *  - Token audience is verified to be this specific Firebase project
+ *  - Token expiration is verified
+ *  - Email claim is extracted from the verified payload only
+ *
+ * There is NO fallback. If verification fails for any reason, null is returned.
+ */
+export async function verifyFirebaseIdToken(idToken: string): Promise<VerifiedToken | null> {
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+  if (!projectId) {
+    console.error('[verifyAuth] NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set. Cannot verify tokens.');
     return null;
   }
 
   try {
-    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken }),
+    const { payload } = await jwtVerify(idToken, getFirebaseJWKS, {
+      issuer: `https://securetoken.google.com/${projectId}`,
+      audience: projectId,
+      algorithms: ['RS256'],
     });
 
-    if (res.ok) {
-      const data = await res.json() as GoogleLookupResponse;
-      if (data.users && data.users.length > 0) {
-        const u = data.users[0];
-        return {
-          uid: u.localId,
-          email: u.email,
-          displayName: u.displayName,
-          photoURL: u.photoUrl,
-        };
-      }
-    } else {
-      const errData = await res.json().catch(() => ({}));
-      console.warn('Firebase ID token lookup verification failed on Google API, falling back to local JWT decode:', errData.error?.message || errData);
-    }
-  } catch (error) {
-    console.warn('Network error verifying Firebase ID token, falling back to local JWT decode:', error);
-  }
+    // All claims below come from the cryptographically verified payload
+    const uid = payload.sub;
+    const email = payload['email'] as string | undefined;
+    const emailVerified = !!payload['email_verified'];
 
-  // Local JWT decode fallback (extremely robust for restricted API keys on Vercel)
-  try {
-    const parts = idToken.split('.');
-    if (parts.length === 3) {
-      const base64Url = parts[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const payloadJson = typeof Buffer !== 'undefined'
-        ? Buffer.from(base64, 'base64').toString('utf-8')
-        : decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-      
-      const payload = JSON.parse(payloadJson);
-      const now = Math.floor(Date.now() / 1000);
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "paperhub-web";
-      
-      // Check expiration and issuer signature compatibility
-      if (payload.exp > now && payload.iss === `https://securetoken.google.com/${projectId}`) {
-        return {
-          uid: payload.sub,
-          email: payload.email || '',
-          displayName: payload.name || '',
-          photoURL: payload.picture || '',
-        };
-      } else {
-        console.error('Local JWT validation failed. Expired or invalid issuer.', { exp: payload.exp, iss: payload.iss, now });
-      }
+    if (!uid || !email) {
+      console.error('[verifyAuth] Verified token is missing required claims (sub, email).');
+      return null;
     }
-  } catch (err) {
-    console.error('Error decoding JWT locally:', err);
-  }
 
-  return null;
+    return {
+      uid,
+      email,
+      displayName: (payload['name'] as string | undefined) ?? undefined,
+      photoURL: (payload['picture'] as string | undefined) ?? undefined,
+      emailVerified,
+    };
+  } catch (err: unknown) {
+    // Log the specific jose error for diagnosability without leaking details to client
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn('[verifyAuth] Firebase ID token cryptographic verification failed:', message);
+    return null;
+  }
 }
 
+/**
+ * Extracts and verifies the Bearer token from the Authorization header,
+ * then looks up the corresponding user document in MongoDB.
+ *
+ * Returns null if the token is missing, invalid, or the user does not exist
+ * in the database (preventing access by users who have not been registered).
+ */
 export async function getAuthenticatedUser(req: NextRequest): Promise<IUser | null> {
   const authHeader = req.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -88,10 +84,17 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<IUser | nu
   }
 
   const idToken = authHeader.split(' ')[1];
+  if (!idToken) return null;
+
   const verifiedUser = await verifyFirebaseIdToken(idToken);
   if (!verifiedUser) return null;
 
   await dbConnect();
   const user = await User.findById(verifiedUser.uid);
+  
+  if (!user || user.accountStatus !== 'active') {
+    return null;
+  }
+
   return user;
 }

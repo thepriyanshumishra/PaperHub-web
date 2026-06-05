@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/components/auth-provider';
 import { seedColleges } from '@/lib/seedData';
 import {
   ArrowLeft,
@@ -105,6 +106,7 @@ const slideVariants = {
 export default function TestSelection() {
   const params = useParams();
   const router = useRouter();
+  const { fbUser } = useAuth();
   const subjectId = params.subjectId as string;
 
   // Load state
@@ -275,11 +277,16 @@ export default function TestSelection() {
 
       const topics = testType === 'topic' ? selectedTopics : [];
 
+      const token = fbUser ? await fbUser.getIdToken() : '';
+
       const res = await fetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
-          userId: localStorage.getItem('anonymousUserId') || 'guest',
+          userId: fbUser?.uid || localStorage.getItem('anonymousUserId') || 'guest',
           subjectId,
           type: 'test',
           subType: testType,

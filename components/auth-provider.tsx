@@ -17,10 +17,14 @@ import { auth, googleProvider } from '@/lib/firebase';
 
 export interface IUserProfile {
   name?: string;
+  universityId?: string;
+  collegeId?: string;
+  courseId?: string;
+  branchId?: string;
+  semester?: number;
   college?: string;
   course?: string;
   branch?: string;
-  semester?: number;
 }
 
 export interface IUserEngagement {
@@ -51,6 +55,32 @@ export interface IDbUser {
   bookmarks: string[];
   incorrectAttempts: string[];
   personalNotes: Record<string, string>;
+  plan?: 'free' | 'pro' | 'institution' | 'beta_pro';
+  planExpiresAt?: string | null;
+  betaAccess?: {
+    joined: boolean;
+    joinedAt: string | null;
+    inviteCode: string | null;
+    referredBy: string | null;
+  };
+  usageMetrics?: {
+    daily: {
+      aiChats: number;
+      evaluations: number;
+      date: string;
+    };
+    monthly: {
+      mockTests: number;
+      month: string;
+    };
+    lifetime: {
+      totalSessions: number;
+      totalQuestionsSolved: number;
+      totalMockTests: number;
+      totalAiChats: number;
+      totalFeedbackSubmitted: number;
+    };
+  };
 }
 
 interface AuthContextType {
@@ -96,6 +126,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setUser(data.user);
         setError(null);
+
+        // If logged in, onboarding is complete, but guest data still exists locally, sync in background!
+        if (data.user && data.user.onboardingCompleted && typeof window !== 'undefined') {
+          try {
+            const guestBookmarksStr = localStorage.getItem('guest_bookmarks');
+            const guestNotesStr = localStorage.getItem('guest_notes');
+            const guestIncorrectStr = localStorage.getItem('guest_incorrect');
+
+            const hasBookmarks = guestBookmarksStr && JSON.parse(guestBookmarksStr).length > 0;
+            const hasIncorrect = guestIncorrectStr && JSON.parse(guestIncorrectStr).length > 0;
+            const hasNotes = guestNotesStr && (
+              (Array.isArray(JSON.parse(guestNotesStr)) && JSON.parse(guestNotesStr).length > 0) ||
+              (typeof JSON.parse(guestNotesStr) === 'object' && Object.keys(JSON.parse(guestNotesStr)).length > 0)
+            );
+
+            if (hasBookmarks || hasIncorrect || hasNotes) {
+              const bookmarks = guestBookmarksStr ? JSON.parse(guestBookmarksStr) : [];
+              const incorrectAttempts = guestIncorrectStr ? JSON.parse(guestIncorrectStr) : [];
+              let notes = [];
+              if (guestNotesStr) {
+                const parsedNotes = JSON.parse(guestNotesStr);
+                if (Array.isArray(parsedNotes)) {
+                  notes = parsedNotes;
+                } else if (typeof parsedNotes === 'object') {
+                  notes = Object.entries(parsedNotes).map(([questionId, noteText]) => ({
+                    questionId,
+                    noteText
+                  }));
+                }
+              }
+
+              const migrationRes = await fetch('/api/users/profile', {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  migrationData: { bookmarks, notes, incorrectAttempts }
+                })
+              });
+
+              if (migrationRes.ok) {
+                const migrationData = await migrationRes.json();
+                setUser(migrationData.user);
+                localStorage.removeItem('guest_bookmarks');
+                localStorage.removeItem('guest_notes');
+                localStorage.removeItem('guest_incorrect');
+              }
+            }
+          } catch (migrationErr) {
+            console.warn('Background guest migration failed:', migrationErr);
+          }
+        }
+
         return data.user;
       } else {
         let msg = `Profile API error (${res.status})`;

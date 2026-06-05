@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { seedColleges } from '@/lib/seedData';
 import { ArrowLeft, Play, Check, Loader2 } from 'lucide-react';
+import { useAuth } from '@/components/auth-provider';
 
 interface SubjectDetail {
   _id: string;
@@ -22,6 +23,7 @@ export default function CustomPracticeBuilder() {
   const params = useParams();
   const router = useRouter();
   const subjectId = params.subjectId as string;
+  const { fbUser } = useAuth();
 
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,9 +106,13 @@ export default function CustomPracticeBuilder() {
       router.push(`/subjects/${subjectId}/practice/solve?type=custom&units=${unitsQuery}&topics=${topicsQuery}`);
     } else {
       try {
+        const token = fbUser ? await fbUser.getIdToken() : '';
         const res = await fetch('/api/sessions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({
             userId: localStorage.getItem('anonymousUserId') || 'guest',
             subjectId,

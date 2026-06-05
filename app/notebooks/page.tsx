@@ -31,6 +31,8 @@ export default function NotebooksPage() {
   const { user, fbUser, loading: authLoading, refreshProfile } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState<any>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   const fetchNotebookData = async () => {
     if (!fbUser) return;
@@ -57,9 +59,31 @@ export default function NotebooksPage() {
     }
   };
 
+  const fetchNotebookInsights = async () => {
+    if (!fbUser) return;
+    setInsightsLoading(true);
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch('/api/users/notebook/insights', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInsights(data);
+      }
+    } catch (err) {
+      console.error("Failed to load notebook insights:", err);
+    } finally {
+      setInsightsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!authLoading) {
       fetchNotebookData();
+      fetchNotebookInsights();
     }
   }, [activeTab, authLoading, fbUser]);
 
@@ -125,6 +149,68 @@ export default function NotebooksPage() {
                 <span>Archive</span>
               </button>
             </div>
+
+            {/* Behavioral Insights Panel */}
+            {insights && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm text-left">
+                {/* Recently Studied */}
+                <div className="space-y-2">
+                  <h4 className="text-[10px] uppercase font-black tracking-wider text-text-muted flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5 text-accent" />
+                    <span>Recently Studied</span>
+                  </h4>
+                  {insights.recentlyStudiedSubjects?.length > 0 ? (
+                    <div className="space-y-1">
+                      {insights.recentlyStudiedSubjects.map((sub: any, idx: number) => (
+                        <p key={idx} className="text-[10px] font-extrabold text-text-primary">
+                          • {sub.name} <span className="text-[8px] font-bold text-text-muted">({sub.code})</span>
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted italic">No recent study logs.</p>
+                  )}
+                </div>
+
+                {/* Frequently Revised */}
+                <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-border-primary/45 pt-3 sm:pt-0 sm:pl-4">
+                  <h4 className="text-[10px] uppercase font-black tracking-wider text-text-muted flex items-center gap-1.5">
+                    <FolderHeart className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Frequently Revised</span>
+                  </h4>
+                  {insights.frequentlyRevisedTopics?.length > 0 ? (
+                    <div className="space-y-1">
+                      {insights.frequentlyRevisedTopics.map((topic: any, idx: number) => (
+                        <p key={idx} className="text-[10px] font-extrabold text-text-primary truncate" title={topic.topic}>
+                          • {topic.topic} <span className="text-[8px] font-bold text-text-muted">({topic.count} notes)</span>
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted italic">No repeated revisions.</p>
+                  )}
+                </div>
+
+                {/* Most Referenced (Repeated PYQs) */}
+                <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-border-primary/45 pt-3 sm:pt-0 sm:pl-4">
+                  <h4 className="text-[10px] uppercase font-black tracking-wider text-text-muted flex items-center gap-1.5">
+                    <HelpCircle className="w-3.5 h-3.5 text-yellow-400" />
+                    <span>Most Referenced (PYQ)</span>
+                  </h4>
+                  {insights.mostReferencedNotes?.length > 0 ? (
+                    <div className="space-y-1">
+                      {insights.mostReferencedNotes.map((ref: any, idx: number) => (
+                        <p key={idx} className="text-[10px] font-extrabold text-text-primary truncate" title={ref.noteText}>
+                          • {ref.topic} <span className="text-[8px] font-bold text-yellow-500">({ref.repetitionFrequency}x Repeat)</span>
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-text-muted italic">No high-frequency notes.</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Sub Tabs selector */}
             <div className="flex items-center gap-2 border-b border-border-primary/45 pb-3">

@@ -4,32 +4,57 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
-import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth-provider';
+import { useTheme } from '@/components/theme-provider';
 import {
-  BookOpen,
-  ChevronRight,
-  Flame,
-  Zap,
-  Loader2,
-  AlertTriangle,
-  TrendingUp,
-  ArrowUpRight,
-  Search,
-  Mic,
-  GraduationCap,
-  Sparkles,
-  Layers,
-  ChevronLeft,
-  FileCheck2,
-  Send,
-  BookMarked
+  Search, Bell, Sun, Moon, ChevronDown, ChevronRight,
+  BookOpen, CheckCircle2, XCircle, Clock, ArrowRight, Menu, X,
+  Loader2, ArrowUpRight, Sparkles,
+  // Subject icons — semantically matched
+  Atom,           // Physics, Quantum
+  Calculator,     // Mathematics
+  Zap,            // Electrical, Power, Circuits
+  Cpu,            // Microprocessors, Computer Arch, Digital
+  Code,           // Programming, C, Java, Python
+  Globe,          // Web Design, Internet, Networking
+  Database,       // DBMS, SQL, Data
+  FlaskConical,   // Chemistry, Environmental Science
+  Leaf,           // Environmental, Green
+  MessageSquare,  // Technical Writing, Communication, English
+  Wrench,         // Mechanics, Manufacturing, Workshop
+  Flame,          // Thermodynamics, Heat Transfer
+  Droplets,       // Fluid Mechanics, Hydraulics
+  Building2,      // Civil, Structures, Construction
+  Brain,          // AI, ML, Data Science
+  Network,        // Computer Networks, Graph Theory
+  BarChart2,      // Economics, Statistics, Management
+  Shield,         // Cybersecurity, Ethics, Values
+  Binary,         // Digital Electronics, Logic
+  Radio,          // Communication Systems, Signals
+  Layers,         // Material Science, OS, Stacks
+  GitBranch,      // Data Structures, Algorithms
+  PenLine,        // Drawing, Engineering Drawing
+  Microscope,     // Biotechnology, Applied Science
+  Activity,       // Signals & Systems, Biomedical
+  FileText,       // General fallback
+  Monitor,        // General fallback
+  Grid,           // General fallback
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { user, fbUser, loading: authLoading } = useAuth();
+  const { user, fbUser, loading: authLoading, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+
+  const handleLogout = async () => {
+    try {
+      if (logout) await logout();
+      router.push('/login');
+    } catch (err) {
+      console.error('Logout failed:', err);
+      router.push('/login');
+    }
+  };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [localCollege, setLocalCollege] = useState<string | null>(null);
@@ -37,7 +62,24 @@ export default function Dashboard() {
   const [localSemester, setLocalSemester] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
-  const [formulaTab, setFormulaTab] = useState<'physics' | 'chemistry' | 'math'>('physics');
+
+  // User Analytics states for real practice progress
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false);
+
+  // Advanced Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+
+  // Notifications states
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  
+  // Profile dropdown state
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -46,6 +88,29 @@ export default function Dashboard() {
       setLocalSemester(localStorage.getItem('selectedSemester'));
     }
   }, []);
+
+  // Hash scroll listener for nested overflow layout container
+  useEffect(() => {
+    const handleHashScroll = () => {
+      const hash = window.location.hash;
+      if (hash) {
+        const id = hash.replace('#', '');
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      const timer = setTimeout(handleHashScroll, 350);
+      window.addEventListener('hashchange', handleHashScroll);
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('hashchange', handleHashScroll);
+      };
+    }
+  }, [subjects]);
 
   const hasLocalParams = !!(localCollege && localBranch);
 
@@ -59,6 +124,7 @@ export default function Dashboard() {
     }
   }, [user, fbUser, authLoading, hasLocalParams, router]);
 
+  // Load subjects
   useEffect(() => {
     if (authLoading) return;
     const college = user?.profile?.college || localCollege;
@@ -78,429 +144,784 @@ export default function Dashboard() {
     }
   }, [user, authLoading, localCollege, localBranch, localSemester]);
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-7 h-7 text-accent animate-spin mx-auto" />
-          <p className="text-xs text-text-secondary">Loading your workspace…</p>
-        </div>
-      </div>
-    );
-  }
+  // Fetch real analytics and topic progress
+  useEffect(() => {
+    if (!fbUser) return;
+    setLoadingAnalytics(true);
+    fbUser.getIdToken()
+      .then(token => fetch('/api/users/analytics', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }))
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) setAnalytics(data);
+      })
+      .catch((err) => console.error('Failed to load user analytics:', err))
+      .finally(() => setLoadingAnalytics(false));
+  }, [fbUser]);
 
-  const activeCollege  = user?.profile?.college  || localCollege  || 'MMMUT';
-  const activeBranch   = user?.profile?.branch   || localBranch   || 'CSE';
-  const activeSemester = user?.profile?.semester || (localSemester ? Number(localSemester) : 1);
-  const activeName     = user?.profile?.name     || user?.displayName || 'Explorer';
-  const isCollegeInactive = activeCollege.toUpperCase() !== 'MMMUT';
+  // Fetch notifications
+  useEffect(() => {
+    if (!fbUser) return;
+    const fetchNotifications = async () => {
+      try {
+        const idToken = await fbUser.getIdToken();
+        const res = await fetch('/api/notifications', {
+          headers: { Authorization: `Bearer ${idToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.notifications?.filter((n: any) => !n.isRead).length || 0);
+        }
+      } catch (err) {
+        console.error('Failed to fetch notifications:', err);
+      }
+    };
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, [fbUser]);
 
-  // Gamification stats
-  const streak = user?.engagement?.streakCount || 2;
-  const xp = user?.engagement?.totalXp || 120;
-  const sessions = user?.engagement?.sessionsCompleted || 4;
-  const dailySolved = user?.engagement?.dailyGoalSolved || 0;
-  const dailyTarget = user?.engagement?.dailyGoalTarget || 30;
+  const handleMarkAllRead = async () => {
+    if (!fbUser || notifications.length === 0) return;
+    try {
+      const idToken = await fbUser.getIdToken();
+      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
+      if (unreadIds.length === 0) return;
+      
+      const res = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ ids: unreadIds })
+      });
+      if (res.ok) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error('Failed to mark notifications as read:', err);
+    }
+  };
 
-  // Ordinal helper
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim() || !fbUser) return;
+    setSearching(true);
+    setShowSearchModal(true);
+
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch(`/api/questions/search?q=${encodeURIComponent(searchQuery.trim())}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data.questions || []);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Keyboard shortcut listener for Ctrl + K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const ordinal = (n: number) => {
     const s = ['th','st','nd','rd'];
     const v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
 
-  const mockFormulaChapters = {
-    physics: [
-      { name: 'Current Electricity', cards: 39, color: 'border-blue-500/20 bg-blue-500/5 text-blue-400' },
-      { name: 'Semiconductors', cards: 51, color: 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400' },
-      { name: 'Alternating Current', cards: 11, color: 'border-pink-500/20 bg-pink-500/5 text-pink-400' },
-      { name: 'Rotational Motion', cards: 33, color: 'border-purple-500/20 bg-purple-500/5 text-purple-400' },
-      { name: 'Oscillations', cards: 33, color: 'border-sky-500/20 bg-sky-500/5 text-sky-400' },
-    ],
-    chemistry: [
-      { name: 'Chemical Kinetics', cards: 24, color: 'border-amber-500/20 bg-amber-500/5 text-amber-400' },
-      { name: 'Coordination Compounds', cards: 42, color: 'border-red-500/20 bg-red-500/5 text-red-400' },
-      { name: 'Electrochemistry', cards: 18, color: 'border-indigo-500/20 bg-indigo-500/5 text-indigo-400' },
-      { name: 'Solutions', cards: 30, color: 'border-teal-500/20 bg-teal-500/5 text-teal-400' },
-    ],
-    math: [
-      { name: 'Matrices & Determinants', cards: 45, color: 'border-violet-500/20 bg-violet-500/5 text-violet-400' },
-      { name: 'Definite Integrals', cards: 62, color: 'border-orange-500/20 bg-orange-500/5 text-orange-400' },
-      { name: 'Probability', cards: 37, color: 'border-cyan-500/20 bg-cyan-500/5 text-cyan-400' },
-      { name: 'Vector Algebra', cards: 29, color: 'border-rose-500/20 bg-rose-500/5 text-rose-400' },
-    ]
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-7 h-7 text-purple-500 animate-spin mx-auto" />
+          <p className="text-xs text-text-secondary">Loading your workspace…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const activeBranch   = user?.profile?.branch   || localBranch   || '';
+  const activeSemester = user?.profile?.semester || (localSemester ? Number(localSemester) : null);
+  const activeName     = user?.profile?.name     || user?.displayName || '';
+  const userInitials   = activeName ? activeName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : '?';
+
+  // Gamification Metrics (Derived from User Profile and Analytics)
+  const dailySolved = user?.engagement?.dailyGoalSolved ?? analytics?.metrics?.dailyGoalSolved ?? 0;
+  const dailyTarget = user?.engagement?.dailyGoalTarget ?? analytics?.metrics?.dailyGoalTarget ?? 30;
+  const incorrectCount = user?.incorrectAttempts?.length ?? 0;
+  const estimatedTimeSpent = Math.max(0, dailySolved * 2); // 2 minutes average per question solved today
+  const progressPercent = dailyTarget > 0 ? Math.min(100, Math.round((dailySolved / dailyTarget) * 100)) : 0;
+
+  // -------------------------------------------------------------
+  // Theme and Icon Resolver based on Subject Name
+  // -------------------------------------------------------------
+  const getSubjectCardStyles = (name: string, code: string) => {
+    const n = name.toLowerCase();
+    const c = code.toUpperCase();
+
+    // ── Mathematics ─────────────────────────────────────────────
+    if (n.includes('math') || n.includes('calculus') || n.includes('algebra') ||
+        n.includes('statistics') || n.includes('numerical') || n.includes('discrete math') ||
+        c.startsWith('MA') || c.startsWith('MATH') || c === 'M1' || c === 'M2' || c === 'M3' || c === 'M4')
+      return { icon: Calculator, colorClass: 'text-blue-400 bg-blue-500/10 border-blue-500/20', arrowColor: 'border-blue-400/40 text-blue-400 hover:bg-blue-400/10', progressBarColor: 'bg-blue-500' };
+
+    // ── Physics ─────────────────────────────────────────────────
+    if (n.includes('physics') || n.includes('quantum') || n.includes('optics') ||
+        n.includes('mechanics of solids') || n.includes('engineering physics') ||
+        c.startsWith('PH') || c.startsWith('PHYS'))
+      return { icon: Atom, colorClass: 'text-violet-400 bg-violet-500/10 border-violet-500/20', arrowColor: 'border-violet-400/40 text-violet-400 hover:bg-violet-400/10', progressBarColor: 'bg-violet-500' };
+
+    // ── Chemistry & Environmental Science ───────────────────────
+    if (n.includes('chemistry') || n.includes('chemical') || n.includes('green chemistry') ||
+        n.includes('applied chemistry') || c.startsWith('CH') || c.startsWith('CHEM'))
+      return { icon: FlaskConical, colorClass: 'text-teal-400 bg-teal-500/10 border-teal-500/20', arrowColor: 'border-teal-400/40 text-teal-400 hover:bg-teal-400/10', progressBarColor: 'bg-teal-500' };
+
+    if (n.includes('environmental') || n.includes('ecology') || n.includes('sustainability') ||
+        n.includes('pollution') || c.startsWith('EV') || c.startsWith('EVS'))
+      return { icon: Leaf, colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', arrowColor: 'border-emerald-400/40 text-emerald-400 hover:bg-emerald-400/10', progressBarColor: 'bg-emerald-500' };
+
+    // ── Electrical & Power ───────────────────────────────────────
+    if (n.includes('electrical') || n.includes('circuit') || n.includes('power system') ||
+        n.includes('electric machine') || n.includes('emf') || n.includes('electromagnetic') ||
+        c.startsWith('EE') || c.startsWith('EEE') || c === 'BEE')
+      return { icon: Zap, colorClass: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20', arrowColor: 'border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10', progressBarColor: 'bg-yellow-500' };
+
+    // ── Electronics & Digital ────────────────────────────────────
+    if (n.includes('digital') || n.includes('logic design') || n.includes('vlsi') ||
+        n.includes('digital signal') || n.includes('boolean') || (c.startsWith('EC') && (n.includes('digital') || n.includes('logic'))))
+      return { icon: Binary, colorClass: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20', arrowColor: 'border-indigo-400/40 text-indigo-400 hover:bg-indigo-400/10', progressBarColor: 'bg-indigo-500' };
+
+    if (n.includes('electronic') || n.includes('analog') || n.includes('amplifier') ||
+        n.includes('semiconductor') || n.includes('diode') || n.includes('transistor') ||
+        c.startsWith('EC') || c.startsWith('ECE') || c === 'DEC')
+      return { icon: Cpu, colorClass: 'text-sky-400 bg-sky-500/10 border-sky-500/20', arrowColor: 'border-sky-400/40 text-sky-400 hover:bg-sky-400/10', progressBarColor: 'bg-sky-500' };
+
+    // ── Microprocessors & Computer Architecture ──────────────────
+    if (n.includes('microprocessor') || n.includes('microcontroller') || n.includes('embedded') ||
+        n.includes('computer architecture') || n.includes('computer organization') ||
+        c === 'MP' || c === 'MC' || c === 'COA')
+      return { icon: Cpu, colorClass: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20', arrowColor: 'border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10', progressBarColor: 'bg-cyan-500' };
+
+    // ── Communication & Signals ──────────────────────────────────
+    if (n.includes('communication') || n.includes('signal') || n.includes('wireless') ||
+        n.includes('antenna') || n.includes('modulation') || n.includes('satellite'))
+      return { icon: Radio, colorClass: 'text-pink-400 bg-pink-500/10 border-pink-500/20', arrowColor: 'border-pink-400/40 text-pink-400 hover:bg-pink-400/10', progressBarColor: 'bg-pink-500' };
+
+    // ── Programming Languages ────────────────────────────────────
+    if (n.includes('programming') || n.includes('python') || n.includes('java') ||
+        n.includes('c++') || n.includes('c program') || n.includes('coding') ||
+        n.includes('object oriented') || n.includes('oop') || c.startsWith('CS') || c.startsWith('CSE') || c === 'PPS')
+      return { icon: Code, colorClass: 'text-orange-400 bg-orange-500/10 border-orange-500/20', arrowColor: 'border-orange-400/40 text-orange-400 hover:bg-orange-400/10', progressBarColor: 'bg-orange-500' };
+
+    // ── Web & Internet ───────────────────────────────────────────
+    if (n.includes('web') || n.includes('internet') || n.includes('html') ||
+        n.includes('css') || n.includes('javascript') || n.includes('full stack'))
+      return { icon: Globe, colorClass: 'text-blue-400 bg-blue-500/10 border-blue-500/20', arrowColor: 'border-blue-400/40 text-blue-400 hover:bg-blue-400/10', progressBarColor: 'bg-blue-400' };
+
+    // ── Data Structures & Algorithms ─────────────────────────────
+    if (n.includes('data structure') || n.includes('algorithm') || n.includes('dsa') ||
+        n.includes('graph theory') || n.includes('combinatorics') || c === 'DSA')
+      return { icon: GitBranch, colorClass: 'text-amber-400 bg-amber-500/10 border-amber-500/20', arrowColor: 'border-amber-400/40 text-amber-400 hover:bg-amber-400/10', progressBarColor: 'bg-amber-500' };
+
+    // ── Database & Information Systems ───────────────────────────
+    if (n.includes('database') || n.includes('dbms') || n.includes('sql') ||
+        n.includes('information system') || n.includes('data management') || c === 'DBMS')
+      return { icon: Database, colorClass: 'text-lime-400 bg-lime-500/10 border-lime-500/20', arrowColor: 'border-lime-400/40 text-lime-400 hover:bg-lime-400/10', progressBarColor: 'bg-lime-500' };
+
+    // ── Computer Networks ────────────────────────────────────────
+    if (n.includes('network') || n.includes('tcp') || n.includes('ip protocol') ||
+        n.includes('lan') || n.includes('wan') || n.includes('routing') || c === 'CN')
+      return { icon: Network, colorClass: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20', arrowColor: 'border-cyan-400/40 text-cyan-400 hover:bg-cyan-400/10', progressBarColor: 'bg-cyan-500' };
+
+    // ── AI / ML / Data Science ───────────────────────────────────
+    if (n.includes('artificial intelligence') || n.includes('machine learning') ||
+        n.includes('deep learning') || n.includes('neural') || n.includes('data science') ||
+        n.includes('natural language') || n.includes('computer vision') || c === 'AI' || c === 'ML')
+      return { icon: Brain, colorClass: 'text-purple-400 bg-purple-500/10 border-purple-500/20', arrowColor: 'border-purple-400/40 text-purple-400 hover:bg-purple-400/10', progressBarColor: 'bg-purple-500' };
+
+    // ── Operating Systems ────────────────────────────────────────
+    if (n.includes('operating system') || n.includes('linux') || n.includes('unix') ||
+        n.includes('system programming') || n.includes('process') || c === 'OS')
+      return { icon: Layers, colorClass: 'text-slate-400 bg-slate-500/10 border-slate-500/20', arrowColor: 'border-slate-400/40 text-slate-400 hover:bg-slate-400/10', progressBarColor: 'bg-slate-500' };
+
+    // ── Cybersecurity & Ethics ───────────────────────────────────
+    if (n.includes('security') || n.includes('cryptography') || n.includes('cyber') ||
+        n.includes('ethics') || n.includes('values') || n.includes('human value') || c.startsWith('HS') || c.startsWith('HUM'))
+      return { icon: Shield, colorClass: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20', arrowColor: 'border-emerald-400/40 text-emerald-400 hover:bg-emerald-400/10', progressBarColor: 'bg-emerald-500' };
+
+    // ── Technical Writing & Communication ────────────────────────
+    if (n.includes('technical writing') || n.includes('professional communication') ||
+        n.includes('english') || n.includes('communication skill') ||
+        n.includes('soft skill') || n.includes('language'))
+      return { icon: MessageSquare, colorClass: 'text-rose-400 bg-rose-500/10 border-rose-500/20', arrowColor: 'border-rose-400/40 text-rose-400 hover:bg-rose-400/10', progressBarColor: 'bg-rose-500' };
+
+    // ── Engineering Drawing & Graphics ───────────────────────────
+    if (n.includes('drawing') || n.includes('engineering graphics') || n.includes('cad') ||
+        n.includes('autocad') || n.includes('drafting') || c === 'ED' || c === 'EG')
+      return { icon: PenLine, colorClass: 'text-fuchsia-400 bg-fuchsia-500/10 border-fuchsia-500/20', arrowColor: 'border-fuchsia-400/40 text-fuchsia-400 hover:bg-fuchsia-400/10', progressBarColor: 'bg-fuchsia-500' };
+
+    // ── Thermodynamics & Heat Transfer ───────────────────────────
+    if (n.includes('thermodynamics') || n.includes('heat transfer') || n.includes('thermal'))
+      return { icon: Flame, colorClass: 'text-red-400 bg-red-500/10 border-red-500/20', arrowColor: 'border-red-400/40 text-red-400 hover:bg-red-400/10', progressBarColor: 'bg-red-500' };
+
+    // ── Fluid Mechanics & Hydraulics ─────────────────────────────
+    if (n.includes('fluid') || n.includes('hydraulic') || n.includes('pneumatic') ||
+        n.includes('aerodynamics'))
+      return { icon: Droplets, colorClass: 'text-sky-400 bg-sky-500/10 border-sky-500/20', arrowColor: 'border-sky-400/40 text-sky-400 hover:bg-sky-400/10', progressBarColor: 'bg-sky-500' };
+
+    // ── Mechanics & Manufacturing ────────────────────────────────
+    if (n.includes('mechanic') || n.includes('manufacturing') || n.includes('machine design') ||
+        n.includes('workshop') || n.includes('kinematics') || n.includes('dynamics') ||
+        n.includes('statics') || n.includes('strength of material') || c.startsWith('ME') || c.startsWith('MECH') || c === 'EME')
+      return { icon: Wrench, colorClass: 'text-zinc-400 bg-zinc-500/10 border-zinc-500/20', arrowColor: 'border-zinc-400/40 text-zinc-400 hover:bg-zinc-400/10', progressBarColor: 'bg-zinc-400' };
+
+    // ── Civil / Structures / Construction ────────────────────────
+    if (n.includes('structure') || n.includes('civil') || n.includes('concrete') ||
+        n.includes('soil') || n.includes('geotechnical') || n.includes('surveying') ||
+        n.includes('construction') || n.includes('rcc') || n.includes('bridge'))
+      return { icon: Building2, colorClass: 'text-stone-400 bg-stone-500/10 border-stone-500/20', arrowColor: 'border-stone-400/40 text-stone-400 hover:bg-stone-400/10', progressBarColor: 'bg-stone-400' };
+
+    // ── Material Science ─────────────────────────────────────────
+    if (n.includes('material') || n.includes('metallurgy') || n.includes('polymer') ||
+        n.includes('composite') || n.includes('corrosion'))
+      return { icon: Layers, colorClass: 'text-amber-400 bg-amber-500/10 border-amber-500/20', arrowColor: 'border-amber-400/40 text-amber-400 hover:bg-amber-400/10', progressBarColor: 'bg-amber-500' };
+
+    // ── Economics & Management ───────────────────────────────────
+    if (n.includes('economics') || n.includes('management') || n.includes('finance') ||
+        n.includes('business') || n.includes('accounting') || n.includes('entrepreneurship'))
+      return { icon: BarChart2, colorClass: 'text-green-400 bg-green-500/10 border-green-500/20', arrowColor: 'border-green-400/40 text-green-400 hover:bg-green-400/10', progressBarColor: 'bg-green-500' };
+
+    // ── Biotechnology & Life Sciences ────────────────────────────
+    if (n.includes('biotech') || n.includes('biology') || n.includes('biochemistry') ||
+        n.includes('microbiology') || n.includes('genetics'))
+      return { icon: Microscope, colorClass: 'text-lime-400 bg-lime-500/10 border-lime-500/20', arrowColor: 'border-lime-400/40 text-lime-400 hover:bg-lime-400/10', progressBarColor: 'bg-lime-500' };
+
+    // ── Biomedical & Instrumentation ─────────────────────────────
+    if (n.includes('biomedical') || n.includes('instrumentation') || n.includes('measurement') ||
+        n.includes('control system') || n.includes('automation'))
+      return { icon: Activity, colorClass: 'text-pink-400 bg-pink-500/10 border-pink-500/20', arrowColor: 'border-pink-400/40 text-pink-400 hover:bg-pink-400/10', progressBarColor: 'bg-pink-500' };
+
+    // ── Default cycling palette (fallback) ───────────────────────
+    const defaults = [
+      { icon: Atom,       colorClass: 'text-violet-400 bg-violet-500/10 border-violet-500/20', arrowColor: 'border-violet-400/40 text-violet-400 hover:bg-violet-400/10', progressBarColor: 'bg-violet-500' },
+      { icon: Code,       colorClass: 'text-orange-400 bg-orange-500/10 border-orange-500/20', arrowColor: 'border-orange-400/40 text-orange-400 hover:bg-orange-400/10', progressBarColor: 'bg-orange-500' },
+      { icon: Database,   colorClass: 'text-lime-400   bg-lime-500/10   border-lime-500/20',   arrowColor: 'border-lime-400/40   text-lime-400   hover:bg-lime-400/10',   progressBarColor: 'bg-lime-500'   },
+      { icon: Globe,      colorClass: 'text-blue-400   bg-blue-500/10   border-blue-500/20',   arrowColor: 'border-blue-400/40   text-blue-400   hover:bg-blue-400/10',   progressBarColor: 'bg-blue-500'   },
+      { icon: BarChart2,  colorClass: 'text-green-400  bg-green-500/10  border-green-500/20',  arrowColor: 'border-green-400/40  text-green-400  hover:bg-green-400/10',  progressBarColor: 'bg-green-500'  },
+      { icon: Layers,     colorClass: 'text-slate-400  bg-slate-500/10  border-slate-500/20',  arrowColor: 'border-slate-400/40  text-slate-400  hover:bg-slate-400/10',  progressBarColor: 'bg-slate-500'  },
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return defaults[Math.abs(hash) % defaults.length];
   };
 
-  const container = {
-    hidden:  { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+  // Get the number of units in a subject
+  const getSubjectTopicsCount = (sub: any) => {
+    if (!sub || !sub.syllabus) return 0;
+    return sub.syllabus.length;
   };
-  const cardVariants = {
-    hidden:  { y: 15, opacity: 0 },
-    visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100, damping: 15 } },
+
+  // -------------------------------------------------------------
+  // Continue Progress Row generator (Uses real sessional progress)
+  // -------------------------------------------------------------
+  const getContinueRows = () => {
+    // If the user has real practice records, use them
+    if (analytics?.mostPracticed && analytics.mostPracticed.length > 0) {
+      return analytics.mostPracticed.map((rec: any) => {
+        const themeStyles = getSubjectCardStyles(rec.subjectName, '');
+        return {
+          subjectName: `${rec.subjectName} – Unit ${rec.unit || 1}`,
+          chapterTitle: rec.topic,
+          progress: rec.accuracy,
+          questions: `${rec.correct} / ${rec.attempted} Questions`,
+          colorClass: themeStyles.colorClass,
+          progressBarColor: themeStyles.progressBarColor,
+          subjectId: rec.subjectId || '#'
+        };
+      });
+    }
+
+    // Fallback: render the first unit/topic of each of their enrolled subjects
+    if (subjects && subjects.length > 0) {
+      return subjects.slice(0, 5).map((sub: any) => {
+        const themeStyles = getSubjectCardStyles(sub.name, sub.code);
+        const firstUnit = sub.syllabus?.[0];
+        const firstTopic = firstUnit?.topics?.[0] || 'Introduction and Concepts';
+        return {
+          subjectName: `${sub.name} – Unit 1`,
+          chapterTitle: firstTopic,
+          progress: 0,
+          questions: '0 / 10 Questions',
+          colorClass: themeStyles.colorClass,
+          progressBarColor: themeStyles.progressBarColor,
+          subjectId: sub._id
+        };
+      });
+    }
+
+    // Hard fallback if no subjects loaded yet
+    return [
+      { subjectName: 'Physics – Unit 1', chapterTitle: 'Physical World and Measurement', progress: 0, questions: '0 / 30 Questions', colorClass: 'bg-purple-500/10 text-purple-400', progressBarColor: 'bg-purple-500', subjectId: '#' },
+      { subjectName: 'Mathematics – Unit 1', chapterTitle: 'Differential Calculus', progress: 0, questions: '0 / 30 Questions', colorClass: 'bg-emerald-500/10 text-emerald-400', progressBarColor: 'bg-emerald-500', subjectId: '#' },
+      { subjectName: 'BHS – Unit 1', chapterTitle: 'Development and Sustainability', progress: 0, questions: '0 / 30 Questions', colorClass: 'bg-orange-500/10 text-orange-400', progressBarColor: 'bg-orange-500', subjectId: '#' },
+    ];
   };
 
   return (
-    <div className="flex min-h-screen bg-bg-primary text-text-primary overflow-hidden relative">
-      {/* Background ambient light */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] rounded-full bg-accent/4 blur-[200px] pointer-events-none" />
+    <div className="flex h-screen bg-bg-primary text-text-primary overflow-hidden relative">
+      {/* Ambient glow — dark mode only */}
+      <div className="hidden dark:block fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[550px] rounded-full bg-purple-900/10 blur-[180px] pointer-events-none" />
 
-      {/* Collapsible Left Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar Navigation */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        streakCount={analytics?.metrics?.streakCount ?? user?.engagement?.streakCount ?? 0}
+        streakDays={analytics?.metrics?.streakDays}
+      />
 
-      {/* Main Panel Content */}
-      <div className="flex-grow flex flex-col min-h-screen overflow-y-auto z-10">
-        {/* Global Navbar */}
-        <Navbar onMenuToggle={() => setSidebarOpen(true)} />
+      {/* Main Content Area */}
+      <div className="flex-grow flex flex-col h-full overflow-y-auto z-10">
+        
+        {/* Top Header Bar */}
+        <header className="px-5 sm:px-7 h-16 border-b border-border-primary/50 flex items-center justify-between gap-4 bg-bg-primary sticky top-0 z-30 shrink-0">
 
-        <main className="flex-grow max-w-5xl w-full mx-auto px-6 sm:px-8 py-8 space-y-8">
-          {/* Header Row */}
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row sm:items-end justify-between gap-6"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-accent/10 border border-accent/20 text-accent">
-                  {activeCollege}
-                </span>
-                <ChevronRight className="w-3 h-3 text-text-muted" />
-                <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-bg-tertiary border border-border-primary text-text-secondary">
-                  {activeBranch}
-                </span>
-                <ChevronRight className="w-3 h-3 text-text-muted" />
-                <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md bg-bg-tertiary border border-border-primary text-text-secondary">
-                  {ordinal(activeSemester)} Semester
-                </span>
-              </div>
-              <h2 className="font-display text-2xl sm:text-3xl font-black tracking-tight leading-none">
-                Welcome back, <span className="text-accent">{activeName.split(' ')[0]}</span>! 👋
-              </h2>
-              <p className="text-xs text-text-secondary leading-relaxed max-w-sm">
-                Pick your active course unit or review subject formulas to complete daily challenges.
-              </p>
-            </div>
-
-            {/* Quick Stats Grid */}
-            <div className="flex items-center gap-2.5 shrink-0">
-              {[
-                { icon: Flame, label: 'Streak', value: streak, color: 'text-orange-400 bg-orange-400/8 border-orange-400/15' },
-                { icon: Zap, label: 'XP Points', value: xp, color: 'text-yellow-400 bg-yellow-400/8 border-yellow-400/15' },
-                { icon: TrendingUp, label: 'Sessions', value: sessions, color: 'text-accent bg-accent/8 border-accent/15' },
-              ].map(({ icon: Icon, label, value, color }) => (
-                <motion.div
-                  key={label}
-                  whileHover={{ scale: 1.03, y: -1 }}
-                  className={`flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl border ${color} min-w-[80px] shadow-sm`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="font-display font-black text-sm leading-none">{value}</span>
-                  <span className="text-[8px] uppercase tracking-widest font-black opacity-70">{label}</span>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Inactive college warning banner */}
-          {isCollegeInactive && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-start gap-3.5 p-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-xs shadow-xs"
+          {/* Left: Mobile menu + Search */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-all shrink-0"
+              aria-label="Open menu"
             >
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold">{activeCollege} </span>
-                university syllabus configuration is mapping. Switch to <span className="font-bold">MMMUT</span> for full workspaces.{' '}
-                <Link href="/onboarding?reset=true" className="underline underline-offset-2 font-bold hover:text-amber-300">Switch Now →</Link>
-              </div>
-            </motion.div>
-          )}
+              <Menu className="w-4 h-4" />
+            </button>
+            
+            <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-text-muted absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="search-input"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search topics, chapters or questions..."
+                className="w-full pl-10 pr-20 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-[13px] font-medium focus:border-accent/50 focus:ring-2 focus:ring-accent/15 outline-none text-text-primary placeholder:text-text-muted transition-all"
+              />
+              <kbd className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center px-2 py-0.5 rounded-md bg-bg-tertiary border border-border-primary text-[10px] font-semibold text-text-muted select-none pointer-events-none">
+                ⌘K
+              </kbd>
+            </form>
+          </div>
 
-          {/* Daily Goal Progression Line */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-2">
-                <Activity className="w-4 h-4 text-accent" />
-                <span>Your Daily Goal ({dailySolved}/{dailyTarget} Questions)</span>
-              </h3>
-              <span className="text-[10px] font-bold text-text-muted">Almost there! Solve {dailyTarget - dailySolved} more questions to finish.</span>
-            </div>
-            {/* Visual Milestones Tracker bar */}
-            <div className="relative pt-4 pb-2 px-2">
-              <div className="absolute top-1/2 left-0 right-0 h-1 bg-bg-tertiary -translate-y-1/2 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-accent transition-all duration-300"
-                  style={{ width: `${Math.min(100, (dailySolved / dailyTarget) * 100)}%` }}
-                />
-              </div>
-              <div className="relative flex justify-between items-center z-10">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs shadow-sm transition-all duration-300 ${dailySolved >= 1 ? 'bg-accent border-transparent text-white' : 'bg-bg-secondary border-border-primary text-text-secondary'}`}>
-                  🚀
-                </div>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs shadow-sm transition-all duration-300 ${dailySolved >= 15 ? 'bg-accent border-transparent text-white' : 'bg-bg-secondary border-border-primary text-text-secondary'}`}>
-                  🏃
-                </div>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border text-xs shadow-sm transition-all duration-300 ${dailySolved >= 30 ? 'bg-accent border-transparent text-white' : 'bg-bg-secondary border-border-primary text-text-secondary'}`}>
-                  🏁
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          {/* Right: Actions + Profile */}
+          <div className="flex items-center gap-1 shrink-0">
 
-          {/* Subjects Directory */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <BookOpen className="w-4 h-4 text-accent" />
-                <h3 className="font-display font-bold text-base">Chapters & Subjects</h3>
-                {subjects.length > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-accent/10 text-accent border border-accent/25">
-                    {subjects.length}
-                  </span>
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all"
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            </button>
+
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all relative"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent ring-2 ring-bg-primary" />
                 )}
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setNotificationsOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-40 w-80 rounded-2xl border border-border-primary bg-bg-secondary shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-primary">
+                      <h4 className="text-sm font-bold text-text-primary">Notifications</h4>
+                      {unreadCount > 0 && (
+                        <button onClick={handleMarkAllRead} className="text-[11px] font-semibold text-accent hover:opacity-80 transition-opacity">
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-72 overflow-y-auto p-2 space-y-1">
+                      {notifications.length === 0 ? (
+                        <p className="text-[12px] text-text-muted text-center py-8">No notifications yet.</p>
+                      ) : (
+                        notifications.map((n) => (
+                          <div 
+                            key={n._id} 
+                            className={`p-3 rounded-xl transition-all cursor-default ${n.isRead ? 'hover:bg-bg-tertiary' : 'bg-accent/8 border border-accent/20'}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-[12px] font-semibold text-text-primary leading-snug">{n.title}</span>
+                              <span className="text-[10px] text-text-muted shrink-0 mt-0.5">
+                                {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">{n.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div className="w-px h-6 bg-border-primary mx-1" />
+
+            {/* Profile Button */}
+            <div className="relative">
+              <button 
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center gap-2.5 pl-1 pr-3 py-1.5 rounded-xl hover:bg-bg-tertiary transition-all focus:outline-none group"
+              >
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-text-primary font-black text-xs shadow-md shrink-0">
+                  {userInitials}
+                </div>
+                <div className="hidden md:flex flex-col items-start select-none min-w-0">
+                  <span className="text-[13px] font-semibold text-text-primary leading-tight truncate max-w-[120px]">
+                    {activeName || 'Account'}
+                  </span>
+                  <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
+                    {activeBranch && activeSemester
+                      ? `${activeBranch} · ${ordinal(activeSemester)} Sem`
+                      : activeBranch || 'Student'}
+                  </span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />
+              </button>
+
+              {profileDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-35" onClick={() => setProfileDropdownOpen(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-40 w-48 rounded-2xl border border-border-primary bg-bg-secondary p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <Link 
+                      href="/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all"
+                    >
+                      View Profile
+                    </Link>
+                    <Link 
+                      href="/settings"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all"
+                    >
+                      Account Settings
+                    </Link>
+                    <div className="h-px bg-border-primary my-1" />
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-red-500 hover:bg-red-500/8 transition-all text-left"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </header>
+
+
+        {/* Dashboard Main Scrollable Body */}
+        <main className="flex-grow max-w-5xl w-full mx-auto px-6 sm:px-8 py-8 space-y-6">
+          
+          {/* Card 1: Your Daily Goal Card */}
+          <section className="p-6 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+            <div className="space-y-4 flex-grow">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                  <Sparkles className="w-5 h-5 fill-purple-400/15" />
+                </div>
+                <h3 className="font-display font-black text-sm text-text-primary">Your Daily Goal</h3>
               </div>
-              <Link href="/onboarding?reset=true" className="text-[11px] font-semibold text-text-muted hover:text-accent flex items-center gap-0.5">
-                Redo Setup <ChevronRight className="w-3.5 h-3.5" />
+              
+              <div className="space-y-1">
+                <h2 className="font-display font-black text-2xl text-text-primary">
+                  {dailySolved} <span className="text-text-muted">/ {dailyTarget} Questions</span>
+                </h2>
+                <p className="text-xs text-text-secondary font-semibold">
+                  {dailySolved >= dailyTarget ? "Great! You completed today's goal." : `Solve ${dailyTarget - dailySolved} more questions to finish.`}
+                </p>
+              </div>
+
+              {/* Goal Mini Stats badges */}
+              <div className="flex items-center gap-2.5 flex-wrap pt-1">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{dailySolved} Solved</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/5 border border-red-500/10 text-red-400 text-[10px] font-bold">
+                  <XCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{incorrectCount} Incorrect</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-purple-400 text-[10px] font-bold">
+                  <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>{estimatedTimeSpent} min Time Spent</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Goal Progress bar side */}
+            <div className="flex flex-col items-end gap-5 shrink-0 w-full md:w-auto">
+              <div className="flex items-center gap-4 w-full md:w-64">
+                <div className="flex-grow h-2 bg-bg-tertiary border border-border-primary/50 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500 transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <span className="font-display font-black text-xs text-purple-500 shrink-0">{progressPercent}%</span>
+              </div>
+              
+              <Link 
+                href="/tests"
+                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md"
+              >
+                <span>Start Practice</span>
+                <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
+          </section>
 
+          {/* Section 2: Select Your Subject grid */}
+          <section id="subjects" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary space-y-5">
+            <div className="flex items-start gap-3 text-left">
+              <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mt-0.5">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5">
+                <h3 className="font-display font-black text-sm text-text-primary">Select Your Subject</h3>
+                <p className="text-[10px] text-text-secondary font-semibold">Choose a subject to continue your preparation</p>
+              </div>
+            </div>
+
+            {/* Dynamic Subjects Grid */}
             {loadingSubjects ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="animate-pulse h-[140px] rounded-2xl bg-bg-secondary/40 border border-border-primary" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <div key={n} className="animate-pulse h-36 bg-bg-tertiary border border-border-primary/50 rounded-2xl" />
                 ))}
               </div>
             ) : subjects.length > 0 ? (
-              <motion.div
-                variants={container}
-                initial="hidden"
-                animate="visible"
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              >
-                {subjects.map((sub, idx) => (
-                  <motion.div key={sub._id} variants={cardVariants} whileHover={{ y: -3 }} className="group">
-                    <Link href={`/subjects/${sub._id}`}>
-                      <div className="relative h-[140px] rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-5 shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden flex flex-col justify-between">
-                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        
-                        {/* watermark index */}
-                        <span className="absolute bottom-4 right-5 font-display font-black text-5xl text-border-primary/40 select-none leading-none group-hover:text-accent/10 transition-colors">
-                          {String(idx + 1).padStart(2, '0')}
-                        </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {subjects.slice(0, 5).map((sub, idx) => {
+                  const styles = getSubjectCardStyles(sub.name, sub.code);
+                  const IconComponent = styles.icon;
+                  const chaptersCount = getSubjectTopicsCount(sub);
 
-                        <div className="flex items-start justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-accent/8 border border-accent/15 text-accent">
-                            {sub.code}
-                          </span>
-                          <ArrowUpRight className="w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-all duration-200" />
-                        </div>
-
-                        <div className="space-y-1 relative z-10">
-                          <h4 className="font-display font-extrabold text-sm text-text-primary group-hover:text-accent transition-colors leading-snug line-clamp-2">
-                            {sub.name}
-                          </h4>
-                          <span className="text-[10px] font-semibold text-text-muted">{sub.syllabus?.length || 4} units Mapped</span>
-                        </div>
+                  return (
+                    <div 
+                      key={sub._id}
+                      className="p-4 rounded-2xl bg-bg-secondary border border-border-primary hover:border-accent/30 flex flex-col justify-between items-start h-36 group transition-all cursor-pointer"
+                      onClick={() => router.push(`/subjects/${sub._id}`)}
+                    >
+                      <div className={`p-2 rounded-lg ${styles.colorClass} flex items-center justify-center shrink-0`}>
+                        <IconComponent className="w-4 h-4" />
                       </div>
-                    </Link>
-                  </motion.div>
-                ))}
-              </motion.div>
+                      
+                      <div className="space-y-0.5 text-left w-full">
+                        <h4 className="text-xs font-black text-text-primary leading-tight truncate group-hover:text-accent transition-colors">
+                          {sub.name}
+                        </h4>
+                        <p className="text-[9px] text-text-muted font-bold leading-none">
+                          {chaptersCount} {chaptersCount === 1 ? 'Unit' : 'Units'}
+                        </p>
+                      </div>
+
+                      {/* Circular arrow button */}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${styles.arrowColor}`}>
+                        <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* View All Card */}
+                <div 
+                  className="p-4 rounded-2xl bg-bg-secondary border border-border-primary hover:border-accent/30 flex flex-col justify-between items-start h-36 group transition-all cursor-pointer"
+                  onClick={() => router.push('/tests')}
+                >
+                  <div className="p-2 rounded-lg bg-neutral-500/10 border border-neutral-500/20 text-neutral-400 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  
+                  <div className="space-y-0.5 text-left w-full">
+                    <h4 className="text-xs font-black text-text-primary leading-tight truncate">
+                      View All
+                    </h4>
+                    <p className="text-[9px] text-text-muted font-bold leading-none">
+                      All Subjects
+                    </p>
+                  </div>
+
+                  {/* Circular arrow button */}
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center border border-text-muted/30 text-text-muted hover:border-accent/40 hover:text-accent transition-all">
+                    <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+                  </div>
+                </div>
+              </div>
             ) : (
-              <div className="py-16 text-center border border-dashed border-border-primary rounded-2xl bg-bg-secondary/10 space-y-3.5">
-                <BookOpen className="w-8 h-8 text-text-muted mx-auto" />
-                <p className="text-sm font-bold text-text-secondary">No subjects seeded for this semester</p>
-                <Link href="/onboarding?reset=true" className="inline-flex items-center gap-1.5 text-xs font-bold text-accent hover:underline">
-                  Change Setup <ChevronRight className="w-3 h-3" />
-                </Link>
+              <div className="py-16 text-center border border-dashed border-border-primary rounded-2xl bg-bg-secondary/50 text-text-muted text-xs">
+                No active subjects found for this semester. Redo sessional onboarding setup.
               </div>
             )}
-          </div>
+          </section>
 
-          {/* Formula Cards tabbed sheets section */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-500" />
-              <h3 className="font-display font-bold text-base">Formula Cards</h3>
-              <span className="text-[9px] font-extrabold uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/15">NEW</span>
+          {/* Section 3: Continue Your Chapters */}
+          <section id="practice" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display font-black text-sm text-text-primary">Continue Your Chapters</h3>
+              <Link href="/tests" className="text-[10px] font-black text-accent hover:opacity-75 uppercase tracking-wider transition-opacity">
+                View All
+              </Link>
             </div>
 
-            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-5">
-              {/* Category tabs */}
-              <div className="flex items-center gap-2 border-b border-border-primary/45 pb-3">
-                {[
-                  { id: 'physics', label: 'Physics', color: 'text-orange-400 bg-orange-400/8 border-orange-400/15' },
-                  { id: 'chemistry', label: 'Chemistry', color: 'text-green-400 bg-green-400/8 border-green-400/15' },
-                  { id: 'math', label: 'Mathematics', color: 'text-blue-400 bg-blue-400/8 border-blue-400/15' }
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setFormulaTab(tab.id as any)}
-                    className={`
-                      px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border
-                      ${formulaTab === tab.id 
-                        ? 'bg-accent/10 border-accent/25 text-accent' 
-                        : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/40'
-                      }
-                    `}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Chapters cheat card slider */}
-              <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
-                {mockFormulaChapters[formulaTab].map((ch, idx) => (
-                  <motion.div
-                    key={idx}
-                    whileHover={{ y: -3 }}
-                    className={`flex-shrink-0 w-44 p-4 rounded-xl border flex flex-col justify-between h-28 cursor-pointer transition-all ${ch.color}`}
-                  >
-                    <h5 className="font-display font-extrabold text-xs leading-snug line-clamp-2">{ch.name}</h5>
-                    <div className="flex items-center justify-between text-[9px] font-bold opacity-80">
-                      <span>{ch.cards} cards</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Concept search bar & NCERT Toolbox */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Concept notes search block */}
-            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
-              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary">Concept-wise Notes</h3>
-              <p className="text-[10px] text-text-secondary leading-relaxed">Search definitions, mathematical derivations, or concept breakdowns.</p>
-              <div className="relative">
-                <Search className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input 
-                  type="text" 
-                  placeholder="Get clarity on any topic..." 
-                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-border-primary bg-bg-primary/50 text-xs font-semibold focus:border-accent transition-colors"
-                />
-                <button className="absolute right-3 top-1/2 -translate-y-1/2 hover:text-accent text-text-muted">
-                  <Mic className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Toolbox equivalent */}
-            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
-              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary">Syllabus Toolbox</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { name: 'Unit Checklist', emoji: '📝', path: '#' },
-                  { name: 'Solved QA Bank', emoji: '📖', path: '#' },
-                  { name: 'Weightage Map', emoji: '📊', path: '#' }
-                ].map((item, idx) => (
-                  <button 
-                    key={idx}
-                    className="p-3 rounded-xl border border-border-primary bg-bg-primary/40 hover:bg-bg-primary hover:border-accent/25 hover:shadow-xs transition-all flex flex-col items-center justify-center text-center gap-1.5"
-                  >
-                    <span className="text-sm">{item.emoji}</span>
-                    <span className="text-[9px] font-bold text-text-secondary leading-snug">{item.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Assignments promo banner */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="md:col-span-2 p-6 rounded-2xl bg-accent text-white flex items-center justify-between relative overflow-hidden group shadow-md">
-              {/* Background styling elements */}
-              <div className="absolute top-1/2 right-12 -translate-y-1/2 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform" />
-              
-              <div className="space-y-2 z-10 relative text-left">
-                <h3 className="font-display font-black text-lg">PaperHub Assignments</h3>
-                <p className="text-xs text-white/80 max-w-sm leading-relaxed">Attempt direct assignments published by college tutors and compare rankings with classmates.</p>
-                <button className="px-4 py-2 mt-2 rounded-xl bg-white text-accent hover:bg-white/90 text-xs font-bold transition-all">
-                  View Assignments
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex flex-col justify-between h-40">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-accent" />
-                <h4 className="font-display font-extrabold text-sm">PaperHub For Teachers</h4>
-              </div>
-              <p className="text-[10px] text-text-secondary leading-relaxed">Create customized college exam sets, assign mock tests, and track your students' success indices.</p>
-              <button className="w-full py-2.5 rounded-xl border border-border-primary hover:bg-bg-tertiary hover:border-accent/35 text-text-primary text-xs font-bold transition-all">
-                Explore Now →
-              </button>
-            </div>
-          </div>
-
-          {/* Social media connections footer grid */}
-          <div className="pt-6 border-t border-border-primary/50 space-y-4">
-            <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-muted text-center">Join our communities</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-2xl mx-auto">
-              {[
-                { 
-                  name: 'YouTube', 
-                  color: 'hover:text-red-500 hover:bg-red-500/5 hover:border-red-500/20',
-                  svg: (
-                    <svg className="w-4 h-4 shrink-0 fill-current text-red-500" viewBox="0 0 24 24">
-                      <path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.11C19.517 3.545 12 3.545 12 3.545s-7.516 0-9.387.507A3.003 3.003 0 0 0 .502 6.163C0 8.07 0 12 0 12s0 3.93.502 5.837a3.003 3.003 0 0 0 2.11 2.11c1.871.507 9.387.507 9.387.507s7.517 0 9.387-.507a3.003 3.003 0 0 0 2.11-2.11C24 15.93 24 12 24 12s0-3.93-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                    </svg>
-                  )
-                },
-                { 
-                  name: 'Telegram', 
-                  color: 'hover:text-sky-500 hover:bg-sky-500/5 hover:border-sky-500/20',
-                  svg: (
-                    <svg className="w-4 h-4 shrink-0 fill-current text-sky-400" viewBox="0 0 24 24">
-                      <path d="M11.944 0C5.337 0 0 5.337 0 11.944c0 6.608 5.337 11.944 11.944 11.944 6.608 0 11.944-5.336 11.944-11.944C23.888 5.337 18.552 0 11.944 0zm5.83 8.358l-1.99 9.379c-.15.669-.546.832-1.109.516l-3.037-2.238-1.465 1.409c-.162.162-.298.298-.612.298l.218-3.092 5.628-5.084c.245-.218-.053-.339-.38-.122l-6.958 4.382-2.996-.938c-.651-.204-.664-.651.136-.964l11.713-4.514c.542-.197 1.016.128.802.968z"/>
-                    </svg>
-                  )
-                },
-                { 
-                  name: 'Instagram', 
-                  color: 'hover:text-pink-500 hover:bg-pink-500/5 hover:border-pink-500/20',
-                  svg: (
-                    <svg className="w-4 h-4 shrink-0 stroke-current fill-none stroke-[2] text-pink-400" viewBox="0 0 24 24">
-                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
-                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
-                    </svg>
-                  )
-                },
-                { 
-                  name: 'Twitter', 
-                  color: 'hover:text-blue-400 hover:bg-blue-400/5 hover:border-blue-400/20',
-                  svg: (
-                    <svg className="w-4 h-4 shrink-0 fill-current text-blue-400" viewBox="0 0 24 24">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                    </svg>
-                  )
-                }
-              ].map((soc, idx) => (
-                <button 
+            {/* List Rows */}
+            <div className="divide-y divide-border-primary/30">
+              {getContinueRows().map((row: any, idx: number) => (
+                <div 
                   key={idx}
-                  className={`flex items-center justify-center gap-2.5 py-3 rounded-xl border border-border-primary/65 bg-bg-secondary/45 text-text-secondary text-xs font-bold transition-all ${soc.color}`}
+                  onClick={() => router.push(row.subjectId !== '#' ? `/subjects/${row.subjectId}` : '/dashboard')}
+                  className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-bg-tertiary px-2 rounded-xl transition-all"
                 >
-                  {soc.svg}
-                  <span>{soc.name}</span>
-                </button>
+                  {/* Left: Icon + Titles */}
+                  <div className="flex items-center gap-3.5 text-left min-w-0 max-w-[40%]">
+                    <div className={`w-8 h-8 rounded-lg ${row.colorClass} flex items-center justify-center shrink-0`}>
+                      <FileText className="w-4.5 h-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors leading-snug truncate">
+                        {row.subjectName}
+                      </h4>
+                      <p className="text-[10px] text-text-muted truncate mt-0.5">
+                        {row.chapterTitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Middle: Progress line bar */}
+                  <div className="flex-grow max-w-md hidden sm:block">
+                    <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden border border-border-primary/30">
+                      <div 
+                        className={`h-full ${row.progressBarColor} transition-all duration-300`} 
+                        style={{ width: `${row.progress}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right: Progress text stats */}
+                  <div className="flex items-center gap-5 shrink-0">
+                    <span className="font-display font-black text-xs text-text-primary">
+                      {row.progress}%
+                    </span>
+                    <span className="text-[10px] text-text-secondary font-bold hidden md:inline">
+                      {row.questions}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
+                  </div>
+                </div>
               ))}
             </div>
+          </section>
+
+          {/* Footer Text */}
+          <div className="py-6 text-center text-text-muted text-[10px] font-bold flex items-center justify-center gap-1.5 select-none">
+            <span>Keep learning, keep growing!</span>
+            <span>🚀</span>
           </div>
+
         </main>
 
-        <footer className="border-t border-border-primary/50 py-6 bg-bg-secondary/15 text-center space-y-1">
-          <p className="font-display text-[10px] font-black tracking-widest text-text-muted uppercase">Padho chahe kahise, Practice karo PaperHub se</p>
-          <p className="text-[10px] text-text-muted">© 2026 Scoremarks Technologies Private Limited</p>
-        </footer>
+        {/* Dynamic Search Modal Overlay */}
+        {showSearchModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setShowSearchModal(false)} />
+            <div className="relative w-full max-w-2xl rounded-2xl border border-border-primary bg-bg-secondary p-6 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh] text-left z-50">
+              <div className="flex items-center justify-between border-b border-border-primary/50 pb-4 mb-4">
+                <h3 className="font-display font-black text-sm text-text-primary">Search Results for "{searchQuery}"</h3>
+                <button 
+                  onClick={() => setShowSearchModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-bg-tertiary text-text-secondary transition-colors"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+
+              {searching ? (
+                <div className="flex items-center justify-center py-16 flex-grow">
+                  <Loader2 className="w-6 h-6 animate-spin text-purple-500" />
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="text-center py-16 flex-grow space-y-2">
+                  <p className="text-xs font-bold text-text-secondary">No matching questions found.</p>
+                  <p className="text-[10px] text-text-muted">Try a different keyword or check your spelling.</p>
+                </div>
+              ) : (
+                <div className="overflow-y-auto space-y-3 pr-1 flex-grow scrollbar-thin">
+                  {searchResults.map((q) => (
+                    <div 
+                      key={q._id} 
+                      className="p-4 rounded-xl border border-border-primary bg-bg-tertiary hover:bg-bg-secondary transition-all flex flex-col justify-between gap-3 text-left"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <p className="text-[11px] font-semibold text-text-primary leading-relaxed line-clamp-3">
+                          {q.questionText}
+                        </p>
+                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded ${
+                          q.difficulty === 'hard' ? 'bg-red-500/10 text-red-400' :
+                          q.difficulty === 'medium' ? 'bg-amber-500/10 text-amber-400' :
+                          'bg-emerald-500/10 text-emerald-400'
+                        }`}>
+                          {q.difficulty}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[9px] font-bold text-text-muted">
+                        <span>Unit {q.unit} • {q.topic} • {q.marks} Marks</span>
+                        <Link 
+                          href={`/subjects/${q.subjectId}`}
+                          onClick={() => setShowSearchModal(false)}
+                          className="text-purple-400 hover:underline flex items-center gap-0.5"
+                        >
+                          Practice Chapter <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

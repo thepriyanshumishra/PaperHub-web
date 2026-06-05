@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import College from '../models/college';
+import University from '../models/university';
+import Course from '../models/course';
 import Branch from '../models/branch';
 import fs from 'fs';
 import path from 'path';
@@ -24,12 +25,16 @@ async function main() {
   await mongoose.connect(MONGODB_URI);
   console.log('Connected to MongoDB.');
 
-  const colleges = await College.find({}).lean();
-  console.log('COLLEGES IN DB:', colleges);
+  const universities = await University.find({}).lean();
+  console.log('UNIVERSITIES IN DB:', universities);
 
-  for (const college of colleges) {
-    const branches = await Branch.find({ collegeId: college._id }).lean();
-    console.log(`BRANCHES FOR ${college.code} (${college._id}):`, branches);
+  for (const univ of universities) {
+    const courses = await Course.find({ universityId: univ._id }).lean();
+    console.log(`COURSES FOR ${univ.code} (${univ._id}):`, courses);
+    for (const course of courses) {
+      const branches = await Branch.find({ courseId: course._id }).lean();
+      console.log(`BRANCHES FOR ${course.code} (${course._id}):`, branches);
+    }
   }
 
   process.exit(0);

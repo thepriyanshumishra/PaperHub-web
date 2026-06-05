@@ -11,6 +11,7 @@ const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mo
 });
 
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/components/auth-provider';
 
 import { 
   Clock, 
@@ -30,9 +31,11 @@ import {
   ArrowUp,
   ArrowDown,
   BadgeCheck,
-  Trophy
+  Trophy,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { generateTestPaperPDF } from '@/lib/generatePDF';
 
 interface SolutionStep {
   stepNumber: number;
@@ -81,6 +84,7 @@ function TestSolveContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const subjectId = params.subjectId as string;
+  const { fbUser, loading: authLoading } = useAuth();
 
   // URL parameters
   const sessionId = searchParams.get('sessionId');
@@ -130,82 +134,126 @@ function TestSolveContent() {
 
   // Load questions and saved stats
   useEffect(() => {
+    if (authLoading) return;
+
     if (!sessionId) {
       router.push(`/subjects/${subjectId}`);
       return;
     }
 
-    fetch(`/api/sessions/${sessionId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to load session');
-        return res.json();
-      })
-      .then((data) => {
-        if (data.session && data.session.questions) {
-          setQuestions(data.session.questions);
-          setCurrentIdx(data.session.currentQuestionIndex || 0);
-          setEvaluationMethod(data.session.evaluationMethod || 'self');
-          setHistory(data.session.history || []);
-          
-          if (data.session.history) {
-            const initialRevealed: typeof revealedQuestions = {};
-            data.session.history.forEach((h: HistoryEntry) => {
-              const qIdStr = typeof h.questionId === 'object' && h.questionId !== null ? h.questionId._id : h.questionId;
-              if (h.viewedSolution) {
-                initialRevealed[qIdStr] = true;
-              }
-            });
-            setRevealedQuestions(initialRevealed);
-          }
+    if (!fbUser) {
+      router.push('/login');
+      return;
+    }
 
-          if (data.session.testResponses) {
-            const initialResp: typeof responses = {};
-            data.session.testResponses.forEach((resItem: { questionId: string | { _id: string }; selfScore?: 'correct' | 'partial' | 'incorrect'; score?: number; notes?: string }) => {
-              const qIdStr = typeof resItem.questionId === 'object' && resItem.questionId !== null ? resItem.questionId._id : resItem.questionId;
-              initialResp[qIdStr] = {
-                selfScore: resItem.selfScore,
-                score: resItem.score,
-                notes: resItem.notes || ''
-              };
-            });
-            setResponses(initialResp);
+    fbUser.getIdToken()
+      .then((idToken) => {
+        fetch(`/api/sessions/${sessionId}`, {
+          headers: {
+            'Authorization': `Bearer ${idToken}`
           }
-          setIsInitialized(true);
-        } else {
-          router.push(`/subjects/${subjectId}`);
-        }
+        })
+          .then((res) => {
+            if (!res.ok) throw new Error('Failed to load session');
+            return res.json();
+          })
+          .then((data) => {
+            if (data.session && data.session.questions) {
+              setQuestions(data.session.questions);
+              setCurrentIdx(data.session.currentQuestionIndex || 0);
+              setEvaluationMethod(data.session.evaluationMethod || 'self');
+              setHistory(data.session.history || []);
+              
+              if (data.session.history) {
+                const initialRevealed: typeof revealedQuestions = {};
+                data.session.history.forEach((h: HistoryEntry) => {
+                  const qIdStr = typeof h.questionId === 'object' && h.questionId !== null ? h.questionId._id : h.questionId;
+                  if (h.viewedSolution) {
+                    initialRevealed[qIdStr] = true;
+                  }
+                });
+                setRevealedQuestions(initialRevealed);
+              }
+
+              if (data.session.timeRemaining !== undefined) {
+                setTimeLeft(data.session.timeRemaining);
+              } else if (data.session.examDuration !== undefined) {
+                setTimeLeft(data.session.examDuration);
+              }
+
+              if (data.session.testResponses) {
+                const initialResp: typeof responses = {};
+                data.session.testResponses.forEach((resItem: { questionId: string | { _id: string }; selfScore?: 'correct' | 'partial' | 'incorrect'; score?: number; notes?: string }) => {
+                  const qIdStr = typeof resItem.questionId === 'object' && resItem.questionId !== null ? resItem.questionId._id : resItem.questionId;
+                  initialResp[qIdStr] = {
+                    selfScore: resItem.selfScore,
+                    score: resItem.score,
+                    notes: resItem.notes || ''
+                  };
+                });
+                setResponses(initialResp);
+              }
+              setIsInitialized(true);
+            } else {
+              router.push(`/subjects/${subjectId}`);
+            }
+          })
+          .catch((err) => {
+            console.error('Error loading test session:', err);
+            router.push(`/subjects/${subjectId}`);
+          })
+          .finally(() => {
+            setLoading(false);
+          });
       })
       .catch((err) => {
-        console.error('Error loading test session:', err);
+        console.error('Error getting id token:', err);
         router.push(`/subjects/${subjectId}`);
-      })
-      .finally(() => {
-        setLoading(false);
       });
-  }, [subjectId, sessionId, router]);
+  }, [subjectId, sessionId, router, fbUser, authLoading]);
 
-  // Load saved timer value from localStorage on client-side mount
-  useEffect(() => {
-    if (!sessionId) return;
-    const saved = localStorage.getItem(`test_time_left_${sessionId}`);
-    if (saved) {
-      const parsed = parseInt(saved, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        setTimeLeft(parsed);
+  // Periodic server authoritative timer sync
+  const syncTimeWithServer = async (time: number) => {
+    if (!sessionId || loading || !isInitialized) return;
+    try {
+      const token = await fbUser?.getIdToken();
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ timeRemaining: time })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.timeExpired || data.session?.status === 'completed') {
+          setTimeLeft(0);
+          handleSubmitExam(true, true);
+        } else if (data.session?.timeRemaining !== undefined) {
+          setTimeLeft(data.session.timeRemaining);
+        }
       }
+    } catch (e) {
+      console.error("Error syncing timer with server:", e);
     }
-  }, [sessionId]);
+  };
 
   // Sync current question index to database when it changes
   useEffect(() => {
     if (!isInitialized || loading || questions.length === 0 || !sessionId) return;
     
-    fetch(`/api/sessions/${sessionId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentQuestionIndex: currentIdx })
-    }).catch(e => console.error("Error syncing question index:", e));
-  }, [currentIdx, sessionId, loading, questions.length, isInitialized]);
+    fbUser?.getIdToken().then((token) => {
+      fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ currentQuestionIndex: currentIdx })
+      }).catch(e => console.error("Error syncing question index:", e));
+    }).catch(e => console.error("Error getting token:", e));
+  }, [currentIdx, sessionId, loading, questions.length, isInitialized, fbUser]);
 
   // Auto-fetch solution if the active question is already revealed but not loaded
   useEffect(() => {
@@ -272,18 +320,25 @@ function TestSolveContent() {
     };
   }, [router, subjectId]);
 
-  // Timer countdown with localStorage backup
+  // Timer countdown with server-authoritative sync
   useEffect(() => {
+    if (!isInitialized) return;
     if (timeLeft <= 0) {
-      handleSubmitExam(true);
+      handleSubmitExam(true, true);
       return;
     }
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         const nextTime = prev - 1;
-        if (sessionId) {
-          localStorage.setItem(`test_time_left_${sessionId}`, String(nextTime));
+        if (nextTime <= 0) {
+          clearInterval(timer);
+          handleSubmitExam(true, true);
+          return 0;
+        }
+        // Sync with server every 30 seconds to prevent client-side timer manipulation
+        if (nextTime % 30 === 0) {
+          syncTimeWithServer(nextTime);
         }
         return nextTime;
       });
@@ -291,7 +346,7 @@ function TestSolveContent() {
 
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, sessionId]);
+  }, [timeLeft, sessionId, isInitialized]);
 
   // Anti-cheat event listeners
   useEffect(() => {
@@ -350,11 +405,19 @@ function TestSolveContent() {
 
   const syncAntiCheatState = async (payload: { tabSwitches?: number; focusLosses?: number; fullscreenExits?: number }) => {
     if (!sessionId) return;
-    fetch(`/api/sessions/${sessionId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ testAnalytics: payload })
-    }).catch((e) => console.error(e));
+    try {
+      const token = await fbUser?.getIdToken();
+      fetch(`/api/sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ testAnalytics: payload })
+      }).catch((e) => console.error(e));
+    } catch (e) {
+      console.error("Error syncing anti cheat state:", e);
+    }
   };
 
   // Toggle fullscreen mode
@@ -382,27 +445,28 @@ function TestSolveContent() {
     }));
   };
 
-  const fetchSolutionForQuestion = (qId: string) => {
+  const fetchSolutionForQuestion = async (qId: string) => {
     setSolutionsLoading(prev => ({ ...prev, [qId]: true }));
-    fetch(`/api/ai/solve?questionId=${qId}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load solution');
-        return res.json();
-      })
-      .then(data => {
-        if (data.solution) {
-          setSolutions(prev => ({ ...prev, [qId]: data.solution }));
-        } else {
-          setSolutions(prev => ({ ...prev, [qId]: { error: true } }));
+    try {
+      const token = await fbUser?.getIdToken();
+      const res = await fetch(`/api/ai/solve?questionId=${qId}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
-      })
-      .catch(err => {
-        console.error(err);
-        setSolutions(prev => ({ ...prev, [qId]: { error: true } }));
-      })
-      .finally(() => {
-        setSolutionsLoading(prev => ({ ...prev, [qId]: false }));
       });
+      if (!res.ok) throw new Error('Failed to load solution');
+      const data = await res.json();
+      if (data.solution) {
+        setSolutions(prev => ({ ...prev, [qId]: data.solution }));
+      } else {
+        setSolutions(prev => ({ ...prev, [qId]: { error: true } }));
+      }
+    } catch (err) {
+      console.error(err);
+      setSolutions(prev => ({ ...prev, [qId]: { error: true } }));
+    } finally {
+      setSolutionsLoading(prev => ({ ...prev, [qId]: false }));
+    }
   };
 
   const formatTimer = (secs: number) => {
@@ -440,9 +504,13 @@ function TestSolveContent() {
     }));
 
     try {
+      const token = await fbUser?.getIdToken();
       await fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           testResponses: testResponsesPayload
         })
@@ -480,9 +548,13 @@ function TestSolveContent() {
 
     if (evaluationMethod === 'photo') {
       try {
+        const token = await fbUser?.getIdToken();
         await fetch(`/api/sessions/${sessionId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({
             testAnalytics: { tabSwitches, focusLosses, fullscreenExits }
           })
@@ -522,9 +594,13 @@ function TestSolveContent() {
         }))
       };
 
+      const token = await fbUser?.getIdToken();
       await fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           status: 'completed',
           testAnalytics: { tabSwitches, focusLosses, fullscreenExits },
@@ -642,6 +718,47 @@ function TestSolveContent() {
             <Clock className={`w-3.5 h-3.5 md:w-4 md:h-4 ${isTimeCritical ? 'text-red-500' : isTimeUrgent ? 'text-yellow-500' : 'text-accent'} animate-pulse`} />
             <span>{formatTimer(timeLeft)}</span>
           </div>
+
+          {/* Download Blank Question Paper PDF */}
+          <button
+            onClick={async () => {
+              try {
+                // Fetch full session details with populated questions
+                const token = await fbUser?.getIdToken();
+                const res = await fetch(`/api/sessions/${sessionId}`, {
+                  headers: {
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                  }
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  const mappedSession = {
+                    ...data.session,
+                    questions: data.session.questions.map((q: any) => ({
+                      _id: q._id,
+                      unit: q.unit,
+                      topic: q.topic,
+                      questionText: q.questionText,
+                      marks: q.marks || 10
+                    }))
+                  };
+                  await generateTestPaperPDF(
+                    mappedSession,
+                    'Mock Sessional Examination',
+                    subjectId.slice(-6).toUpperCase(),
+                    data.session.subType || 'Mock Exam',
+                    durationParam
+                  );
+                }
+              } catch (err) {
+                console.error('Failed to download question paper:', err);
+              }
+            }}
+            className="p-2 rounded-xl border border-border-primary/80 bg-bg-secondary/50 hover:bg-bg-tertiary text-text-secondary hover:text-text-primary hover:border-accent/40 shadow-sm transition-all duration-300"
+            title="Download Question Paper PDF"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+          </button>
 
           {/* Fullscreen focus button */}
           <button

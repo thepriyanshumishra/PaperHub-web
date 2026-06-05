@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
-import College from '../models/college';
+import University from '../models/university';
+import Course from '../models/course';
 import Branch from '../models/branch';
 import Subject from '../models/subject';
 import fs from 'fs';
@@ -25,22 +26,45 @@ async function main() {
   await mongoose.connect(MONGODB_URI);
   console.log('Connected to MongoDB.');
 
-  const colleges = await College.find({}).lean();
-  for (const college of colleges) {
-    console.log(`\n=== COLLEGE: ${college.name} (${college.code}) ===`);
-    const branches = await Branch.find({ collegeId: college._id }).lean();
-    for (const branch of branches) {
-      console.log(`\n  Branch: ${branch.name} (${branch.code})`);
-      // Check semesters 1 and 2
-      for (const sem of [1, 2]) {
-        const subjects = await Subject.find({
-          branchIds: branch._id,
-          semester: sem
-        }).lean();
-        console.log(`    Semester ${sem}: ${subjects.length} subjects`);
-        subjects.forEach((sub) => {
-          console.log(`      - [${sub.code}] ${sub.name}`);
-        });
+  const universities = await University.find({}).lean();
+  for (const univ of universities) {
+    console.log(`\n=== UNIVERSITY: ${univ.name} (${univ.code}) ===`);
+    const courses = await Course.find({ universityId: univ._id }).lean();
+    for (const course of courses) {
+      console.log(`\n  Course: ${course.name} (${course.code})`);
+      const branches = await Branch.find({ courseId: course._id }).lean();
+      
+      if (branches.length === 0) {
+        // Course without branches (e.g. MBA/MCA)
+        const maxSem = course.maxSemesters || 4;
+        for (let sem = 1; sem <= maxSem; sem++) {
+          const subjects = await Subject.find({
+            semester: sem
+          }).lean();
+          if (subjects.length > 0) {
+            console.log(`    Semester ${sem}: ${subjects.length} subjects`);
+            subjects.forEach((sub) => {
+              console.log(`      - [${sub.code}] ${sub.name}`);
+            });
+          }
+        }
+      } else {
+        for (const branch of branches) {
+          console.log(`\n    Branch: ${branch.name} (${branch.code})`);
+          const maxSem = course.maxSemesters || 8;
+          for (let sem = 1; sem <= maxSem; sem++) {
+            const subjects = await Subject.find({
+              branchIds: branch._id,
+              semester: sem
+            }).lean();
+            if (subjects.length > 0) {
+              console.log(`      Semester ${sem}: ${subjects.length} subjects`);
+              subjects.forEach((sub) => {
+                console.log(`        - [${sub.code}] ${sub.name}`);
+              });
+            }
+          }
+        }
       }
     }
   }

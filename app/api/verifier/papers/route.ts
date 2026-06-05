@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import { getAuthenticatedUser } from '@/lib/verifyAuth';
+import { safeErrorResponse } from '@/lib/promptSafety';
+
+import { ROLES, hasPermission } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: User profile mismatch' }, { status: 401 });
     }
 
-    if (user.role !== 'verifier' && user.role !== 'moderator' && user.role !== 'admin') {
+    if (!hasPermission(user.role, ROLES.VERIFIER)) {
       return NextResponse.json({ error: 'Forbidden: Insufficient privileges' }, { status: 403 });
     }
 
@@ -65,7 +68,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ papers });
   } catch (error) {
     console.error('API Error in GET /api/verifier/papers:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: safeErrorResponse(error) }, { status: 500 });
   }
 }

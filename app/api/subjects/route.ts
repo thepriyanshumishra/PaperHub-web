@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import College from '@/models/college';
+import Course from '@/models/course';
 import Branch from '@/models/branch';
 import Subject from '@/models/subject';
+import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +26,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'College not found' }, { status: 404 });
     }
 
-    // Find the branch under this college
-    const branch = await Branch.findOne({ collegeId: college._id, code: branchCode.toUpperCase() });
+    // Find the courses under this college's university
+    const courses = await Course.find({ universityId: college.universityId });
+    const courseIds = courses.map(c => c._id);
+
+    // Find the branch under these courses
+    const branch = await Branch.findOne({ courseId: { $in: courseIds }, code: branchCode.toUpperCase() });
     if (!branch) {
-      return NextResponse.json({ error: 'Branch not found for this college' }, { status: 404 });
+      return NextResponse.json({ error: 'Branch not found for this university course' }, { status: 404 });
     }
 
     const query: Record<string, unknown> = { branchIds: branch._id };
@@ -46,7 +52,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ subjects });
   } catch (error) {
     console.error('API Error in /api/subjects:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    return NextResponse.json({ error: safeErrorResponse(error) }, { status: 500 });
   }
 }
