@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { 
   User as FirebaseUser, 
   signInWithPopup, 
@@ -75,9 +75,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const activeFetchTokenRef = useRef<string | null>(null);
+
   const fetchUserProfile = async (firebaseUser: FirebaseUser) => {
+    const token = await firebaseUser.getIdToken();
+    
+    // Prevent duplicate concurrent profile fetches for the same session token
+    if (activeFetchTokenRef.current === token) {
+      return;
+    }
+    activeFetchTokenRef.current = token;
+
     try {
-      const token = await firebaseUser.getIdToken();
       const res = await fetch('/api/users/profile', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -103,6 +112,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setError(err.message || 'Error syncing with database profile.');
       throw err;
+    } finally {
+      // Release the token lock after a short delay to permit future updates but block concurrent races
+      setTimeout(() => {
+        if (activeFetchTokenRef.current === token) {
+          activeFetchTokenRef.current = null;
+        }
+      }, 2000);
     }
   };
 

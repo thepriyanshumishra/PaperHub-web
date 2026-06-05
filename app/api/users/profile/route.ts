@@ -23,20 +23,33 @@ export async function GET(req: NextRequest) {
     // Query or create default user in MongoDB
     let user = await User.findById(verifiedUser.uid);
     if (!user) {
-      user = await User.create({
-        _id: verifiedUser.uid,
-        email: verifiedUser.email,
-        displayName: verifiedUser.displayName || '',
-        photoURL: verifiedUser.photoURL || '',
-        role: 'student',
-        onboardingCompleted: false,
-        profile: {},
-        engagement: {
-          streakCount: 0,
-          totalXp: 0,
-          sessionsCompleted: 0,
-        },
-      });
+      try {
+        user = await User.create({
+          _id: verifiedUser.uid,
+          email: verifiedUser.email,
+          displayName: verifiedUser.displayName || '',
+          photoURL: verifiedUser.photoURL || '',
+          role: 'student',
+          onboardingCompleted: false,
+          profile: {},
+          engagement: {
+            streakCount: 0,
+            totalXp: 0,
+            sessionsCompleted: 0,
+          },
+        });
+      } catch (createError: any) {
+        // If E11000 duplicate key error occurs, it means another concurrent request created it.
+        // Fetch it again to resolve the race condition.
+        if (createError.code === 11000 || createError.message?.includes('E11000') || createError.message?.includes('duplicate key')) {
+          user = await User.findById(verifiedUser.uid);
+          if (!user) {
+            throw createError; // Rethrow if it still wasn't found
+          }
+        } else {
+          throw createError;
+        }
+      }
     }
 
     return NextResponse.json({ user });
