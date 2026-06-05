@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/components/auth-provider';
@@ -56,7 +56,10 @@ export default function Onboarding() {
 
 function OnboardingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, fbUser, loading, refreshProfile } = useAuth();
+
+  const isReset = searchParams.get('reset') === 'true';
 
   // Onboarding Wizard steps: 1 (Name), 2 (College), 3 (Course), 4 (Branch), 5 (Semester), 6 (Completion Loader)
   const [step, setStep] = useState<number>(1);
@@ -76,12 +79,62 @@ function OnboardingContent() {
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [savingOnboarding, setSavingOnboarding] = useState(false);
 
+  // If reset=true parameter is present, wipe sessional completed status in DB & LocalStorage
+  useEffect(() => {
+    if (isReset && fbUser && !loading) {
+      const runReset = async () => {
+        try {
+          const token = await fbUser.getIdToken();
+          await fetch('/api/users/profile', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              onboardingCompleted: false,
+              profile: {
+                name: fbUser.displayName || '',
+                college: null,
+                course: null,
+                branch: null,
+                semester: null
+              }
+            })
+          });
+          
+          // Clear local states
+          setName(fbUser.displayName || '');
+          setSelectedCollege(null);
+          setSelectedCourse(null);
+          setSelectedBranch(null);
+          setSelectedSemester(null);
+          setStep(1);
+
+          // Clear local storage
+          localStorage.removeItem('selectedCollege');
+          localStorage.removeItem('selectedBranch');
+          localStorage.removeItem('selectedSemester');
+          
+          await refreshProfile();
+          
+          // Clear query param by pushing to same pathname without parameters
+          router.replace('/onboarding');
+        } catch (err) {
+          console.error('Failed to reset onboarding parameters:', err);
+        }
+      };
+      runReset();
+    }
+  }, [isReset, fbUser, loading]);
+
   // Authenticated route protection
   useEffect(() => {
-    if (!loading && !fbUser) {
+    // Only redirect to login if we are not loading, no user, and not in the process of resetting
+    if (!loading && !fbUser && !isReset) {
       router.push('/login');
     }
-  }, [fbUser, loading, router]);
+  }, [fbUser, loading, router, isReset]);
 
   // Load existing profile name if available in auth user
   useEffect(() => {

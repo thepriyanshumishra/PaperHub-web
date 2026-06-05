@@ -4,6 +4,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   User as FirebaseUser, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -97,6 +99,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Handle redirect result if coming back from signInWithRedirect
+    const handleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result && result.user) {
+          setLoading(true);
+          await fetchUserProfile(result.user);
+        }
+      } catch (err: any) {
+        console.error('Error handling redirect result:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    handleRedirect();
+
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       setFbUser(firebaseUser);
       if (firebaseUser) {
@@ -118,16 +136,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const loginWithGoogle = (): Promise<void> => {
-    const promise = signInWithPopup(auth, googleProvider);
+  const loginWithGoogle = async (): Promise<void> => {
     setLoading(true);
-    return promise
-      .then(async (result) => {
-        await fetchUserProfile(result.user);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      await fetchUserProfile(result.user);
+    } catch (err: any) {
+      console.warn('signInWithPopup failed, checking fallback to signInWithRedirect:', err);
+      // Fall back to redirect if popup is blocked, closed, or denied
+      if (
+        err.code === 'auth/popup-blocked' ||
+        err.code === 'auth/cancelled-popup-request' ||
+        err.code === 'auth/popup-closed-by-user' ||
+        err.message?.includes('popup')
+      ) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return; // The browser will redirect, so we do not call setLoading(false)
+        } catch (redirectErr) {
+          console.error('signInWithRedirect also failed:', redirectErr);
+          setLoading(false);
+          throw redirectErr;
+        }
+      }
+      setLoading(false);
+      throw err;
+    } finally {
+      // setLoading(false) is handled in try/catch dynamically
+    }
   };
 
   const loginWithEmail = async (email: string, password: string): Promise<FirebaseUser> => {
