@@ -19,7 +19,7 @@ import {
 
 export default function Login() {
   const router = useRouter();
-  const { user, fbUser, loading, loginWithGoogle, loginWithEmail, registerWithEmail } = useAuth();
+  const { user, fbUser, loading, error: globalError, loginWithGoogle, loginWithEmail, registerWithEmail } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -40,6 +40,13 @@ export default function Login() {
       }
     }
   }, [user, fbUser, loading, router]);
+
+  // Sync global auth error to the login page UI
+  useEffect(() => {
+    if (globalError) {
+      setAuthError(globalError);
+    }
+  }, [globalError]);
 
   const handleGoogleLogin = () => {
     loginWithGoogle()

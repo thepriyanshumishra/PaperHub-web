@@ -57,6 +57,8 @@ interface AuthContextType {
   user: IDbUser | null;
   fbUser: FirebaseUser | null;
   loading: boolean;
+  error: string | null;
+  setError: (err: string | null) => void;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<FirebaseUser>;
   registerWithEmail: (email: string, password: string, name: string) => Promise<void>;
@@ -71,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
   const [user, setUser] = useState<IDbUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchUserProfile = async (firebaseUser: FirebaseUser) => {
     try {
@@ -83,12 +86,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        setError(null);
+        return data.user;
       } else {
+        let msg = `Profile API error (${res.status})`;
+        try {
+          const errData = await res.json();
+          if (errData.error) msg = errData.error;
+        } catch (_) {}
         setUser(null);
+        setError(msg);
+        throw new Error(msg);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching database user profile:', err);
       setUser(null);
+      setError(err.message || 'Error syncing with database profile.');
+      throw err;
     }
   };
 
@@ -109,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err: any) {
         console.error('Error handling redirect result:', err);
+        setError(err.message || 'Failed to complete Google redirect authentication.');
       } finally {
         setLoading(false);
       }
@@ -126,7 +141,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        await fetchUserProfile(firebaseUser);
+        try {
+          await fetchUserProfile(firebaseUser);
+        } catch (err: any) {
+          console.error('Failed to sync auth identity token:', err);
+        }
       } else {
         setUser(null);
       }
@@ -138,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async (): Promise<void> => {
     setLoading(true);
+    setError(null);
     try {
       const result = await signInWithPopup(auth, googleProvider);
       await fetchUserProfile(result.user);
@@ -153,12 +173,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           await signInWithRedirect(auth, googleProvider);
           return; // The browser will redirect, so we do not call setLoading(false)
-        } catch (redirectErr) {
+        } catch (redirectErr: any) {
           console.error('signInWithRedirect also failed:', redirectErr);
+          setError(redirectErr.message || 'Redirect login failed.');
           setLoading(false);
           throw redirectErr;
         }
       }
+      setError(err.message || 'Authentication failed.');
       setLoading(false);
       throw err;
     } finally {
@@ -222,6 +244,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       fbUser, 
       loading, 
+      error,
+      setError,
       loginWithGoogle, 
       loginWithEmail, 
       registerWithEmail, 
