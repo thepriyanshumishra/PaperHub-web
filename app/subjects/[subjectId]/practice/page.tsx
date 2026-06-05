@@ -49,9 +49,9 @@ export default function PracticeSelection() {
         .then((res) => res.json())
         .then((data) => {
           if (data.subject) setSubject(data.subject);
-          else router.push('/onboarding');
+          else router.push('/dashboard');
         })
-        .catch(() => router.push('/onboarding'))
+        .catch(() => router.push('/dashboard'))
         .finally(() => setLoading(false));
     }
   }, [subjectId, router]);

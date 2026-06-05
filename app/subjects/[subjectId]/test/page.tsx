@@ -155,8 +155,8 @@ export default function TestSelection() {
     } else {
       fetch(`/api/subjects/${subjectId}`)
         .then((r) => r.json())
-        .then((data) => { if (data.subject) setSubject(data.subject); else router.push('/onboarding'); })
-        .catch(() => router.push('/onboarding'))
+        .then((data) => { if (data.subject) setSubject(data.subject); else router.push('/dashboard'); })
+        .catch(() => router.push('/dashboard'))
         .finally(() => setLoading(false));
     }
   }, [subjectId, router]);

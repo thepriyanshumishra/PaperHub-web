@@ -58,10 +58,10 @@ export default function CustomPracticeBuilder() {
             setSubject(subj);
             setSelectedUnits(subj.syllabus.map((u) => u.unitNumber));
           } else {
-            router.push('/onboarding');
+            router.push('/dashboard');
           }
         })
-        .catch(() => router.push('/onboarding'))
+        .catch(() => router.push('/dashboard'))
         .finally(() => setLoading(false));
     }
   }, [subjectId, router]);

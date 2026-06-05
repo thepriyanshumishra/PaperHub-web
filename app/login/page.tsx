@@ -36,7 +36,7 @@ export default function Login() {
       if (!user.onboardingCompleted) {
         router.push('/onboarding');
       } else {
-        router.push('/');
+        router.push('/dashboard');
       }
     }
   }, [user, fbUser, loading, router]);

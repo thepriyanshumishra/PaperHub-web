@@ -3,18 +3,25 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { Sidebar } from '@/components/sidebar';
+import { Navbar } from '@/components/navbar';
 import { seedColleges } from '@/lib/seedData';
 import { 
   ArrowLeft, 
+  ArrowUpRight,
   Play, 
   FileText, 
   Sparkles,
   BookOpen,
   ChevronRight,
   TrendingUp,
-  Loader2
+  Loader2,
+  ListFilter,
+  CheckCircle,
+  HelpCircle,
+  BarChart3
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface SubjectDetail {
   _id: string;
@@ -39,10 +46,16 @@ export default function SubjectDashboard() {
   const router = useRouter();
   const subjectId = params.subjectId as string;
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
   const [stats, setStats] = useState<SubjectStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
+  const [siblingSubjects, setSiblingSubjects] = useState<any[]>([]);
+
+  // Filtering units state
+  const [filterNotStarted, setFilterNotStarted] = useState(false);
+  const [filterWeak, setFilterWeak] = useState(false);
 
   useEffect(() => {
     // Load onboarding context from localStorage
@@ -54,8 +67,13 @@ export default function SubjectDashboard() {
 
     const isLocalFallback = localStorage.getItem('useLocalFallback') === 'true';
 
+    // Get sibling subjects for the left picker panel
+    fetch(`/api/subjects?collegeCode=${college}&branchCode=${branch}&semester=${semester}`)
+      .then(res => res.json())
+      .then(data => setSiblingSubjects(data.subjects || []))
+      .catch(() => setSiblingSubjects([]));
+
     if (isLocalFallback || subjectId.startsWith('mock-')) {
-      // Load fallback mock subject
       const subjectCode = subjectId.replace('mock-', '');
       const col = seedColleges.find((c) => c.code === college);
       const br = col?.branches.find((b) => b.code === branch);
@@ -68,7 +86,6 @@ export default function SubjectDashboard() {
           code: sub.code,
           syllabus: sub.syllabus
         });
-        // Seed mock stats for fallback mode
         setStats({
           mostImportantUnit: 1,
           importantUnits: [1, 2],
@@ -82,7 +99,6 @@ export default function SubjectDashboard() {
       }
       setLoading(false);
     } else {
-      // Fetch subject details from API
       fetch(`/api/subjects/${subjectId}`)
         .then((res) => {
           if (!res.ok) throw new Error('Failed to fetch');
@@ -95,12 +111,10 @@ export default function SubjectDashboard() {
               setStats(data.stats);
             }
           } else {
-            // Fallback if not found
-            router.push('/onboarding');
+            router.push('/dashboard');
           }
         })
         .catch(() => {
-          // Attempt fallback search by code if subjectId resembles one
           const col = seedColleges.find((c) => c.code === college);
           const br = col?.branches.find((b) => b.code === branch);
           const sub = br?.subjects.find((s) => s.code === subjectId || `mock-${s.code}` === subjectId);
@@ -112,7 +126,7 @@ export default function SubjectDashboard() {
               syllabus: sub.syllabus
             });
           } else {
-            router.push('/onboarding');
+            router.push('/dashboard');
           }
         })
         .finally(() => {
@@ -124,10 +138,7 @@ export default function SubjectDashboard() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
-          <p className="text-xs text-text-secondary">Loading subject dashboard...</p>
-        </div>
+        <Loader2 className="w-6 h-6 animate-spin text-accent" />
       </div>
     );
   }
@@ -135,196 +146,184 @@ export default function SubjectDashboard() {
   if (!subject) return null;
 
   return (
-    <div className="min-h-screen flex flex-col justify-between transition-colors duration-300">
-      {/* Top Navbar */}
-      <header className="border-b border-border-primary/50 bg-bg-primary/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link 
-              href="/onboarding" 
-              className="p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-colors"
-              aria-label="Back to onboarding"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            {/* Breadcrumb Trail */}
-            <nav className="flex items-center space-x-1.5 text-xs text-text-secondary font-medium overflow-x-auto whitespace-nowrap">
-              {breadcrumbs.map((crumb, idx) => (
-                <React.Fragment key={idx}>
-                  <span>{crumb}</span>
-                  <span className="text-text-muted">/</span>
-                </React.Fragment>
-              ))}
-              <span className="text-text-primary font-bold">{subject.code}</span>
-            </nav>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
+    <div className="flex min-h-screen bg-bg-primary text-text-primary overflow-hidden relative">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      {/* Main Subject Dashboard */}
-      <main className="flex-grow max-w-4xl w-full mx-auto px-6 py-12 relative overflow-hidden">
-        {/* Subtle glowing space background */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-accent/5 rounded-full blur-[120px] pointer-events-none dark:block hidden"></div>
+      <div className="flex-grow flex flex-col min-h-screen overflow-y-auto z-10">
+        <Navbar onMenuToggle={() => setSidebarOpen(true)} />
 
-        <div className="mb-10 z-10 relative">
-          <span className="text-xs font-bold uppercase tracking-wider text-accent mb-2 block">{subject.code}</span>
-          <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary mb-3">
-            {subject.name}
-          </h1>
-          <p className="text-sm text-text-secondary leading-relaxed max-w-2xl">
-            Prepare for your written university examinations with structured question sets mapped directly to the {subject.name} syllabus.
-          </p>
-        </div>
+        <main className="flex-grow max-w-6xl w-full mx-auto px-6 py-8">
+          {/* Dual Panel Layout grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            
+            {/* Left Subject Picker Menu Panel */}
+            <div className="lg:col-span-1 space-y-6">
+              <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
+                <h3 className="font-display font-black text-xs uppercase tracking-wider text-text-muted">Subjects Picker</h3>
+                <div className="space-y-1.5">
+                  {siblingSubjects.map((sibling) => (
+                    <Link
+                      key={sibling._id}
+                      href={`/subjects/${sibling._id}`}
+                      className={`
+                        w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border
+                        ${sibling._id === subjectId
+                          ? 'bg-accent/10 border-accent/25 text-accent shadow-xs'
+                          : 'border-transparent text-text-secondary hover:bg-bg-tertiary/40 hover:text-text-primary'
+                        }
+                      `}
+                    >
+                      <span className="truncate">{sibling.name}</span>
+                      <ChevronRight className="w-3 h-3 text-text-muted shrink-0 ml-1.5" />
+                    </Link>
+                  ))}
 
-        {/* Mode Selectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 z-10 relative">
-          {/* Practice Mode Card */}
-          <Link
-            href={`/subjects/${subjectId}/practice`}
-            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-52 group relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
-
-            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
-              <Play className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-lg text-text-primary group-hover:text-accent flex items-center transition-colors duration-200 mb-1">
-                <span>Practice Mode</span>
-                <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </h3>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Study step-by-step. Browse syllabus questions, view academic university-style answers, and clarify doubts using Ask AI.
-              </p>
-            </div>
-          </Link>
-
-          {/* Test Mode Card */}
-          <Link
-            href={`/subjects/${subjectId}/test`}
-            className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm text-left hover:border-accent/40 hover:shadow-[0_0_25px_rgba(124,102,255,0.15)] hover:bg-bg-secondary hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between h-52 group relative overflow-hidden"
-          >
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/12 transition-all duration-300"></div>
-
-            <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/15 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-white transition-all duration-300 shadow-inner">
-              <FileText className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" />
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-lg text-text-primary group-hover:text-accent flex items-center transition-colors duration-200 mb-1">
-                <span>Test Mode</span>
-                <ChevronRight className="w-4 h-4 ml-1 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </h3>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Simulate a real written exam under time pressure. Focused fullscreen environment, anti-cheat detection, and summary analytics.
-              </p>
-            </div>
-          </Link>
-
-          {/* Important Questions (Soon) */}
-          <div className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-left opacity-65 flex flex-col justify-between h-52 cursor-not-allowed">
-            <div className="w-12 h-12 rounded-xl bg-border-primary/45 flex items-center justify-center text-text-muted">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2 mb-1">
-                <h3 className="font-display font-semibold text-lg text-text-secondary">Important Questions</h3>
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-500 font-bold uppercase tracking-wider">SOON</span>
-              </div>
-              <p className="text-xs text-text-muted leading-relaxed">
-                A customized selection of recurring questions showing highest exam repetition frequencies.
-              </p>
-            </div>
-          </div>
-
-          {/* Night Before Exam (Soon) */}
-          <div className="p-6 rounded-2xl border border-border-primary/50 bg-bg-secondary/35 text-left opacity-65 flex flex-col justify-between h-52 cursor-not-allowed">
-            <div className="w-12 h-12 rounded-xl bg-border-primary/45 flex items-center justify-center text-text-muted">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2 mb-1">
-                <h3 className="font-display font-semibold text-lg text-text-secondary">Night Before Exam</h3>
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-500 font-bold uppercase tracking-wider">SOON</span>
-              </div>
-              <p className="text-xs text-text-muted leading-relaxed">
-                Hyper-focused final revision set. Check the absolute must-know topics in the last 12 hours.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Syllabus Overview Drawer/Accordion */}
-        <div className="rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm p-8 z-10 relative">
-          <h3 className="font-display font-bold text-text-primary text-lg mb-6 flex items-center space-x-2.5">
-            <BookOpen className="w-5 h-5 text-accent" />
-            <span>Syllabus Mapping ({subject.syllabus?.length || 0} Units)</span>
-          </h3>
-          <div className="space-y-6">
-            {subject.syllabus?.map((unit) => {
-              const isMostImportant = stats?.mostImportantUnit === unit.unitNumber;
-              const isHighYield = stats?.importantUnits?.includes(unit.unitNumber) && !isMostImportant;
-
-              return (
-                <div key={unit.unitNumber} className="border-b border-border-primary/40 last:border-0 pb-5 last:pb-0">
-                  <div className="flex items-center flex-wrap gap-2.5 mb-2.5">
-                    <h4 className="text-sm font-bold text-text-primary flex items-center space-x-2">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-accent/10 text-accent text-[10px] font-extrabold">
-                        {unit.unitNumber}
-                      </span>
-                      <span>{unit.unitTitle}</span>
-                    </h4>
-                    {isMostImportant && (
-                      <span className="text-[8px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 inline-flex items-center">
-                        🏆 Max Weightage
-                      </span>
-                    )}
-                    {isHighYield && (
-                      <span className="text-[8px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 inline-flex items-center">
-                        ⭐ High Yield
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {unit.topics.map((topic: string, tIdx: number) => {
-                      const isImportantTopic = stats?.importantTopics?.includes(topic.trim());
-                      const topicDetail = stats?.topicStats?.[topic.trim()];
-
-                      if (isImportantTopic) {
-                        return (
-                          <span 
-                            key={tIdx} 
-                            className="text-[10px] px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/15 cursor-default transition-all duration-200 inline-flex items-center space-x-1.5 font-semibold"
-                          >
-                            <span>🔥 {topic}</span>
-                            {topicDetail?.maxMarks && (
-                              <span className="text-[8px] px-1 py-0.2 rounded bg-rose-500/15 text-rose-300 font-extrabold">{topicDetail.maxMarks}M Max</span>
-                            )}
-                          </span>
-                        );
-                      }
-
-                      return (
-                        <span 
-                          key={tIdx} 
-                          className="text-[10px] px-2.5 py-1 rounded-full bg-bg-primary/50 border border-border-primary/80 text-text-secondary hover:text-accent hover:border-accent/40 hover:bg-bg-primary transition-all duration-200 cursor-default"
-                        >
-                          {topic}
-                        </span>
-                      );
-                    })}
-                  </div>
+                  <button className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold border border-transparent text-text-secondary hover:bg-bg-tertiary/40 hover:text-text-primary transition-all group">
+                    <span className="flex items-center gap-2">
+                      <BarChart3 className="w-3.5 h-3.5 text-accent" />
+                      <span>Subject Analysis</span>
+                    </span>
+                    <span className="text-[8px] font-black bg-accent/15 text-accent px-1 rounded">NEW</span>
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </main>
+              </div>
+            </div>
 
-      {/* Footer */}
-      <footer className="border-t border-border-primary/50 bg-bg-secondary/20 py-6 text-center text-xs text-text-secondary transition-colors duration-300">
-        <p>PaperHub • Mapped Syllabus and Exam Patterns</p>
-      </footer>
+            {/* Right Unit Breakdown panel */}
+            <div className="lg:col-span-3 space-y-6">
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-accent">{subject.code}</span>
+                <h2 className="font-display font-black text-xl leading-none">{subject.name} Breakdown</h2>
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  Practice unit-by-unit syllabus checksheets, view university past answers, and simulate exams.
+                </p>
+              </div>
+
+              {/* Solved Progress / Unit Filters */}
+              <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center space-x-2.5">
+                  <ListFilter className="w-4 h-4 text-text-muted" />
+                  <span className="text-xs font-bold text-text-secondary">Filters:</span>
+                  <button 
+                    onClick={() => setFilterNotStarted(!filterNotStarted)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${filterNotStarted ? 'bg-accent/15 border-accent/30 text-accent' : 'border-border-primary hover:border-text-secondary text-text-secondary'}`}
+                  >
+                    Not Started
+                  </button>
+                  <button 
+                    onClick={() => setFilterWeak(!filterWeak)}
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold border transition-all ${filterWeak ? 'bg-accent/15 border-accent/30 text-accent' : 'border-border-primary hover:border-text-secondary text-text-secondary'}`}
+                  >
+                    Weak Chapter
+                  </button>
+                </div>
+                <span className="text-xs font-bold text-text-secondary flex items-center gap-1">
+                  <span>Progress:</span>
+                  <span className="text-text-primary">0 / {subject.syllabus?.length || 4} units</span>
+                </span>
+              </div>
+
+              {/* Units Checklist */}
+              <div className="space-y-4">
+                {subject.syllabus?.map((unit) => {
+                  const isMostImportant = stats?.mostImportantUnit === unit.unitNumber;
+                  const isHighYield = stats?.importantUnits?.includes(unit.unitNumber) && !isMostImportant;
+
+                  return (
+                    <div 
+                      key={unit.unitNumber}
+                      className="p-5.5 rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6 hover:bg-bg-secondary hover:border-accent/25 transition-all group"
+                    >
+                      <div className="space-y-2.5 flex-grow text-left">
+                        <div className="flex items-center flex-wrap gap-2">
+                          <span className="w-6 h-6 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-[10px] font-black text-accent">
+                            {unit.unitNumber}
+                          </span>
+                          <h4 className="font-display font-extrabold text-sm text-text-primary group-hover:text-accent transition-colors leading-snug">
+                            {unit.unitTitle}
+                          </h4>
+                          {isMostImportant && (
+                            <span className="text-[8px] font-black bg-amber-500/10 border border-amber-500/20 text-amber-500 uppercase tracking-widest px-2 py-0.5 rounded-full">
+                              🏆 Max Weightage
+                            </span>
+                          )}
+                          {isHighYield && (
+                            <span className="text-[8px] font-black bg-purple-500/10 border border-purple-500/20 text-purple-500 uppercase tracking-widest px-2 py-0.5 rounded-full">
+                              ⭐ High Yield
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Topics badges */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {unit.topics.slice(0, 4).map((topic, idx) => (
+                            <span 
+                              key={idx} 
+                              className="text-[9px] font-semibold text-text-muted px-2 py-0.5 rounded bg-bg-primary/50 border border-border-primary"
+                            >
+                              {topic}
+                            </span>
+                          ))}
+                          {unit.topics.length > 4 && (
+                            <span className="text-[9px] font-semibold text-text-muted px-2 py-0.5 rounded bg-bg-primary/50">
+                              +{unit.topics.length - 4} more
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Solved stats / Year counters */}
+                        <div className="flex items-center gap-4 text-[9px] font-bold text-text-muted">
+                          <span>0/12 questions solved</span>
+                          <span>•</span>
+                          <span>2026: 3 Qs | 2025: 5 Qs</span>
+                        </div>
+                      </div>
+
+                      {/* Launch Actions */}
+                      <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+                        <Link 
+                          href={`/subjects/${subjectId}/chapters/${unit.unitNumber}`}
+                          className="flex-1 md:flex-initial text-center py-2 px-4 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-bold transition-all shadow-sm"
+                        >
+                          Open Unit
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Practice / Test modes block as quick toggle */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <Link href={`/subjects/${subjectId}/practice`} className="group">
+                  <div className="p-5 rounded-xl border border-border-primary bg-bg-secondary/45 hover:bg-bg-secondary hover:border-accent/25 transition-all text-left flex items-start gap-4 h-32">
+                    <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/15 flex items-center justify-center text-accent">
+                      <Play className="w-4 h-4 shrink-0" />
+                    </div>
+                    <div>
+                      <h4 className="font-display font-extrabold text-xs text-text-primary group-hover:text-accent transition-colors leading-none">Practice Subject</h4>
+                      <p className="text-[10px] text-text-muted mt-2 leading-relaxed">Study step-by-step. Browse syllabus questions and query AI.</p>
+                    </div>
+                  </div>
+                </Link>
+
+                <Link href={`/subjects/${subjectId}/test`} className="group">
+                  <div className="p-5 rounded-xl border border-border-primary bg-bg-secondary/45 hover:bg-bg-secondary hover:border-accent/25 transition-all text-left flex items-start gap-4 h-32">
+                    <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/15 flex items-center justify-center text-accent">
+                      <FileText className="w-4 h-4 shrink-0" />
+                    </div>
+                    <div>
+                      <h4 className="font-display font-extrabold text-xs text-text-primary group-hover:text-accent transition-colors leading-none">Simulate Full Exam</h4>
+                      <p className="text-[10px] text-text-muted mt-2 leading-relaxed">Time-constrained fullscreen exams with anti-cheat detection.</p>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+            </div>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

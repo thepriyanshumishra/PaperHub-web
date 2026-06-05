@@ -165,7 +165,7 @@ function OnboardingContent() {
 
       // Forward to landing page / dashboard
       setTimeout(() => {
-        router.push('/');
+        router.push('/dashboard');
       }, 2000);
 
     } catch (err: any) {
@@ -452,40 +452,55 @@ function OnboardingContent() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+                  className="w-full"
                 >
                   {loadingBranches ? (
-                    <div className="flex flex-col items-center justify-center py-12 space-y-3 col-span-3">
+                    <div className="flex flex-col items-center justify-center py-12 space-y-3">
                       <Loader2 className="w-8 h-8 text-accent animate-spin" />
                       <p className="text-xs text-text-secondary">Loading branch maps...</p>
                     </div>
+                  ) : branches.length === 0 ? (
+                    <div className="text-center py-8 px-6 rounded-2xl border border-dashed border-border-primary bg-bg-secondary/40 space-y-4 max-w-md mx-auto">
+                      <AlertTriangle className="w-8 h-8 text-amber-500 mx-auto" />
+                      <p className="text-xs text-text-secondary leading-relaxed">
+                        No branches are currently configured for this college.
+                      </p>
+                      <button 
+                        onClick={goBack}
+                        className="px-4 py-2 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent-hover transition-colors"
+                      >
+                        Go Back
+                      </button>
+                    </div>
                   ) : (
-                    branches.map((b) => {
-                      const IconComponent = branchIconMap[b.code] || Layers;
-                      return (
-                        <button
-                          key={b._id}
-                          onClick={() => { setSelectedBranch(b.code); setStep(5); }}
-                          className={`p-6 rounded-2xl border text-left flex flex-col justify-between h-36 transition-all duration-300 relative overflow-hidden group ${
-                            selectedBranch === b.code
-                              ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
-                              : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-1 hover:bg-bg-secondary hover:shadow-lg'
-                          }`}
-                        >
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all ${
-                            selectedBranch === b.code ? 'bg-accent text-white border-transparent' : 'bg-bg-primary border-border-primary text-text-secondary group-hover:text-accent'
-                          }`}>
-                            <IconComponent className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <h4 className="font-display font-extrabold text-xs text-text-primary group-hover:text-accent leading-snug">{b.name}</h4>
-                            <p className={`text-[9px] mt-0.5 font-bold ${b.isActive ? 'text-green-400' : 'text-amber-500'}`}>
-                              {b.isActive ? '🟢 Active Syllabus' : '🟠 Coming Soon'}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {branches.map((b) => {
+                        const IconComponent = branchIconMap[b.code] || Layers;
+                        return (
+                          <button
+                            key={b._id}
+                            onClick={() => { setSelectedBranch(b.code); setStep(5); }}
+                            className={`p-6 rounded-2xl border text-left flex flex-col justify-between h-36 transition-all duration-300 relative overflow-hidden group ${
+                              selectedBranch === b.code
+                                ? 'border-accent bg-accent/5 ring-2 ring-accent/15'
+                                : 'border-border-primary bg-bg-secondary/60 hover:border-accent/40 hover:-translate-y-1 hover:bg-bg-secondary hover:shadow-lg'
+                            }`}
+                          >
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-all ${
+                              selectedBranch === b.code ? 'bg-accent text-white border-transparent' : 'bg-bg-primary border-border-primary text-text-secondary group-hover:text-accent'
+                            }`}>
+                              <IconComponent className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <h4 className="font-display font-extrabold text-xs text-text-primary group-hover:text-accent leading-snug">{b.name}</h4>
+                              <p className={`text-[9px] mt-0.5 font-bold ${b.isActive ? 'text-green-400' : 'text-amber-500'}`}>
+                                {b.isActive ? '🟢 Active Syllabus' : '🟠 Coming Soon'}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </motion.div>
               )}

@@ -120,6 +120,16 @@ function getSubjectConfig(code: string, currentFile: string, parsedSem: number) 
   return SUBJECT_CONFIGS[upperCode] || null;
 }
 
+function cleanCitations(str: string): string {
+  if (!str) return str;
+  return str.replace(/\[cite:\s*[^\]]+\]/gi, '').replace(/\s+/g, ' ').trim();
+}
+
+function cleanQuestionText(str: string): string {
+  if (!str) return str;
+  return str.replace(/\[cite:\s*[^\]]+\]/gi, '').trim();
+}
+
 function parseMarkdownFile(fileContent: string): ParsedPaper[] {
   // Split the file by "# Paper Metadata" to get individual paper sections
   // Note: We search for optional dashes/newlines before the header
@@ -146,7 +156,7 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
       const match = line.match(/^\s*-\s*([^:]+)\s*:\s*(.*)\s*$/);
       if (match) {
         const key = match[1].trim();
-        const val = match[2].trim();
+        const val = cleanCitations(match[2]);
         metadata[key] = val;
       }
     }
@@ -161,7 +171,7 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
       const unitMatch = line.match(/^##\s+Unit\s+(\d+)\s*[—:-]\s*(.*)$/i);
       if (unitMatch) {
         const unitNumber = parseInt(unitMatch[1], 10);
-        const unitTitle = unitMatch[2].trim();
+        const unitTitle = cleanCitations(unitMatch[2]);
         currentUnit = { unitNumber, unitTitle, topics: [] };
         syllabus.push(currentUnit);
         inTopics = false;
@@ -176,7 +186,7 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
       if (inTopics && currentUnit) {
         const topicMatch = line.match(/^\s*-\s*(.*)$/);
         if (topicMatch) {
-          const topicName = topicMatch[1].trim();
+          const topicName = cleanCitations(topicMatch[1]);
           if (topicName && !currentUnit.topics.includes(topicName)) {
             currentUnit.topics.push(topicName);
           }
@@ -219,7 +229,7 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
           const match = line.match(/^\s*-\s*([^:]+)\s*:\s*(.*)\s*$/);
           if (match) {
             const key = match[1].trim();
-            const val = match[2].trim();
+            const val = cleanCitations(match[2]);
             qMetadata[key] = val;
           }
         } else if (inQuestionText) {
@@ -242,12 +252,13 @@ function parseMarkdownFile(fileContent: string): ParsedPaper[] {
       if (qId && qText.trim()) {
         const year = parseInt(academicSession.split('-')[0], 10) || 2025;
         const difficulty = difficultyRaw.toLowerCase() as 'easy' | 'medium' | 'hard';
+        const cleanedQText = cleanQuestionText(qText);
 
         questions.push({
           questionId: qId,
           unit: isNaN(unit) ? 1 : unit,
           topic: topic || 'General',
-          questionText: qText.trim(),
+          questionText: cleanedQText,
           difficulty: ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium',
           marks: isNaN(marks) ? 0 : marks,
           sourcePapers: [{ year, examType }],
@@ -290,12 +301,12 @@ async function seed() {
       isActive: true,
     });
     // Placeholder colleges (marked inactive / Coming Soon)
-    await College.create({
+    const aktu = await College.create({
       name: "Dr. A.P.J. Abdul Kalam Technical University",
       code: "AKTU",
       isActive: false,
     });
-    await College.create({
+    const hbtu = await College.create({
       name: "Harcourt Butler Technical University",
       code: "HBTU",
       isActive: false,
@@ -344,6 +355,30 @@ async function seed() {
       });
     }
 
+    // Seed branches under AKTU and HBTU as inactive (Coming Soon)
+    const otherColleges = [aktu, hbtu];
+    const otherBranchCodes = ['CSE', 'IT', 'ECE', 'ECE-IOT', 'EE', 'ME', 'CE'];
+    const otherBranchNames: Record<string, string> = {
+      CSE: "Computer Science & Engineering",
+      IT: "Information Technology",
+      ECE: "Electronics & Communication Engineering",
+      "ECE-IOT": "Electronics & Communication Engineering (IoT)",
+      EE: "Electrical Engineering",
+      ME: "Mechanical Engineering",
+      CE: "Civil Engineering",
+    };
+
+    for (const col of otherColleges) {
+      for (const bCode of otherBranchCodes) {
+        await Branch.create({
+          collegeId: col._id,
+          name: otherBranchNames[bCode],
+          code: bCode,
+          isActive: false, // Inactive / Coming Soon
+        });
+      }
+    }
+
     // Map subject codes to inserted Subject documents for question reference
     const subjectMap = new Map<string, mongoose.Types.ObjectId>();
 
@@ -386,7 +421,13 @@ async function seed() {
           }
         }
 
-        const subjectCodeClean = subjectCode.toUpperCase().trim();
+        let subjectCodeClean = subjectCode.toUpperCase().trim();
+        if (subjectCodeClean.includes('BME-101') || 
+            subjectCodeClean.includes('BME-104') || 
+            subjectCodeClean.includes('BME-157')) {
+          console.log(`Skipping subject ${subjectCodeClean} to maintain exactly 5 subjects & 4 units per semester.`);
+          continue;
+        }
         const subjectConf = getSubjectConfig(subjectCodeClean, file, semester);
         
         let targetSemester = semester;

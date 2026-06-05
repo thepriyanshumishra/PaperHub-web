@@ -61,7 +61,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { profile, onboardingCompleted } = body;
+    const { profile, onboardingCompleted, preferences, bookmarks, incorrectAttempts, personalNotes, engagement } = body;
 
     await dbConnect();
 
@@ -82,6 +82,39 @@ export async function PUT(req: NextRequest) {
 
     if (onboardingCompleted !== undefined) {
       user.onboardingCompleted = onboardingCompleted;
+    }
+
+    if (preferences !== undefined) {
+      user.preferences = {
+        playSounds: preferences.playSounds !== undefined ? preferences.playSounds : user.preferences.playSounds,
+        autoTimer: preferences.autoTimer !== undefined ? preferences.autoTimer : user.preferences.autoTimer,
+        delayAnswer: preferences.delayAnswer !== undefined ? preferences.delayAnswer : user.preferences.delayAnswer,
+        textSize: preferences.textSize !== undefined ? preferences.textSize : user.preferences.textSize,
+      };
+    }
+
+    if (bookmarks !== undefined) {
+      user.bookmarks = bookmarks;
+    }
+
+    if (incorrectAttempts !== undefined) {
+      user.incorrectAttempts = incorrectAttempts;
+    }
+
+    if (personalNotes !== undefined) {
+      user.personalNotes = new Map(Object.entries(personalNotes));
+    }
+
+    if (engagement !== undefined) {
+      user.engagement = {
+        streakCount: engagement.streakCount !== undefined ? engagement.streakCount : user.engagement.streakCount,
+        lastActiveDateStr: engagement.lastActiveDateStr !== undefined ? engagement.lastActiveDateStr : user.engagement.lastActiveDateStr,
+        totalXp: engagement.totalXp !== undefined ? engagement.totalXp : user.engagement.totalXp,
+        sessionsCompleted: engagement.sessionsCompleted !== undefined ? engagement.sessionsCompleted : user.engagement.sessionsCompleted,
+        league: engagement.league !== undefined ? engagement.league : user.engagement.league,
+        dailyGoalSolved: engagement.dailyGoalSolved !== undefined ? engagement.dailyGoalSolved : user.engagement.dailyGoalSolved,
+        dailyGoalTarget: engagement.dailyGoalTarget !== undefined ? engagement.dailyGoalTarget : user.engagement.dailyGoalTarget,
+      };
     }
 
     await user.save();

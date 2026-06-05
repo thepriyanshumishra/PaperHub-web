@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth-provider';
 import { 
   BookOpen, 
@@ -12,12 +12,8 @@ import {
   Clock, 
   ChevronRight, 
   ArrowRight,
-  TrendingUp,
-  User as UserIcon,
-  LogOut,
-  Flame,
-  Zap,
-  Loader2
+  ArrowUpRight,
+  TrendingUp
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -61,7 +57,7 @@ function AnimatedNumber({ value }: { value: number }) {
 }
 
 export default function Home() {
-  const { user, fbUser, loading: authLoading, logout } = useAuth();
+  const { user, fbUser, loading: authLoading } = useAuth();
   
   const [stats, setStats] = useState({
     totalQuestions: 0,
@@ -72,16 +68,12 @@ export default function Home() {
 
   const [localCollege, setLocalCollege] = useState<string | null>(null);
   const [localBranch, setLocalBranch] = useState<string | null>(null);
-  const [localSemester, setLocalSemester] = useState<string | null>(null);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [loadingSubjects, setLoadingSubjects] = useState(false);
 
-  // Retrieve fallback settings from local storage
+  // Retrieve fallback settings from local storage to check for guest dashboard availability
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setLocalCollege(localStorage.getItem('selectedCollege'));
       setLocalBranch(localStorage.getItem('selectedBranch'));
-      setLocalSemester(localStorage.getItem('selectedSemester'));
     }
   }, []);
 
@@ -110,35 +102,6 @@ export default function Home() {
     const interval = setInterval(fetchStats, 10000);
     return () => clearInterval(interval);
   }, []);
-
-  // Fetch personalized subjects dynamically
-  useEffect(() => {
-    if (authLoading) return;
-
-    const college = user?.profile?.college || localCollege;
-    const branch = user?.profile?.branch || localBranch;
-    const semester = user?.profile?.semester || (localSemester ? Number(localSemester) : null);
-
-    if (college && branch) {
-      setLoadingSubjects(true);
-      const semQuery = semester ? `&semester=${semester}` : '';
-      fetch(`/api/subjects?collegeCode=${college}&branchCode=${branch}${semQuery}`)
-        .then((res) => {
-          if (!res.ok) throw new Error();
-          return res.json();
-        })
-        .then((data) => {
-          setSubjects(data.subjects || []);
-        })
-        .catch((err) => {
-          console.error('Failed to load subjects:', err);
-          setSubjects([]);
-        })
-        .finally(() => setLoadingSubjects(false));
-    } else {
-      setSubjects([]);
-    }
-  }, [user, authLoading, localCollege, localBranch, localSemester]);
 
   const hasLocalParams = !!(localCollege && localBranch);
   const isDashboardVisible = (user && user.onboardingCompleted) || (!fbUser && hasLocalParams);
@@ -172,78 +135,7 @@ export default function Home() {
       <div className="absolute top-[30%] right-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-500/3 blur-[160px] pointer-events-none" />
       <div className="absolute bottom-[20%] left-[10%] w-[500px] h-[500px] rounded-full bg-[#7c66ff]/4 blur-[140px] pointer-events-none" />
 
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-50 backdrop-blur-md border-b border-border-primary/50 bg-bg-primary/80 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2 flex-shrink-0 group">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-accent/20 group-hover:scale-105 transition-transform duration-200">
-              P
-            </div>
-            <span className="font-display font-bold text-xl tracking-tight group-hover:text-accent transition-colors duration-200">PaperHub</span>
-          </Link>
-
-          {/* Expanded Header Navigation */}
-          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-text-secondary">
-            <a href="#features" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Features</a>
-            <a href="#how-it-works" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Blueprint</a>
-            <a href="#ai-solving" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">AI Assistant</a>
-            <a href="#faq" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">FAQ</a>
-            {isDashboardVisible && (
-              <Link href="/onboarding?reset=true" className="hover:text-text-primary hover:underline underline-offset-4 decoration-accent decoration-2 transition-all duration-200">Reset Setup</Link>
-            )}
-          </nav>
-          
-          <div className="flex items-center space-x-4">
-            {/* Authenticated user control block */}
-            {authLoading ? (
-              <Loader2 className="w-4 h-4 text-accent animate-spin" />
-            ) : fbUser && user ? (
-              <div className="flex items-center space-x-3.5">
-                {/* Role-based dashboard quick-redirect flags */}
-                {(user.role === 'verifier' || user.role === 'admin' || user.role === 'moderator') && (
-                  <Link 
-                    href="/verifier" 
-                    className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 hover:bg-emerald-500/20 transition-all hidden sm:inline-block"
-                  >
-                    Verifier Dashboard
-                  </Link>
-                )}
-                {(user.role === 'moderator' || user.role === 'admin') && (
-                  <Link 
-                    href="/moderator" 
-                    className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded bg-red-500/10 border border-red-500/25 text-red-500 hover:bg-red-500/20 transition-all hidden sm:inline-block"
-                  >
-                    Moderator Dashboard
-                  </Link>
-                )}
-                
-                {/* Profile Pill */}
-                <div className="flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full border border-border-primary bg-bg-secondary/40">
-                  <UserIcon className="w-3.5 h-3.5 text-accent" />
-                  <span className="hidden sm:inline">{user.profile?.name || user.displayName || 'Explorer'}</span>
-                </div>
-
-                <button 
-                  onClick={() => logout()}
-                  className="p-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <Link 
-                href="/login" 
-                className="text-xs font-bold px-4 py-2 rounded-xl bg-accent text-white hover:bg-accent-hover shadow-sm transition-all"
-              >
-                Sign In
-              </Link>
-            )}
-
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* Hero / Workspace Dynamic Main Panel */}
       <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-12 md:py-16 flex flex-col justify-center relative z-10">
@@ -270,120 +162,48 @@ export default function Home() {
           </div>
         )}
 
-        {/* Dashboard Content OR General Hero */}
+        {/* Dashboard Content Link OR General Hero */}
         {isDashboardVisible ? (
-          <div className="space-y-12 py-6">
-            {/* Welcome Header & Gamification Stats */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 p-8 rounded-3xl border border-border-primary/80 bg-bg-secondary/40 backdrop-blur-md shadow-lg">
-              <div className="space-y-2.5">
-                <div className="flex items-center space-x-2">
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent">
-                    {user?.profile?.college || localCollege || 'MMMUT'}
-                  </span>
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-bg-primary text-text-secondary border border-border-primary">
-                    {user?.profile?.branch || localBranch || 'CSE'}
-                  </span>
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-bg-primary text-text-secondary border border-border-primary">
-                    Sem {user?.profile?.semester || localSemester || '1'}
-                  </span>
-                </div>
-                <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">
-                  Welcome back, <span className="text-accent">{user?.profile?.name || user?.displayName || 'Explorer'}</span>! 🌟
-                </h2>
-                <p className="text-xs text-text-secondary leading-relaxed max-w-md">
-                  Here is your syllabus-mapped preparation workspace. Select a subject below to view structured PYQs and timed focus tests.
-                </p>
-              </div>
-
-              {/* Gamification Stats */}
-              <div className="flex items-center gap-4 sm:gap-6 self-start lg:self-auto">
-                <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/60 text-center min-w-[95px] shadow-sm flex flex-col justify-between h-22">
-                  <Flame className="w-5 h-5 text-orange-500 mx-auto" />
-                  <div>
-                    <span className="font-display font-black text-sm block">{user?.engagement?.streakCount || 0}</span>
-                    <span className="text-[8px] uppercase tracking-wider text-text-muted font-bold block">Day Streak</span>
-                  </div>
-                </div>
-                <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/60 text-center min-w-[95px] shadow-sm flex flex-col justify-between h-22">
-                  <Zap className="w-5 h-5 text-yellow-400 mx-auto" />
-                  <div>
-                    <span className="font-display font-black text-sm block">{user?.engagement?.totalXp || 0}</span>
-                    <span className="text-[8px] uppercase tracking-wider text-text-muted font-bold block">Total XP</span>
-                  </div>
-                </div>
-                <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/60 text-center min-w-[95px] shadow-sm flex flex-col justify-between h-22">
-                  <Award className="w-5 h-5 text-accent mx-auto" />
-                  <div>
-                    <span className="font-display font-black text-sm block">{user?.engagement?.sessionsCompleted || 0}</span>
-                    <span className="text-[8px] uppercase tracking-wider text-text-muted font-bold block">Sessions</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Subjects List Grid */}
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="font-display font-extrabold text-lg text-text-primary flex items-center space-x-2">
-                  <BookOpen className="w-5 h-5 text-accent" />
-                  <span>Your Subjects</span>
-                </h3>
-                <Link 
-                  href="/onboarding?reset=true" 
-                  className="text-xs font-semibold text-accent hover:underline flex items-center space-x-1"
-                >
-                  <span>Reset syllabus config</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-
-              {loadingSubjects ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((n) => (
-                    <div key={n} className="animate-pulse border border-border-primary rounded-2xl bg-bg-secondary/40 h-44 p-6 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <div className="h-4 bg-border-primary rounded w-16" />
-                        <div className="h-5 bg-border-primary rounded w-4/5" />
-                      </div>
-                      <div className="h-8 bg-border-primary rounded w-full" />
-                    </div>
-                  ))}
-                </div>
-              ) : subjects.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {subjects.map((sub) => (
-                    <div 
-                      key={sub._id}
-                      className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-48 hover:border-accent/40 transition-all duration-300 shadow-md group relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-accent/5 to-transparent rounded-bl-full pointer-events-none group-hover:from-accent/10 transition-all duration-300" />
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-accent bg-accent/5 px-2 py-0.5 rounded border border-accent/15 inline-block mb-3.5">
-                          {sub.code}
-                        </span>
-                        <h4 className="font-display font-extrabold text-sm text-text-primary group-hover:text-accent transition-colors leading-snug line-clamp-2">
-                          {sub.name}
-                        </h4>
-                      </div>
-                      <Link 
-                        href={`/subjects/${sub._id}`}
-                        className="w-full py-2.5 rounded-xl bg-bg-primary hover:bg-bg-tertiary border border-border-primary text-text-primary font-semibold text-xs transition-all flex items-center justify-center space-x-1.5 group-hover:bg-accent group-hover:text-white group-hover:border-transparent shadow-sm"
-                      >
-                        <span>Open Dashboard</span>
-                        <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center border border-dashed border-border-primary rounded-2xl bg-bg-secondary/20">
-                  <p className="text-xs text-text-secondary">No subjects configured in the database for your branch and semester combination.</p>
-                  <Link href="/onboarding?reset=true" className="mt-4 inline-block text-xs font-bold text-accent hover:underline">
-                    Redo Onboarding Setup
-                  </Link>
-                </div>
-              )}
-            </div>
+          /* Logged In Premium Landing Hero */
+          <div className="text-center max-w-3xl mx-auto mb-16 md:mb-24 space-y-6">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/25 bg-accent/5 text-accent text-xs font-semibold mb-2 tracking-wide shadow-sm"
+            >
+              <span>Welcome back, {user?.profile?.name || user?.displayName || 'Explorer'}!</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </motion.div>
+            
+            <motion.h1
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight sm:leading-none mb-6"
+            >
+              Ready to continue your <span className="text-accent dark:gradient-heading">exam preparation?</span>
+            </motion.h1>
+            
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="text-lg md:text-xl text-text-secondary leading-relaxed mb-10 font-normal"
+            >
+              Launch your customized dashboard to access syllabus-mapped past papers, step-by-step AI doubt clearing, and timed focus tests.
+            </motion.p>
+            
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="flex items-center justify-center"
+            >
+              <Link
+                href="/dashboard"
+                className="px-8 py-4 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all shadow-md hover:scale-[1.02] flex items-center justify-center space-x-2 group"
+              >
+                <span>Go to Your Dashboard</span>
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </motion.div>
           </div>
         ) : (
           /* Normal Marketing Hero for Anonymous Guests */
@@ -404,7 +224,7 @@ export default function Home() {
               transition={{ delay: 0.1, duration: 0.5 }}
               className="font-display text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-text-primary leading-tight sm:leading-none mb-6"
             >
-              Master Descriptive University Exams, <span className="text-accent dark:gradient-heading">Concept by Concept.</span>
+              Master University Exams, <span className="text-accent dark:gradient-heading">Concept by Concept.</span>
             </motion.h1>
 
             <motion.p
@@ -451,98 +271,96 @@ export default function Home() {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-20 md:mb-28"
+            className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-20 md:mb-28"
           >
             {/* Card 1: Structured PYQs */}
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
-            >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Structured PYQs</h3>
-                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">No more scrolling random drives. Access past papers neatly organized by units and topics.</p>
+            <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base mb-1.5 text-text-primary">Structured PYQs</h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">No more scrolling random drives. Access past papers neatly organised by units and topics.</p>
+                </div>
               </div>
             </motion.div>
 
             {/* Card 2: Exam-like Tests */}
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
-            >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
-                <Clock className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Exam-like Tests</h3>
-                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Simulate actual minor and major exam patterns with custom duration timers and strict focus modes.</p>
+            <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base mb-1.5 text-text-primary">Exam-like Tests</h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">Simulate actual minor and major exam patterns with custom duration timers and strict focus modes.</p>
+                </div>
               </div>
             </motion.div>
 
             {/* Card 3: AI Step Explanations */}
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
-            >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">AI Step Explanations</h3>
-                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Hover over any complex derivation or transition step to get a simplified popover explanation.</p>
+            <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base mb-1.5 text-text-primary">AI Step Explanations</h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">Hover over any complex derivation or transition step to get a simplified popover explanation.</p>
+                </div>
               </div>
             </motion.div>
 
             {/* Card 4: Topic-wise Practice */}
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
-            >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
-                <Layers className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Topic-wise Practice</h3>
-                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Target your weak areas directly by filtering questions by unit and individual syllabus topics.</p>
-              </div>
-            </motion.div>
-
-            {/* Card 5: Repeated Frequency */}
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary bg-bg-secondary/60 backdrop-blur-sm flex flex-col justify-between h-66 glow-hover transition-all duration-300 shadow-lg shadow-black/10"
-            >
-              <div className="w-12 h-12 rounded-xl bg-accent/5 border border-accent/20 flex items-center justify-center text-accent mb-6 shadow-sm shadow-accent/5">
-                <TrendingUp className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-display font-semibold text-lg mb-2 text-text-primary">Most Repeated Questions</h3>
-                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Prioritize your preparation by tracking question recurrence statistics across multiple exam terms.</p>
-              </div>
-            </motion.div>
-
-            {/* Card 6: Night Before Exam */}
-            <motion.div
-              variants={itemVariants}
-              whileHover={{ y: -4 }}
-              className="p-8 rounded-2xl border border-border-primary border-dashed bg-bg-secondary/30 backdrop-blur-sm flex flex-col justify-between h-66 transition-all duration-300 opacity-60 hover:opacity-85 shadow-md"
-            >
-              <div className="w-12 h-12 rounded-xl bg-border-primary/50 border border-border-primary flex items-center justify-center text-text-muted mb-6">
-                <Award className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center space-x-2 mb-2">
-                  <h3 className="font-display font-semibold text-lg text-text-primary">Night Before Exam</h3>
-                  <span className="text-[9px] px-2 py-0.5 rounded badge-premium font-bold">SOON</span>
+            <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
+                  <Layers className="w-5 h-5" />
                 </div>
-                <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">A highly curated hyper-focused revision set of the most important concepts to review in the final 12 hours.</p>
+                <div>
+                  <h3 className="font-display font-bold text-base mb-1.5 text-text-primary">Topic-wise Practice</h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">Target your weak areas directly by filtering questions by unit and individual syllabus topics.</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Card 5: Most Repeated Questions */}
+            <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base mb-1.5 text-text-primary">Most Repeated Questions</h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">Prioritise your prep by tracking question recurrence statistics across multiple exam terms.</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Card 6: Night Before Exam — Coming Soon */}
+            <motion.div variants={itemVariants} className="group relative opacity-55">
+              <div className="relative rounded-2xl border border-dashed border-border-primary bg-bg-secondary/30 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden cursor-not-allowed">
+                <div className="w-10 h-10 rounded-xl bg-border-primary/40 border border-border-primary flex items-center justify-center text-text-muted">
+                  <Award className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <h3 className="font-display font-bold text-base text-text-secondary">Night Before Exam</h3>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-500/10 border border-amber-500/20 text-amber-500">Soon</span>
+                  </div>
+                  <p className="text-xs text-text-muted leading-relaxed">A highly curated hyper-focused revision set of the most important concepts to review in the final 12 hours.</p>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -554,22 +372,17 @@ export default function Home() {
             <h2 className="font-display text-3xl font-bold text-text-primary mb-4">Preparation Blueprint</h2>
             <p className="text-sm text-text-secondary">How PaperHub transforms standard university study material into structural exam readiness in three simple steps.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm glow-hover relative transition-all duration-300 shadow-md">
-              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-display font-bold shadow-md shadow-accent/20">1</span>
-              <h3 className="font-display font-semibold text-lg mb-3 mt-2 text-text-primary">Personalize Syllabus</h3>
-              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Select your college (e.g. MMMUT), branch, and semester. Our system instantly parses the matching static syllabi and units.</p>
-            </div>
-            <div className="p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm glow-hover relative transition-all duration-300 shadow-md">
-              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-display font-bold shadow-md shadow-accent/20">2</span>
-              <h3 className="font-display font-semibold text-lg mb-3 mt-2 text-text-primary">Interactive Practice</h3>
-              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Solve past exam questions with step-by-step model solutions. Hover over transitions to see the math breakdown, or ask AI doubts.</p>
-            </div>
-            <div className="p-6 md:p-8 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm glow-hover relative transition-all duration-300 shadow-md">
-              <span className="absolute -top-4 -left-4 w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white font-display font-bold shadow-md shadow-accent/20">3</span>
-              <h3 className="font-display font-semibold text-lg mb-3 mt-2 text-text-primary">Timed Focus Exams</h3>
-              <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">Attempt mock minor or major tests in a secure fullscreen solver. Track pacing against exam standards with active anti-cheat logging.</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[{n:1,title:'Personalise Syllabus',desc:'Select your college (e.g. MMMUT), branch, and semester. Our system instantly parses the matching syllabi and units.'},{n:2,title:'Interactive Practice',desc:'Solve past exam questions with step-by-step model solutions. Hover over transitions to see the math breakdown, or ask AI doubts.'},{n:3,title:'Timed Focus Exams',desc:'Attempt mock minor or major tests in a secure fullscreen solver. Track pacing against exam standards with active anti-cheat logging.'}].map(({n,title,desc}) => (
+              <div key={n} className="group relative">
+                <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 pt-9 overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <span className="absolute -top-3 left-6 w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-black text-sm shadow-md shadow-accent/25">{n}</span>
+                  <h3 className="font-display font-bold text-base mb-2 text-text-primary mt-1">{title}</h3>
+                  <p className="text-xs text-text-secondary leading-relaxed">{desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 

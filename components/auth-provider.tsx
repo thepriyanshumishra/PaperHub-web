@@ -26,6 +26,9 @@ export interface IUserEngagement {
   lastActiveDateStr?: string;
   totalXp: number;
   sessionsCompleted: number;
+  league: 'beginner' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite';
+  dailyGoalSolved: number;
+  dailyGoalTarget: number;
 }
 
 export interface IDbUser {
@@ -37,6 +40,15 @@ export interface IDbUser {
   onboardingCompleted: boolean;
   profile: IUserProfile;
   engagement: IUserEngagement;
+  preferences: {
+    playSounds: boolean;
+    autoTimer: boolean;
+    delayAnswer: boolean;
+    textSize: 'small' | 'medium' | 'large' | 'extra-large';
+  };
+  bookmarks: string[];
+  incorrectAttempts: string[];
+  personalNotes: Record<string, string>;
 }
 
 interface AuthContextType {

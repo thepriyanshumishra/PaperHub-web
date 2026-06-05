@@ -13,6 +13,16 @@ export interface IUserEngagement {
   lastActiveDateStr?: string; // Format: 'YYYY-MM-DD'
   totalXp: number;
   sessionsCompleted: number;
+  league: 'beginner' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite';
+  dailyGoalSolved: number;
+  dailyGoalTarget: number;
+}
+
+export interface IUserPreferences {
+  playSounds: boolean;
+  autoTimer: boolean;
+  delayAnswer: boolean;
+  textSize: 'small' | 'medium' | 'large' | 'extra-large';
 }
 
 export interface IUser {
@@ -24,6 +34,10 @@ export interface IUser {
   onboardingCompleted: boolean;
   profile: IUserProfile;
   engagement: IUserEngagement;
+  preferences: IUserPreferences;
+  bookmarks: string[]; // Question IDs
+  incorrectAttempts: string[]; // Question IDs
+  personalNotes: Map<string, string>; // Map of questionId -> note
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -41,6 +55,24 @@ const UserEngagementSchema = new Schema<IUserEngagement>({
   lastActiveDateStr: { type: String },
   totalXp: { type: Number, default: 0 },
   sessionsCompleted: { type: Number, default: 0 },
+  league: { 
+    type: String, 
+    enum: ['beginner', 'bronze', 'silver', 'gold', 'diamond', 'elite'], 
+    default: 'beginner' 
+  },
+  dailyGoalSolved: { type: Number, default: 0 },
+  dailyGoalTarget: { type: Number, default: 30 },
+});
+
+const UserPreferencesSchema = new Schema<IUserPreferences>({
+  playSounds: { type: Boolean, default: true },
+  autoTimer: { type: Boolean, default: true },
+  delayAnswer: { type: Boolean, default: false },
+  textSize: { 
+    type: String, 
+    enum: ['small', 'medium', 'large', 'extra-large'], 
+    default: 'medium' 
+  },
 });
 
 const UserSchema = new Schema<IUser>(
@@ -57,6 +89,14 @@ const UserSchema = new Schema<IUser>(
     onboardingCompleted: { type: Boolean, default: false },
     profile: { type: UserProfileSchema, default: () => ({}) },
     engagement: { type: UserEngagementSchema, default: () => ({}) },
+    preferences: { type: UserPreferencesSchema, default: () => ({}) },
+    bookmarks: [{ type: String }],
+    incorrectAttempts: [{ type: String }],
+    personalNotes: { 
+      type: Map, 
+      of: String, 
+      default: () => new Map() 
+    },
   },
   { timestamps: true }
 );

@@ -993,7 +993,7 @@ function TestSummaryContent() {
                 Back to Dashboard
               </Link>
               <Link
-                href="/onboarding"
+                href="/dashboard"
                 className="w-full sm:w-auto flex-grow px-6 py-3.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-primary text-xs font-bold hover:text-accent transition-all text-center"
               >
                 Prepare Another Subject
