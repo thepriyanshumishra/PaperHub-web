@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import Chat from '@/models/chat';
 import { groq, isAiEnabled } from '@/lib/groq';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import {
   sanitizeText,
   safeSyllabusJson,
@@ -53,26 +53,19 @@ export async function POST(req: NextRequest) {
   try {
     // ─── Authentication ─────────────────────────────────────────────────────
     // userId is derived from the verified token only — never from the request body.
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const body = await req.json();
     const { questionId, message, history, fallbackContext } = body;
 
     // Always use the authenticated user's uid — never trust userId from the body
-    const userId = verifiedUser.uid;
+    const userId = user._id;
 
     // ─── Groq Quota Protection (Task 9) ────────────────────────────────────────
     // Two-tier check: burst limit (10/min) + daily cap (100 messages/day).
-    const chatQuota = checkAiChatQuota(userId);
+    const chatQuota = await checkAiChatQuota(userId);
     if (!chatQuota.allowed) {
       const retryAfterSec = Math.ceil(chatQuota.retryAfterMs / 1000);
       logger.warn(`User exceeded AI chat quota`, userId, {

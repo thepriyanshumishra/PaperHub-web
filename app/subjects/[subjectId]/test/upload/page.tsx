@@ -121,7 +121,7 @@ function TestUploadContent() {
 
     // Verify session
     fbUser.getIdToken()
-      .then((idToken) => {
+      .then((idToken: string) => {
         fetch(`/api/sessions/${sessionId}`, {
           headers: {
             'Authorization': `Bearer ${idToken}`
@@ -143,12 +143,12 @@ function TestUploadContent() {
               router.push(`/subjects/${subjectId}`);
             }
           })
-          .catch((err) => {
+          .catch((err: any) => {
             console.error('Error verifying upload session:', err);
             router.push(`/subjects/${subjectId}`);
           });
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.error('Error getting id token:', err);
         router.push(`/subjects/${subjectId}`);
       });

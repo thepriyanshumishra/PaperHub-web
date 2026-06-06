@@ -122,8 +122,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (!authLoading) {
       if (!fbUser && !hasLocalParams) {
+        // No session at all — send to login
         router.push('/login');
-      } else if (fbUser && user && !user.onboardingCompleted) {
+      } else if (fbUser && !fbUser.emailVerified) {
+        // Session exists but email is unverified — must verify before accessing dashboard
+        router.push('/verify-email');
+      } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
+        // Verified but onboarding not completed (student only)
         router.push('/onboarding');
       }
     }
@@ -154,14 +159,14 @@ export default function Dashboard() {
     if (!fbUser) return;
     setLoadingAnalytics(true);
     fbUser.getIdToken()
-      .then(token => fetch('/api/users/analytics', {
+      .then((token: string) => fetch('/api/users/analytics', {
         headers: { 'Authorization': `Bearer ${token}` }
       }))
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
+      .then((res: any) => res.ok ? res.json() : null)
+      .then((data: any) => {
         if (data) setAnalytics(data);
       })
-      .catch((err) => console.error('Failed to load user analytics:', err))
+      .catch((err: any) => console.error('Failed to load user analytics:', err))
       .finally(() => setLoadingAnalytics(false));
   }, [fbUser]);
 

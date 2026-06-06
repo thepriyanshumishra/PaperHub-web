@@ -2,23 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import TestBlueprint from '@/models/testBlueprint';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     const searchParams = req.nextUrl.searchParams;
     const subjectId = searchParams.get('subjectId');
@@ -34,7 +26,7 @@ export async function GET(req: NextRequest) {
       $or: [
         { userId: { $exists: false } },
         { userId: null },
-        { userId: verifiedUser.uid }
+        { userId: user._id }
       ]
     }).lean();
 
@@ -94,16 +86,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const body = await req.json();
@@ -120,7 +104,7 @@ export async function POST(req: NextRequest) {
       duration: parseInt(duration, 10),
       questionDistribution,
       marksPattern,
-      userId: verifiedUser.uid
+      userId: user._id
     });
 
     return NextResponse.json({ blueprint });

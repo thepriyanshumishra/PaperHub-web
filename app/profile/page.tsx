@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth-provider';
@@ -24,6 +25,20 @@ import { motion } from 'framer-motion';
 
 export default function ProfilePage() {
   const { user, fbUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Client-side authentication & authorization redirect guard
+  useEffect(() => {
+    if (!authLoading) {
+      if (!fbUser) {
+        router.push('/login');
+      } else if (fbUser && !fbUser.emailVerified) {
+        router.push('/verify-email');
+      } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
+        router.push('/onboarding');
+      }
+    }
+  }, [user, fbUser, authLoading, router]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [localCollege, setLocalCollege] = useState<string | null>(null);
   const [localBranch, setLocalBranch] = useState<string | null>(null);
@@ -61,11 +76,11 @@ export default function ProfilePage() {
     if (!fbUser) return;
     setLoadingStats(true);
     fbUser.getIdToken()
-      .then(token => fetch('/api/users/analytics', {
+      .then((token: string) => fetch('/api/users/analytics', {
         headers: { 'Authorization': `Bearer ${token}` }
       }))
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
+      .then((res: any) => res.ok ? res.json() : null)
+      .then((data: any) => {
         if (data && data.metrics) {
           setStats({
             solved: data.metrics.questionsAttempted || 0,
@@ -75,7 +90,7 @@ export default function ProfilePage() {
           });
         }
       })
-      .catch(err => console.error('Failed to load user profile stats:', err))
+      .catch((err: any) => console.error('Failed to load user profile stats:', err))
       .finally(() => setLoadingStats(false));
   }, [fbUser]);
 

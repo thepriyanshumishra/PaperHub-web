@@ -4,7 +4,7 @@ import dbConnect from '@/lib/db';
 import Session from '@/models/session';
 import Question from '@/models/question';
 import TestBlueprint from '@/models/testBlueprint';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
@@ -31,16 +31,11 @@ function seededShuffle<T>(array: T[], seed: number): T[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
+  // ─── Step 1: Authentication & Authorization ───────────────────────────────
+  const { user, errorResponse } = await requireAuthorizedUser(req);
+  if (errorResponse) return errorResponse;
 
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+  const userId = user._id;
 
     await dbConnect();
     const body = await req.json();
@@ -56,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Load user's solved questions history to prioritize unattempted questions (prevent repetition)
-    const userSessions = await Session.find({ userId: verifiedUser.uid }).lean();
+    const userSessions = await Session.find({ userId }).lean();
     const solvedQuestionIds = new Set<string>();
     userSessions.forEach((s) => {
       if (s.questions) {
@@ -144,7 +139,7 @@ export async function POST(req: NextRequest) {
     const durationSeconds = blueprint.duration * 60;
 
     const session = await Session.create({
-      userId: verifiedUser.uid,
+      userId,
       subjectId: blueprint.subjectId,
       type: 'test',
       subType: blueprint.examType,

@@ -19,7 +19,7 @@ import {
 
 export default function Login() {
   const router = useRouter();
-  const { user, fbUser, loading, error: globalError, loginWithGoogle, loginWithEmail, registerWithEmail } = useAuth();
+  const { user, fbUser, loading, error: globalError, loginWithEmail, registerWithEmail } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -47,17 +47,6 @@ export default function Login() {
       setAuthError(globalError);
     }
   }, [globalError]);
-
-  const handleGoogleLogin = () => {
-    loginWithGoogle()
-      .then(() => {
-        setAuthError(null);
-        setAuthSuccess(null);
-      })
-      .catch((err: any) => {
-        setAuthError(err.message || 'Failed to authenticate with Google. Please retry.');
-      });
-  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,30 +208,6 @@ export default function Login() {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Google Sign-In Button */}
-            <button
-              onClick={handleGoogleLogin}
-              className="w-full py-3 px-4 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-semibold flex items-center justify-center space-x-3 transition-colors shadow-sm"
-            >
-              {/* Google logo SVG */}
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5.04c1.86 0 3.32.64 4.02 1.3l3-3C17.2 1.7 14.85 1 12 1 7.24 1 3.2 3.73 1.25 7.72l3.66 2.84C5.78 7.37 8.63 5.04 12 5.04z"/>
-                <path fill="#4285F4" d="M23.5 12.3c0-.82-.07-1.6-.22-2.3H12v4.4h6.5c-.28 1.45-1.1 2.68-2.3 3.48l3.6 2.8c2.1-1.93 3.7-4.78 3.7-8.38z"/>
-                <path fill="#FBBC05" d="M5.9 14.54a7.1 7.1 0 0 1 0-4.54L2.24 7.16a12 12 0 0 0 0 9.68l3.66-2.3z"/>
-                <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.92l-3.6-2.8c-1.1.74-2.52 1.18-4.36 1.18-3.37 0-6.22-2.33-7.25-5.52L1.1 15.22C3.04 19.27 7.1 23 12 23z"/>
-              </svg>
-              <span>Continue with Google</span>
-            </button>
-
-            {/* Divider */}
-            <div className="relative flex items-center justify-center">
-              <div className="absolute inset-x-0 h-px bg-border-primary/50" />
-              <span className="relative px-3 text-[10px] text-text-muted uppercase font-bold tracking-wider bg-bg-secondary">
-                or use credentials
-              </span>
-            </div>
-
             {/* Credentials Form */}
             <form onSubmit={handleEmailAuth} className="space-y-4">
               

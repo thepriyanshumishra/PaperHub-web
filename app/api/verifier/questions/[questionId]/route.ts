@@ -134,7 +134,23 @@ async function handleWriteRequest(req: NextRequest, questionId: string) {
       question.verificationCorrectionCount = (question.verificationCorrectionCount || 0) + 1;
     }
 
+    const oldVersion = question.version || 1;
+    question.version = oldVersion + 1;
+
+    // Invalidate cached solutions because question fields or verification status changed
+    question.cachedSolution = undefined;
+
     await question.save();
+
+    // Trigger Redis cache purges asynchronously
+    try {
+      const { invalidateCache, invalidateCachePattern } = await import('@/lib/redis');
+      await invalidateCache(`paperhub:v1:solutions:question:${questionId}:v${oldVersion}`);
+      await invalidateCachePattern(`paperhub:v1:solutions:question:${questionId}:*`);
+      await invalidateCachePattern(`paperhub:v1:explanations:step:${questionId}:*`);
+    } catch (cacheErr) {
+      console.warn('[Cache] Redis purge failed on verifier question edit:', cacheErr);
+    }
 
     // Log the audits
     // 1. If edited, write an edit log
@@ -257,8 +273,33 @@ export async function POST(req: NextRequest, { params }: { params: { questionId:
     sourceQuestion.verifiedBy = user._id;
     sourceQuestion.verifiedAt = new Date();
 
+    const oldSourceVersion = sourceQuestion.version || 1;
+    const oldTargetVersion = targetQuestion.version || 1;
+    sourceQuestion.version = oldSourceVersion + 1;
+    targetQuestion.version = oldTargetVersion + 1;
+
+    // Evict cached solutions
+    sourceQuestion.cachedSolution = undefined;
+
     await targetQuestion.save();
     await sourceQuestion.save();
+
+    // Trigger Redis cache purges asynchronously
+    try {
+      const { invalidateCache, invalidateCachePattern } = await import('@/lib/redis');
+      await invalidateCache(`paperhub:v1:solutions:question:${questionId}:v${oldSourceVersion}`);
+      await invalidateCache(`paperhub:v1:solutions:question:${targetQuestion._id}:v${oldTargetVersion}`);
+      await invalidateCachePattern(`paperhub:v1:solutions:question:${questionId}:*`);
+      await invalidateCachePattern(`paperhub:v1:solutions:question:${targetQuestion._id}:*`);
+      await invalidateCachePattern(`paperhub:v1:explanations:step:${questionId}:*`);
+      await invalidateCachePattern(`paperhub:v1:explanations:step:${targetQuestion._id}:*`);
+      
+      // Clear global list caches since new paper coordinates are introduced
+      await invalidateCachePattern('paperhub:v1:papers:*');
+      await invalidateCachePattern('paperhub:v1:subjects:*');
+    } catch (cacheErr) {
+      console.warn('[Cache] Redis purge failed on verifier merge duplicate:', cacheErr);
+    }
 
     // Log the audits for both entities
     await AuditLog.create({

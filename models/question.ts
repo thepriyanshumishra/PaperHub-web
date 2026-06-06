@@ -48,6 +48,7 @@ export interface IQuestion extends Document {
   verificationCorrectionCount?: number;
   flaggedCount?: number;
   lastAppearedYear?: number;
+  version: number;
   importance?: 'low' | 'medium' | 'high';
   sourceDocumentId?: mongoose.Types.ObjectId;
   sourcePageNumber?: number;
@@ -129,6 +130,7 @@ const QuestionSchema = new Schema<IQuestion>(
     verificationCorrectionCount: { type: Number, default: 0 },
     flaggedCount: { type: Number, default: 0 },
     lastAppearedYear: { type: Number },
+    version: { type: Number, default: 1 },
     sourceDocumentId: { type: Schema.Types.ObjectId, ref: 'UploadedDocument' },
     sourcePageNumber: { type: Number },
     sourcePageImage: { type: String },
@@ -175,6 +177,8 @@ QuestionSchema.index({ repetitionFrequency: -1 });
 QuestionSchema.index({ verificationStatus: 1, updatedAt: -1 });
 QuestionSchema.index({ subjectId: 1, verificationStatus: 1, unit: 1, difficulty: 1, lastAppearedYear: -1 });
 QuestionSchema.index({ questionText: 'text', topic: 'text' }, { weights: { topic: 10, questionText: 1 } });
+QuestionSchema.index({ 'sourcePapers.examType': 1, 'sourcePapers.year': 1 });
+QuestionSchema.index({ subjectId: 1, 'sourcePapers.examType': 1, 'sourcePapers.year': 1 });
 
 export function getQuestionImportance(question: { repetitionFrequency?: number; lastAppearedYear?: number }) {
   const rep = question.repetitionFrequency || 1;

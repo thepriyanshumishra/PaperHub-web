@@ -14,7 +14,28 @@ import mongoose from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 
+// ─── Phase L.1A Feature Flag ──────────────────────────────────────────────────
+// The Document Intelligence Pipeline (PDF/ZIP upload, OCR extraction) is
+// temporarily disabled for the beta launch. It will be re-enabled in Phase L.2
+// after migration to Cloudflare R2 + async job queue is complete.
+// Set FEATURE_OCR_PIPELINE=true in .env to re-enable.
+const FEATURE_OCR_PIPELINE = process.env.FEATURE_OCR_PIPELINE === 'true';
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
+  // Feature gate: Document Intelligence Pipeline is coming soon
+  if (!FEATURE_OCR_PIPELINE) {
+    return NextResponse.json(
+      {
+        error: 'Document Intelligence Pipeline — Coming Soon',
+        message: 'The automated PDF/ZIP ingestion pipeline is temporarily disabled during the beta launch. It will be available in a future update.',
+        featureFlag: 'FEATURE_OCR_PIPELINE',
+      },
+      { status: 503 }
+    );
+  }
+
+
   try {
     const user = await getAuthenticatedUser(req);
     if (!user) {

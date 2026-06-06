@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth-provider';
@@ -20,10 +21,24 @@ import {
 
 export default function SettingsPage() {
   const { user, fbUser, loading: authLoading, refreshProfile } = useAuth();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Client-side authentication & authorization redirect guard
+  useEffect(() => {
+    if (!authLoading) {
+      if (!fbUser) {
+        router.push('/login');
+      } else if (fbUser && !fbUser.emailVerified) {
+        router.push('/verify-email');
+      } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
+        router.push('/onboarding');
+      }
+    }
+  }, [user, fbUser, authLoading, router]);
 
   // Local state initialized from user preferences
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');

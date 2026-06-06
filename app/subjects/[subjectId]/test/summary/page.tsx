@@ -118,24 +118,24 @@ function TestSummaryContent() {
     }
 
     fbUser.getIdToken()
-      .then((idToken) => {
+      .then((idToken: string) => {
         fetch(`/api/sessions/${sessionId}`, {
           headers: {
             'Authorization': `Bearer ${idToken}`
           }
         })
-          .then((res) => {
+          .then((res: any) => {
             if (!res.ok) throw new Error('Session details could not be retrieved');
             return res.json();
           })
-          .then((data) => {
+          .then((data: any) => {
             if (data.session) {
               setSession(data.session);
             } else {
               setErrorMsg('Session not found on DB.');
             }
           })
-          .catch((err) => {
+          .catch((err: any) => {
             console.error('Error fetching session summary:', err);
             setErrorMsg('Failed to sync session with database.');
           })
@@ -143,7 +143,7 @@ function TestSummaryContent() {
             setLoading(false);
           });
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.error('Error getting id token:', err);
         setErrorMsg('Failed to authenticate request.');
         setLoading(false);
@@ -204,8 +204,23 @@ function TestSummaryContent() {
   };
 
   const totalMarks = evaluationResult?.totalMarks || questions.reduce((sum, q) => sum + (q.marks || 10), 0);
-  const obtainedMarks = evaluationResult?.obtainedMarks !== undefined ? evaluationResult.obtainedMarks : 0;
+
+  // For self-evaluation: sum the numeric score saved per response (correct=full, partial=half, incorrect=0)
+  // For AI/photo grading: use the evaluationResult.obtainedMarks from the grader
+  const selfObtainedMarks = (() => {
+    if (evaluationMethod !== 'self') return 0;
+    return (session.testResponses || []).reduce((sum, resp) => sum + (resp.score || 0), 0);
+  })();
+  const obtainedMarks = evaluationMethod === 'self'
+    ? selfObtainedMarks
+    : (evaluationResult?.obtainedMarks !== undefined ? evaluationResult.obtainedMarks : 0);
   const percentage = totalMarks > 0 ? Math.round((obtainedMarks / totalMarks) * 100) : 0;
+
+  const summaryFeedback = evaluationResult?.summaryFeedback || (
+    evaluationMethod === 'self'
+      ? `Self-Evaluation completed. You self-graded ${attemptedCount} of ${totalQuestions} questions, obtaining a score of ${obtainedMarks}/${totalMarks} (${percentage}%). Check the breakdown below to review your answers.`
+      : undefined
+  );
 
   const responseMap = session.testResponses?.reduce((acc, resp) => {
     acc[resp.questionId] = resp;
@@ -711,10 +726,12 @@ function TestSummaryContent() {
         </div>
 
         {/* Examiner feedback */}
-        {evaluationResult?.summaryFeedback && (
+        {summaryFeedback && (
           <div className="print-feedback-box">
-            <div className="fb-label">AI Examiner Summary Feedback</div>
-            <p>{evaluationResult.summaryFeedback}</p>
+            <div className="fb-label">
+              {evaluationMethod === 'self' ? 'Self-Evaluation Summary Feedback' : 'AI Examiner Summary Feedback'}
+            </div>
+            <p>{summaryFeedback}</p>
           </div>
         )}
 
@@ -864,15 +881,40 @@ function TestSummaryContent() {
                 <p className="text-xs font-bold text-accent">{percentage}% Overall Score Rating</p>
               </div>
 
-              {evaluationResult?.summaryFeedback && (
+              {summaryFeedback && (
                 <div className="p-4 mt-4 rounded-xl bg-bg-primary/40 border border-border-primary text-xs leading-relaxed text-text-secondary text-left space-y-1.5 shadow-inner">
                   <span className="text-[9px] font-extrabold uppercase text-accent tracking-wider flex items-center space-x-1">
                     <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" />
-                    <span>Examiner Feedback Summary:</span>
+                    <span>Evaluation Summary:</span>
                   </span>
-                  <p>{evaluationResult.summaryFeedback}</p>
+                  <p>{summaryFeedback}</p>
                 </div>
               )}
+
+              {/* XP / Leaderboard Notice */}
+              <div className="mt-4 p-3.5 rounded-xl text-left text-xs border border-border-primary bg-bg-primary/30 flex items-start space-x-2.5">
+                {evaluationMethod === 'self' ? (
+                  <>
+                    <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-text-primary text-[11px]">No XP or Leaderboard Impact</p>
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        Self-evaluated sessions are for personal practice only. Submit via <strong>AI Evaluation</strong> (with photo answers) to earn XP and climb the leaderboards.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5 animate-pulse" />
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-text-primary text-[11px]">Leaderboard &amp; XP Active</p>
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        This AI-evaluated session counts towards your weekly XP, streak goals, and leaderboard rank. Keep practicing!
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Print / Share toolbar */}

@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import UserTopicPerformance from '@/models/userTopicPerformance';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
@@ -13,16 +13,8 @@ export async function GET(
   { params }: { params: { subjectId: string } }
 ) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     const { subjectId } = params;
     if (!mongoose.Types.ObjectId.isValid(subjectId)) {
@@ -40,7 +32,7 @@ export async function GET(
 
     // Fetch user topic performance for this subject
     const performances = await UserTopicPerformance.find({
-      userId: verifiedUser.uid,
+      userId: user._id,
       subjectId
     }).lean();
 

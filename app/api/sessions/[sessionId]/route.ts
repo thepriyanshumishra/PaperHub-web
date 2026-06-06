@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Session, { syncSessionTimer } from '@/models/session';
 import User from '@/models/user';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 import { validateUpload } from '@/lib/uploadValidator';
 import { logSystemEvent } from '@/lib/auditLogger';
@@ -13,24 +13,19 @@ const MAX_IMAGE_BASE64_LENGTH = 14_000_000; // ~10MB binary (base64 ≈ 133% of 
 
 export const dynamic = 'force-dynamic';
 
-/**
- * Returns the verified uid from the Authorization header, or null if missing/invalid.
- */
-async function getVerifiedUid(req: NextRequest): Promise<string | null> {
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  const idToken = authHeader.split(' ')[1];
-  if (!idToken) return null;
-  const verified = await verifyFirebaseIdToken(idToken);
-  return verified?.uid ?? null;
+function determineLeague(xp: number): 'beginner' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite' {
+  if (xp >= 5000) return 'elite';
+  if (xp >= 2000) return 'diamond';
+  if (xp >= 1000) return 'gold';
+  if (xp >= 500) return 'silver';
+  if (xp >= 200) return 'bronze';
+  return 'beginner';
 }
 
 export async function GET(req: NextRequest, { params }: { params: { sessionId: string } }) {
   try {
-    const uid = await getVerifiedUid(req);
-    if (!uid) {
-      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const { sessionId } = params;
@@ -41,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: { sessionId: s
     }
 
     // Enforce ownership: users may only read their own sessions
-    if (session.userId !== uid) {
+    if (session.userId !== user._id) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 
@@ -53,27 +48,15 @@ export async function GET(req: NextRequest, { params }: { params: { sessionId: s
 
     return NextResponse.json({ session });
   } catch (error) {
-    // V4: Never expose internal error details to clients in production
     console.error(`API Error in GET /api/sessions/${params.sessionId}:`, safeErrorResponse(error));
     return NextResponse.json({ error: 'An internal error occurred. Please try again.' }, { status: 500 });
   }
 }
 
-function determineLeague(xp: number): 'beginner' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite' {
-  if (xp >= 5000) return 'elite';
-  if (xp >= 2000) return 'diamond';
-  if (xp >= 1000) return 'gold';
-  if (xp >= 500) return 'silver';
-  if (xp >= 200) return 'bronze';
-  return 'beginner';
-}
-
 export async function PUT(req: NextRequest, { params }: { params: { sessionId: string } }) {
   try {
-    const uid = await getVerifiedUid(req);
-    if (!uid) {
-      return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const { sessionId } = params;
@@ -85,7 +68,7 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
     }
 
     // Enforce ownership: users may only update their own sessions
-    if (session.userId !== uid) {
+    if (session.userId !== user._id) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 
@@ -181,7 +164,7 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
           if (!validation.isValid) {
             await logSystemEvent({
               action: 'upload_failure',
-              userId: uid,
+              userId: user._id,
               category: 'upload',
               details: `Session image at index ${i} failed signature check: ${validation.error}`,
             });
@@ -204,14 +187,14 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
         session.endedAt = new Date();
         
         if (oldStatus !== 'completed') {
-          const user = await User.findById(uid);
-          if (user) {
-            user.engagement.sessionsCompleted += 1;
+          const dbUser = await User.findById(user._id);
+          if (dbUser) {
+            dbUser.engagement.sessionsCompleted += 1;
             if (session.type === 'practice') {
-              user.engagement.totalXp += 50; // +50 XP for completing a practice session
-              user.engagement.league = determineLeague(user.engagement.totalXp);
+              dbUser.engagement.totalXp += 50; // +50 XP for completing a practice session
+              dbUser.engagement.league = determineLeague(dbUser.engagement.totalXp);
             }
-            await user.save();
+            await dbUser.save();
           }
         }
       }
@@ -221,7 +204,6 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
 
     return NextResponse.json({ session });
   } catch (error) {
-    // V4: Never expose internal error details to clients in production
     console.error(`API Error in PUT /api/sessions/${params.sessionId}:`, safeErrorResponse(error));
     return NextResponse.json({ error: 'An internal error occurred. Please try again.' }, { status: 500 });
   }

@@ -116,7 +116,23 @@ export async function PATCH(
       question.verifiedAt = undefined;
     }
 
+    const oldVersion = question.version || 1;
+    question.version = oldVersion + 1;
+
+    // Evict cached solution since question details or status changed
+    question.cachedSolution = undefined;
+
     await question.save();
+
+    // Trigger Redis cache purges asynchronously
+    try {
+      const { invalidateCache, invalidateCachePattern } = await import('@/lib/redis');
+      await invalidateCache(`paperhub:v1:solutions:question:${questionId}:v${oldVersion}`);
+      await invalidateCachePattern(`paperhub:v1:solutions:question:${questionId}:*`);
+      await invalidateCachePattern(`paperhub:v1:explanations:step:${questionId}:*`);
+    } catch (cacheErr) {
+      console.warn('[Cache] Redis purge failed on moderator edit:', cacheErr);
+    }
 
     // Log the audits
     // 1. Log edits if applied

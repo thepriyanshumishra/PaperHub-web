@@ -697,6 +697,22 @@ export default function SubjectTestSetupPage() {
                         );
                       })}
                     </div>
+
+                    {/* XP / Leaderboard Notice Banner */}
+                    <div className="p-4 rounded-xl border border-border-primary/50 bg-bg-secondary/40 backdrop-blur-sm text-xs space-y-2 text-left">
+                      <h5 className="font-bold text-text-primary text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-accent animate-pulse" />
+                        <span>Notice: XP &amp; Leaderboards</span>
+                      </h5>
+                      <ul className="list-disc pl-4 space-y-1 text-[11px] text-text-secondary leading-relaxed">
+                        <li>
+                          <strong>Self Evaluation:</strong> Mode for instant self-practice. Results do <strong>not</strong> count toward XP, Streaks, or Leaderboard standings to preserve fair competition.
+                        </li>
+                        <li>
+                          <strong>AI Answer Sheet:</strong> Graded evaluation. Submitting photos of your paper answer sheet awards XP and updates your Leaderboard rank based on the AI score.
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 )}
 

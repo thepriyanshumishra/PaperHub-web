@@ -1,36 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import User from '@/models/user';
 import Question from '@/models/question';
 import Note from '@/models/note';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-    const user = await User.findById(verifiedUser.uid);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Instantly deny access if suspended or banned
-    if (user.accountStatus !== 'active') {
-      return NextResponse.json({ error: 'Unauthorized: Account is suspended or banned' }, { status: 403 });
-    }
 
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'bookmarks';

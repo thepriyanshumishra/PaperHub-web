@@ -23,7 +23,7 @@ export interface ISession extends Document {
   userId: string; // Anonymous UUID
   subjectId: mongoose.Types.ObjectId;
   type: 'practice' | 'test';
-  subType: 'topic' | 'unit' | 'syllabus' | 'custom' | 'minor' | 'major';
+  subType: 'topic' | 'unit' | 'syllabus' | 'custom' | 'minor' | 'major' | 'pyq';
   config: {
     units: number[];
     topics: string[];
@@ -97,7 +97,7 @@ const SessionSchema = new Schema<ISession>(
     userId: { type: String, required: true, index: true },
     subjectId: { type: Schema.Types.ObjectId, ref: 'Subject', required: true, index: true },
     type: { type: String, enum: ['practice', 'test'], required: true },
-    subType: { type: String, enum: ['topic', 'unit', 'syllabus', 'custom', 'minor', 'major'], required: true },
+    subType: { type: String, enum: ['topic', 'unit', 'syllabus', 'custom', 'minor', 'major', 'pyq'], required: true },
     config: {
       units: [{ type: Number }],
       topics: [{ type: String }],
@@ -147,9 +147,9 @@ const SessionSchema = new Schema<ISession>(
   { timestamps: true }
 );
 
-const Session: Model<ISession> = mongoose.models.Session || mongoose.model<ISession>('Session', SessionSchema);
-
 SessionSchema.index({ userId: 1, type: 1, status: 1 });
+
+const Session: Model<ISession> = mongoose.models.Session || mongoose.model<ISession>('Session', SessionSchema, 'practice_sessions');
 
 export function syncSessionTimer(session: any) {
   if (session.status !== 'active' || !session.isExamMode) return;

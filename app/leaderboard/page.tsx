@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/sidebar';
 import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth-provider';
+import { useRouter } from 'next/navigation';
 import { 
   Award, 
   Flame, 
@@ -21,6 +22,20 @@ import { motion } from 'framer-motion';
 
 export default function LeaderboardPage() {
   const { user, fbUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  // Client-side authentication & authorization redirect guard
+  useEffect(() => {
+    if (!authLoading) {
+      if (!fbUser) {
+        router.push('/login');
+      } else if (fbUser && !fbUser.emailVerified) {
+        router.push('/verify-email');
+      } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
+        router.push('/onboarding');
+      }
+    }
+  }, [user, fbUser, authLoading, router]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [scope, setScope] = useState<'university' | 'college' | 'course' | 'branch'>('university');
   const [leaderboardData, setLeaderboardData] = useState<any[]>([]);

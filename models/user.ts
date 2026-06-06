@@ -71,10 +71,15 @@ export interface IUserPreferences {
 }
 
 export interface IUser extends Omit<mongoose.Document, '_id'> {
-  _id: string; // Firebase UID string
+  _id: string; // Unique user identifier
   email: string;
-  displayName?: string;
-  photoURL?: string;
+  name?: string; // Better Auth standard name field
+  emailVerified: boolean; // Better Auth verification status
+  image?: string; // Better Auth standard photo/image URL
+  username?: string; // Unique username for login
+  lastUsernameChangedAt?: Date; // Rate-limiting check for username updates
+  displayName?: string; // Legacy field for compatibility
+  photoURL?: string; // Legacy field for compatibility
   role: 'student' | 'verifier' | 'moderator' | 'admin';
   accountStatus: 'active' | 'suspended' | 'banned';
   onboardingCompleted: boolean;
@@ -171,10 +176,15 @@ const BetaAccessSchema = new Schema<IBetaAccess>({
 
 const UserSchema = new Schema<IUser>(
   {
-    _id: { type: String, required: true }, // Map directly to Firebase UID string
+    _id: { type: String, required: true }, // Unique user identifier
     email: { type: String, required: true, unique: true },
-    displayName: { type: String },
-    photoURL: { type: String },
+    name: { type: String }, // Better Auth name
+    emailVerified: { type: Boolean, default: false }, // Better Auth verification status
+    image: { type: String }, // Better Auth image url
+    username: { type: String, unique: true, sparse: true }, // Unique username for login
+    lastUsernameChangedAt: { type: Date }, // Track username modifications
+    displayName: { type: String }, // Legacy field
+    photoURL: { type: String }, // Legacy field
     role: { 
       type: String, 
       enum: ['student', 'verifier', 'moderator', 'admin'], 
@@ -208,6 +218,7 @@ const UserSchema = new Schema<IUser>(
 
 UserSchema.index({ role: 1 });
 UserSchema.index({ accountStatus: 1 });
+UserSchema.index({ username: 1 }, { unique: true, sparse: true });
 UserSchema.index({ 'profile.universityId': 1, 'engagement.totalXp': -1 });
 UserSchema.index({ 'profile.collegeId': 1, 'engagement.totalXp': -1 });
 UserSchema.index({ 'profile.courseId': 1, 'engagement.totalXp': -1 });

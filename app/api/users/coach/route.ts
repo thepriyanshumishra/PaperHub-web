@@ -4,30 +4,17 @@ import User from '@/models/user';
 import UserTopicPerformance from '@/models/userTopicPerformance';
 import Session from '@/models/session';
 import { groq, isAiEnabled } from '@/lib/groq';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-
-    const user = await User.findById(verifiedUser.uid);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
 
     // 1. Gather analytics for deterministic insights
     const performances = await UserTopicPerformance.find({ userId: user._id }).lean();
@@ -206,9 +193,12 @@ Observations format:
     }
 
     // Save insights back to user profile as cache
-    user.coachInsights = insights;
-    user.coachInsightsGeneratedAt = new Date();
-    await user.save();
+    const dbUser = await User.findById(user._id);
+    if (dbUser) {
+      dbUser.coachInsights = insights;
+      dbUser.coachInsightsGeneratedAt = new Date();
+      await dbUser.save();
+    }
 
     return NextResponse.json({ insights });
   } catch (error) {

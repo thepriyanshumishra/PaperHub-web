@@ -82,6 +82,28 @@ export async function PATCH(
 
     await targetUser.save();
 
+    // Invalidate all active Redis session cache entries for this user.
+    // This ensures that role or status changes take effect immediately,
+    // rather than waiting for the 1-hour Redis TTL to expire.
+    try {
+      const { redis } = await import('@/lib/redis');
+      if (redis) {
+        const tokens = await redis.smembers(`paperhub:user:sessions:${userId}`);
+        if (tokens && tokens.length > 0) {
+          const keysToDelete = tokens.map((token: string) => `paperhub:session:${token}`);
+          await redis.del(...keysToDelete);
+          console.log(
+            `[Admin] Invalidated ${keysToDelete.length} Redis session cache entries for user ${userId}`
+          );
+        }
+        await redis.del(`paperhub:user:sessions:${userId}`);
+      }
+    } catch (redisErr) {
+      // Redis invalidation failure is non-fatal — the user's session will
+      // expire naturally within the Redis TTL (max 1 hour).
+      console.warn('[Admin] Failed to invalidate Redis session cache for user:', userId, redisErr);
+    }
+
     // Log the curation event
     await AuditLog.create({
       userId: user._id,

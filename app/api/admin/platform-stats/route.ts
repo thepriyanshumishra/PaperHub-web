@@ -3,29 +3,17 @@ import dbConnect from '@/lib/db';
 import User from '@/models/user';
 import Feedback from '@/models/feedback';
 import Session from '@/models/session';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
-import { hasPermission } from '@/lib/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { errorResponse } = await requireAuthorizedUser(req, { allowedRoles: ['admin'] });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-
-    const admin = await User.findById(verifiedUser.uid);
-    if (!admin || !hasPermission(admin.role, 'admin')) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

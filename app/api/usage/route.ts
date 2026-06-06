@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 import { getUserUsageSummary } from '@/lib/usageTracker';
 import { checkUsageLimit } from '@/lib/featureGate';
@@ -10,18 +10,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
 
-    const summary = await getUserUsageSummary(verifiedUser.uid);
+    const summary = await getUserUsageSummary(user._id);
     if (!summary) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }

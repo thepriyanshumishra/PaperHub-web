@@ -1,32 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Feedback from '@/models/feedback';
-import User from '@/models/user';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { sanitizeText, safeErrorResponse } from '@/lib/promptSafety';
 import { sanitizeUserContent, sanitizeUrl } from '@/lib/sanitizer';
 import { isRateLimited } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
-import { hasPermission } from '@/lib/permissions';
 import { incrementLifetimeUsage } from '@/lib/usageTracker';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req, { allowPendingOnboarding: true });
+    if (errorResponse) return errorResponse;
 
-    const userId = verifiedUser.uid;
+    const userId = user._id;
 
     // Rate limit: 5 feedback submissions per hour
-    if (isRateLimited(`feedback-${userId}`, 5, 60 * 60 * 1000)) {
+    if (await isRateLimited(`feedback-${userId}`, 5, 60 * 60 * 1000)) {
       return NextResponse.json({ error: 'Too many feedback submissions. Please wait and try again.' }, { status: 429 });
     }
 
@@ -45,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const feedback = await Feedback.create({
       userId,
-      userEmail: verifiedUser.email || '',
+      userEmail: user.email || '',
       category,
       // Defence-in-depth: strip HTML tags (sanitizeUserContent) + strip control chars (sanitizeText)
       title: sanitizeText(sanitizeUserContent(title, 250), 200),
@@ -67,22 +59,10 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { errorResponse } = await requireAuthorizedUser(req, { allowedRoles: ['admin'] });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-
-    // Check if admin
-    const user = await User.findById(verifiedUser.uid);
-    if (!user || !hasPermission(user.role, 'admin')) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');

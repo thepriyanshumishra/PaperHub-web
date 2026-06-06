@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { useAuth } from '@/components/auth-provider';
 import { 
@@ -13,7 +14,9 @@ import {
   ChevronRight, 
   ArrowRight,
   ArrowUpRight,
-  TrendingUp
+  TrendingUp,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -57,7 +60,66 @@ function AnimatedNumber({ value }: { value: number }) {
 }
 
 export default function Home() {
-  const { user, fbUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+  const { user, fbUser, loading: authLoading, logout, refreshProfile, error: authError } = useAuth();
+
+  // Redirect logged-in users to the dashboard or onboarding
+  useEffect(() => {
+    if (!authLoading && fbUser) {
+      if (user?.onboardingCompleted) {
+        router.push('/dashboard');
+      } else if (user) {
+        router.push('/onboarding');
+      }
+    }
+  }, [fbUser, user, authLoading, router]);
+
+  // Handle error case: user has active fbUser but user record failed to sync
+  if (!authLoading && fbUser && !user) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex flex-col items-center justify-center p-6 text-center text-text-primary">
+        <div className="max-w-md w-full bg-bg-secondary border border-border-primary rounded-2xl shadow-xl p-8 space-y-6">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mx-auto">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="font-display font-bold text-lg text-text-primary">Unable to Sync Profile</h2>
+            <p className="text-xs text-text-secondary leading-relaxed">
+              We couldn't connect to your PaperHub profile. This might be due to a temporary database issue or network interruption.
+            </p>
+            {authError && (
+              <p className="text-[10px] text-red-400 bg-red-500/5 py-1.5 px-2.5 rounded border border-red-500/10 font-mono inline-block max-w-full truncate">
+                Error: {authError}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <button
+              onClick={() => refreshProfile()}
+              className="px-5 py-2.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-semibold transition-colors flex items-center justify-center space-x-2 shadow-sm"
+            >
+              <span>Retry Connection</span>
+            </button>
+            <button
+              onClick={() => logout()}
+              className="px-5 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-semibold transition-colors text-text-primary"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Prevent flash of landing page for logged-in users while checking auth
+  if (authLoading || fbUser) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
   
   const [stats, setStats] = useState({
     totalQuestions: 0,

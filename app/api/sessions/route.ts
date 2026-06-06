@@ -2,32 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Session from '@/models/session';
 import Question from '@/models/question';
+import mongoose from 'mongoose';
 import User from '@/models/user';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 import { checkUsageLimit } from '@/lib/featureGate';
 import { getMonthlyUsage, incrementMonthlyUsage, incrementLifetimeUsage } from '@/lib/usageTracker';
 
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate the caller before creating a session
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const body = await req.json();
     const { subjectId, type, subType, config, evaluationMethod } = body;
 
-    // Always use the authenticated user's uid — never trust userId from the body
-    const userId = verifiedUser.uid;
+    const userId = user._id;
 
     if (!subjectId || !type || !subType || !config) {
       return NextResponse.json({ error: 'Missing required parameters: subjectId, type, subType, config' }, { status: 400 });
@@ -35,14 +26,17 @@ export async function POST(req: NextRequest) {
 
     // Check usage limits for mock tests
     if (type === 'test') {
-      const userDoc = await User.findById(userId).select('plan');
-      const userPlan = userDoc?.plan || 'beta_pro';
-      const monthlyUsage = await getMonthlyUsage(userId, 'mockTests');
-      const limitCheck = checkUsageLimit(userPlan, 'mockTestsPerMonth', monthlyUsage);
-      if (!limitCheck.allowed) {
-        return NextResponse.json({
-          error: 'Monthly mock test limit reached. Upgrade to Pro/Institution to create unlimited mock tests.'
-        }, { status: 403 });
+      try {
+        const userPlan = user.plan || 'beta_pro';
+        const monthlyUsage = await getMonthlyUsage(userId, 'mockTests');
+        const limitCheck = checkUsageLimit(userPlan, 'mockTestsPerMonth', monthlyUsage);
+        if (!limitCheck.allowed) {
+          return NextResponse.json({
+            error: 'Monthly mock test limit reached. Upgrade to Pro/Institution to create unlimited mock tests.'
+          }, { status: 403 });
+        }
+      } catch {
+        // If limit check fails, allow
       }
     }
 
@@ -91,35 +85,64 @@ export async function POST(req: NextRequest) {
       orConditions.push(cond);
     }
 
-    const query: any = {
-      $or: orConditions
-    };
+    let selectedQuestions: mongoose.Types.ObjectId[] = [];
+    let limit = 0;
 
-    if (difficulty && difficulty !== 'all' && difficulty !== 'All Levels') {
-      query.difficulty = difficulty.toLowerCase();
-    }
+    if (config.questionIds && Array.isArray(config.questionIds) && config.questionIds.length > 0) {
+      const validIds = config.questionIds.filter((id: string) => mongoose.Types.ObjectId.isValid(id));
+      const questionsFetched = await Question.find({ _id: { $in: validIds } });
+      if (questionsFetched.length === 0) {
+        return NextResponse.json({ error: 'No questions found for the custom selection' }, { status: 404 });
+      }
+      const fetchedMap = new Map(questionsFetched.map(q => [q._id.toString(), q]));
+      selectedQuestions = validIds
+        .map((id: string) => fetchedMap.get(id)?._id)
+        .filter((q: any) => q !== undefined);
+      limit = selectedQuestions.length;
+    } else {
+      const query: any = {
+        $or: orConditions,
+        verificationStatus: 'verified'
+      };
 
-    // Pull candidate questions
-    const candidates = await Question.find(query);
-    if (candidates.length === 0) {
-      return NextResponse.json({ error: 'No questions found matching configuration' }, { status: 404 });
-    }
+      if (subType === 'pyq' && config.examType && config.year) {
+        query.sourcePapers = { 
+          $elemMatch: { examType: config.examType, year: config.year } 
+        };
+      }
 
-    // Shuffle and slice
-    let shuffled = candidates.sort(() => 0.5 - Math.random());
-    const limit = type === 'practice' ? shuffled.length : (questionCount || 5);
-    let selectedQuestions = shuffled.slice(0, limit).map((q) => q._id);
+      if (difficulty && difficulty !== 'all' && difficulty !== 'All Levels') {
+        query.difficulty = difficulty.toLowerCase();
+      }
 
-    if (config.startQuestionId) {
-      const startIdStr = config.startQuestionId.toString();
-      const foundIdx = selectedQuestions.findIndex((qId) => qId.toString() === startIdStr);
-      if (foundIdx !== -1) {
-        const [qId] = selectedQuestions.splice(foundIdx, 1);
-        selectedQuestions = [qId, ...selectedQuestions];
-      } else {
-        const candidateQ = candidates.find((c) => c._id.toString() === startIdStr);
-        if (candidateQ) {
-          selectedQuestions = [candidateQ._id, ...selectedQuestions.slice(0, limit - 1)];
+      // Pull candidate questions
+      const candidates = await Question.find(query);
+      if (candidates.length === 0) {
+        return NextResponse.json({ error: 'No questions found matching configuration' }, { status: 404 });
+      }
+
+      // Shuffle and slice
+      let shuffled = candidates.sort(() => 0.5 - Math.random());
+      limit = type === 'practice' ? shuffled.length : (questionCount || 5);
+      
+      // For PYQ mock tests, include all questions if questionCount is not explicitly limited (or set to 'all' internally)
+      if (subType === 'pyq') {
+        limit = candidates.length;
+      }
+      
+      selectedQuestions = shuffled.slice(0, limit).map((q) => q._id);
+
+      if (config.startQuestionId) {
+        const startIdStr = config.startQuestionId.toString();
+        const foundIdx = selectedQuestions.findIndex((qId) => qId.toString() === startIdStr);
+        if (foundIdx !== -1) {
+          const [qId] = selectedQuestions.splice(foundIdx, 1);
+          selectedQuestions = [qId, ...selectedQuestions];
+        } else {
+          const candidateQ = candidates.find((c) => c._id.toString() === startIdStr);
+          if (candidateQ) {
+            selectedQuestions = [candidateQ._id, ...selectedQuestions.slice(0, limit - 1)];
+          }
         }
       }
     }
@@ -177,7 +200,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ session });
   } catch (error) {
-    // V4: Never expose internal error details to clients in production
     console.error('API Error in POST /api/sessions:', safeErrorResponse(error));
     return NextResponse.json({ error: 'An internal error occurred. Please try again.' }, { status: 500 });
   }

@@ -6,9 +6,8 @@ import User from '@/models/user';
 import UserTopicPerformance from '@/models/userTopicPerformance';
 import Notification from '@/models/notification';
 import Activity from '@/models/activity';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
-import { sanitizeText, safeErrorResponse, AI_LIMITS } from '@/lib/promptSafety';
-import { groq, isAiEnabled } from '@/lib/groq';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
+import { sanitizeText, safeErrorResponse } from '@/lib/promptSafety';
 import mongoose from 'mongoose';
 import { gradeAnswer } from '@/lib/grading';
 import EvaluationMetric from '@/models/evaluationMetric';
@@ -29,16 +28,8 @@ export async function POST(
   { params }: { params: { sessionId: string } }
 ) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     const { sessionId } = params;
     if (!mongoose.Types.ObjectId.isValid(sessionId)) {
@@ -52,7 +43,7 @@ export async function POST(
     }
 
     // Enforce ownership
-    if (session.userId !== verifiedUser.uid) {
+    if (session.userId !== user._id) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 
@@ -171,27 +162,27 @@ export async function POST(
       }
 
       // ─── Step 2: Retrieve and Update User ───────────────────────────────────
-      const user = isTxActive && dbSession
-        ? await User.findById(verifiedUser.uid).session(dbSession)
-        : await User.findById(verifiedUser.uid);
-      if (!user) {
+      const dbUser = isTxActive && dbSession
+        ? await User.findById(user._id).session(dbSession)
+        : await User.findById(user._id);
+      if (!dbUser) {
         throw new Error('User profile not found');
       }
 
-      if (user.accountStatus !== 'active') {
+      if (dbUser.accountStatus !== 'active') {
         throw new Error('Account is suspended or banned');
       }
 
-      const oldLeague = user.engagement.league;
+      const oldLeague = dbUser.engagement.league;
       let xpEarned = 0;
-      const lastActive = user.engagement.lastActiveDateStr;
+      const lastActive = dbUser.engagement.lastActiveDateStr;
       let streakMilestoneTriggered = false;
       let streak = 0;
 
       // Check timezone-safe streak and reset daily goals if new day
       if (lastActive !== localDateStr) {
         // New day: Reset daily goal solved count
-        user.engagement.dailyGoalSolved = 0;
+        dbUser.engagement.dailyGoalSolved = 0;
 
         if (lastActive) {
           const lastDate = new Date(lastActive);
@@ -201,40 +192,40 @@ export async function POST(
 
           if (diffDays === 1) {
             // Consecutive active learning day
-            user.engagement.streakCount += 1;
-            streak = user.engagement.streakCount;
+            dbUser.engagement.streakCount += 1;
+            streak = dbUser.engagement.streakCount;
             streakMilestoneTriggered = true;
           } else if (diffDays > 1) {
             // Streak broken
-            user.engagement.streakCount = 1;
+            dbUser.engagement.streakCount = 1;
           } else {
             // Client sent an older date or double-click error
-            user.engagement.streakCount = Math.max(1, user.engagement.streakCount);
+            dbUser.engagement.streakCount = Math.max(1, dbUser.engagement.streakCount);
           }
         } else {
           // First activity ever recorded
-          user.engagement.streakCount = 1;
+          dbUser.engagement.streakCount = 1;
         }
 
-        if (user.engagement.streakCount > (user.engagement.longestStreak || 0)) {
-          user.engagement.longestStreak = user.engagement.streakCount;
+        if (dbUser.engagement.streakCount > (dbUser.engagement.longestStreak || 0)) {
+          dbUser.engagement.longestStreak = dbUser.engagement.streakCount;
         }
 
-        user.engagement.lastActiveDateStr = localDateStr;
+        dbUser.engagement.lastActiveDateStr = localDateStr;
       }
 
       // Streak milestone notification inside transaction
       if (streakMilestoneTriggered && [3, 7, 14, 30, 50, 100].includes(streak)) {
-        if (user.preferences?.streakNotificationsEnabled !== false) {
+        if (dbUser.preferences?.streakNotificationsEnabled !== false) {
           await Notification.create([{
-            userId: user._id,
+            userId: dbUser._id,
             title: 'Streak Milestone! 🔥',
             message: `Incredible consistency! You have maintained an active sessional streak for ${streak} days.`,
             type: 'streak'
           }], { session: dbSession || undefined });
         }
         await Activity.create([{
-          userId: user._id,
+          userId: dbUser._id,
           type: 'streak_milestone',
           metadata: { streakCount: streak }
         }], { session: dbSession || undefined });
@@ -245,66 +236,66 @@ export async function POST(
         xpEarned += 15; // 15 XP per correctly solved question
 
         // Update daily goal count
-        if (user.engagement.dailyGoalSolved < user.engagement.dailyGoalTarget) {
-          user.engagement.dailyGoalSolved += 1;
+        if (dbUser.engagement.dailyGoalSolved < dbUser.engagement.dailyGoalTarget) {
+          dbUser.engagement.dailyGoalSolved += 1;
 
           // Daily goal met bonus
-          if (user.engagement.dailyGoalSolved === user.engagement.dailyGoalTarget) {
+          if (dbUser.engagement.dailyGoalSolved === dbUser.engagement.dailyGoalTarget) {
             xpEarned += 30; // +30 XP daily goal completion bonus
-            if (!user.engagement.dailyGoalsCompletedDates) {
-              user.engagement.dailyGoalsCompletedDates = [];
+            if (!dbUser.engagement.dailyGoalsCompletedDates) {
+              dbUser.engagement.dailyGoalsCompletedDates = [];
             }
-            if (!user.engagement.dailyGoalsCompletedDates.includes(localDateStr)) {
-              user.engagement.dailyGoalsCompletedDates.push(localDateStr);
+            if (!dbUser.engagement.dailyGoalsCompletedDates.includes(localDateStr)) {
+              dbUser.engagement.dailyGoalsCompletedDates.push(localDateStr);
             }
 
             // Daily goal met triggers
-            if (user.preferences?.goalNotificationsEnabled !== false) {
+            if (dbUser.preferences?.goalNotificationsEnabled !== false) {
               await Notification.create([{
-                userId: user._id,
+                userId: dbUser._id,
                 title: 'Daily Goal Completed! 🏁',
-                message: `Awesome work! You solved your target of ${user.engagement.dailyGoalTarget} questions today.`,
+                message: `Awesome work! You solved your target of ${dbUser.engagement.dailyGoalTarget} questions today.`,
                 type: 'goal'
               }], { session: dbSession || undefined });
             }
             await Activity.create([{
-              userId: user._id,
+              userId: dbUser._id,
               type: 'daily_goal_achieved',
-              metadata: { dailyGoalTarget: user.engagement.dailyGoalTarget }
+              metadata: { dailyGoalTarget: dbUser.engagement.dailyGoalTarget }
             }], { session: dbSession || undefined });
           }
         }
       }
 
-      user.engagement.totalXp += xpEarned;
-      user.engagement.league = determineLeague(user.engagement.totalXp);
+      dbUser.engagement.totalXp += xpEarned;
+      dbUser.engagement.league = determineLeague(dbUser.engagement.totalXp);
 
-      if (user.engagement.league !== oldLeague) {
-        if (user.preferences?.leaderboardNotificationsEnabled !== false) {
+      if (dbUser.engagement.league !== oldLeague) {
+        if (dbUser.preferences?.leaderboardNotificationsEnabled !== false) {
           await Notification.create([{
-            userId: user._id,
+            userId: dbUser._id,
             title: 'League Promotion! 🏆',
-            message: `Congratulations! You have been promoted to the ${user.engagement.league} league.`,
+            message: `Congratulations! You have been promoted to the ${dbUser.engagement.league} league.`,
             type: 'leaderboard'
           }], { session: dbSession || undefined });
         }
         await Activity.create([{
-          userId: user._id,
+          userId: dbUser._id,
           type: 'league_promotion',
-          metadata: { league: user.engagement.league }
+          metadata: { league: dbUser.engagement.league }
         }], { session: dbSession || undefined });
       }
 
       if (isTxActive && dbSession) {
-        await user.save({ session: dbSession });
+        await dbUser.save({ session: dbSession });
       } else {
-        await user.save();
+        await dbUser.save();
       }
 
       // ─── Step 3: Log Performance (Analytics Foundation) ───────────────────
       await UserTopicPerformance.findOneAndUpdate(
         {
-          userId: user._id,
+          userId: dbUser._id,
           subjectId: question.subjectId,
           topic: question.topic
         },
@@ -326,7 +317,7 @@ export async function POST(
 
       return NextResponse.json({
         evaluation: { accuracy, feedback },
-        engagement: user.engagement,
+        engagement: dbUser.engagement,
         xpEarned
       });
     } catch (txError: any) {

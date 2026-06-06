@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import User from '@/models/user';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 import { ttlCache, CACHE_TTL } from '@/lib/cache';
 
@@ -9,26 +9,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
-
-    await dbConnect();
-    const currentUser = await User.findById(verifiedUser.uid);
-    if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    if (currentUser.accountStatus !== 'active') {
-      return NextResponse.json({ error: 'Unauthorized: Account is suspended or banned' }, { status: 403 });
-    }
+    const { user: currentUser, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     const { searchParams } = new URL(req.url);
     const scope = searchParams.get('scope') || 'university'; // university, college, course, branch

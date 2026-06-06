@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Notification from '@/models/notification';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 import { logger } from '@/lib/logger';
 import mongoose from 'mongoose';
@@ -10,19 +10,11 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-    const notifications = await Notification.find({ userId: verifiedUser.uid })
+    const notifications = await Notification.find({ userId: user._id })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -36,22 +28,14 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const body = await req.json();
     const { ids } = body;
 
-    let query: any = { userId: verifiedUser.uid };
+    let query: any = { userId: user._id };
 
     if (Array.isArray(ids) && ids.length > 0) {
       const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));
@@ -60,7 +44,7 @@ export async function PATCH(req: NextRequest) {
 
     const result = await Notification.updateMany(query, { $set: { isRead: true } });
     
-    logger.info(`User marked notifications as read`, verifiedUser.uid, { modifiedCount: result.modifiedCount });
+    logger.info(`User marked notifications as read`, user._id, { modifiedCount: result.modifiedCount });
 
     return NextResponse.json({ success: true, modifiedCount: result.modifiedCount });
   } catch (error) {

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import Feedback from '@/models/feedback';
-import User from '@/models/user';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { sanitizeText, safeErrorResponse } from '@/lib/promptSafety';
-import { hasPermission } from '@/lib/permissions';
 import { logger } from '@/lib/logger';
 import mongoose from 'mongoose';
 
@@ -13,21 +11,10 @@ export async function PUT(
   { params }: { params: Promise<{ feedbackId: string }> }
 ) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req, { allowedRoles: ['admin'] });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-
-    const user = await User.findById(verifiedUser.uid);
-    if (!user || !hasPermission(user.role, 'admin')) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     const { feedbackId } = await params;
     if (!mongoose.Types.ObjectId.isValid(feedbackId)) {
@@ -45,7 +32,7 @@ export async function PUT(
       }
       updateData.status = status;
       if (status === 'resolved' || status === 'closed') {
-        updateData.resolvedBy = verifiedUser.uid;
+        updateData.resolvedBy = user._id;
         updateData.resolvedAt = new Date();
       }
     }
@@ -65,7 +52,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Feedback not found' }, { status: 404 });
     }
 
-    logger.info('Admin updated feedback', verifiedUser.uid, { feedbackId, updates: Object.keys(updateData) });
+    logger.info('Admin updated feedback', user._id, { feedbackId, updates: Object.keys(updateData) });
 
     return NextResponse.json({ feedback, message: 'Feedback updated successfully.' });
   } catch (error) {

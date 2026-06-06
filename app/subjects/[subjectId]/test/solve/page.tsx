@@ -147,13 +147,13 @@ function TestSolveContent() {
     }
 
     fbUser.getIdToken()
-      .then((idToken) => {
+      .then((idToken: string) => {
         fetch(`/api/sessions/${sessionId}`, {
           headers: {
             'Authorization': `Bearer ${idToken}`
           }
         })
-          .then((res) => {
+          .then((res: any) => {
             if (!res.ok) throw new Error('Failed to load session');
             return res.json();
           })
@@ -198,7 +198,7 @@ function TestSolveContent() {
               router.push(`/subjects/${subjectId}`);
             }
           })
-          .catch((err) => {
+          .catch((err: any) => {
             console.error('Error loading test session:', err);
             router.push(`/subjects/${subjectId}`);
           })
@@ -206,7 +206,7 @@ function TestSolveContent() {
             setLoading(false);
           });
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.error('Error getting id token:', err);
         router.push(`/subjects/${subjectId}`);
       });
@@ -243,7 +243,7 @@ function TestSolveContent() {
   useEffect(() => {
     if (!isInitialized || loading || questions.length === 0 || !sessionId) return;
     
-    fbUser?.getIdToken().then((token) => {
+    fbUser?.getIdToken().then((token: string) => {
       fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
         headers: { 
@@ -251,8 +251,8 @@ function TestSolveContent() {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ currentQuestionIndex: currentIdx })
-      }).catch(e => console.error("Error syncing question index:", e));
-    }).catch(e => console.error("Error getting token:", e));
+      }).catch((e: any) => console.error("Error syncing question index:", e));
+    }).catch((e: any) => console.error("Error getting token:", e));
   }, [currentIdx, sessionId, loading, questions.length, isInitialized, fbUser]);
 
   // Auto-fetch solution if the active question is already revealed but not loaded
@@ -594,6 +594,13 @@ function TestSolveContent() {
         }))
       };
 
+      const testResponsesPayload = Object.keys(responses).map((key) => ({
+        questionId: key,
+        selfScore: responses[key].selfScore,
+        score: responses[key].score,
+        notes: responses[key].notes || ''
+      }));
+
       const token = await fbUser?.getIdToken();
       await fetch(`/api/sessions/${sessionId}`, {
         method: 'PUT',
@@ -604,6 +611,7 @@ function TestSolveContent() {
         body: JSON.stringify({
           status: 'completed',
           testAnalytics: { tabSwitches, focusLosses, fullscreenExits },
+          testResponses: testResponsesPayload,
           evaluationResult
         })
       });

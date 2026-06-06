@@ -3,7 +3,7 @@ import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import { groq, isAiEnabled } from '@/lib/groq';
 import { sanitizeSolutionObject } from '@/lib/sanitizeLaTeX';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import {
   sanitizeText,
   safeSyllabusJson,
@@ -116,6 +116,9 @@ STRICT JSON FORMATTING AND ESCAPING RULES:
 4. Output ONLY valid JSON. Nothing else. Do not wrap the JSON block in triple backticks.`;
 }
 
+import { getOrSetCache } from '@/lib/redis';
+const crypto = require('crypto');
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/ai/solve?questionId=...
 // Returns the cached solution for a question, or generates one on the fly.
@@ -123,18 +126,11 @@ STRICT JSON FORMATTING AND ESCAPING RULES:
 // ─────────────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   // V1: Require authentication — this endpoint was previously unauthenticated
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-  }
-  const idToken = authHeader.split(' ')[1];
-  const verifiedUser = await verifyFirebaseIdToken(idToken);
-  if (!verifiedUser) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-  }
+  const { user, errorResponse } = await requireAuthorizedUser(req);
+  if (errorResponse) return errorResponse;
 
-  const userId = verifiedUser.uid;
-  if (isRateLimited(`solve-get-${userId}`, 10, 60 * 1000)) {
+  const userId = user._id;
+  if (await isRateLimited(`solve-get-${userId}`, 10, 60 * 1000)) {
     logger.warn(`User is rate limited on GET solve API`, userId, { endpoint: '/api/ai/solve (GET)' });
     return NextResponse.json({ error: 'Too many requests. Please wait a minute and try again.' }, { status: 429 });
   }
@@ -154,103 +150,122 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid questionId format' }, { status: 400 });
     }
 
-    const question = await Question.findById(questionId).populate('subjectId');
-    if (!question) {
-      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+    const versionParam = searchParams.get('version');
+    const versionVal = versionParam ? parseInt(versionParam, 10) : null;
+    let cacheKey = (versionVal && !isNaN(versionVal))
+      ? `paperhub:v1:solutions:question:${questionId}:v${versionVal}`
+      : null;
+
+    if (!cacheKey) {
+      const questionDoc = await Question.findById(questionId).select('version');
+      const currentVersion = questionDoc ? (questionDoc.version || 1) : 1;
+      cacheKey = `paperhub:v1:solutions:question:${questionId}:v${currentVersion}`;
     }
 
-    const subject = question.subjectId as unknown as PopulatedSubject;
+    const cacheResult = await getOrSetCache(cacheKey, async () => {
+      const question = await Question.findById(questionId).populate('subjectId');
+      if (!question) {
+        throw new Error('Question not found');
+      }
 
-    // Return cached solution immediately if present
-    if (question.cachedSolution && question.cachedSolution.steps && question.cachedSolution.steps.length > 0) {
-      return NextResponse.json({ solution: question.cachedSolution });
-    }
+      const subject = question.subjectId as unknown as PopulatedSubject;
 
-    // Fallback Mock Solution if Groq is not configured
-    if (!isAiEnabled()) {
-      const safeQText = sanitizeText(question.questionText, AI_LIMITS.questionText);
+      // Return cached solution immediately if present in MongoDB
+      if (question.cachedSolution && question.cachedSolution.steps && question.cachedSolution.steps.length > 0) {
+        return { solution: question.cachedSolution };
+      }
+
+      // Fallback Mock Solution if Groq is not configured
+      if (!isAiEnabled()) {
+        const safeQText = sanitizeText(question.questionText, AI_LIMITS.questionText);
+        const safeTopic = sanitizeText(question.topic, AI_LIMITS.topic);
+        const safeSubjectName = sanitizeText(subject?.name, AI_LIMITS.subjectName) || 'the subject';
+
+        const mockSolution = {
+          content: `Step-by-step resolution for: ${safeQText} (Running in local preview mode without Groq API key).`,
+          steps: [
+            {
+              stepNumber: 1,
+              heading: "Initialize Mathematical Model",
+              content: `For target topic **${safeTopic}**, we set up the initial boundary conditions:\n\n$$y(x) = f(x)$$\n\nIdentify the parameters from the syllabus context of **${safeSubjectName}**.`
+            },
+            {
+              stepNumber: 2,
+              heading: "Perform Core Steps",
+              content: "Applying the appropriate mathematical theorem or algorithm step-by-step:\n\n$$D^n [ f(x) ] = u_{n}v + n u_{n-1}v_1 + \\dots$$\n\nSubstitute the parameters and simplify the terms."
+            },
+            {
+              stepNumber: 3,
+              heading: "Obtain Final Result",
+              content: "Solve the remaining equations to prove the relation:\n\n$$Q.E.D.$$\n\nThis yields the final simplified relation as expected in the university examinations."
+            }
+          ],
+          generatedAt: new Date()
+        };
+
+        question.cachedSolution = mockSolution;
+        await question.save();
+
+        return { solution: mockSolution };
+      }
+
+      // ── Sanitise all DB-sourced fields before prompt injection ────────────────
+      const subjectName = sanitizeText(subject?.name, AI_LIMITS.subjectName) || 'the subject';
+      const syllabusJson = safeSyllabusJson(subject?.syllabus);
+      const safeQuestionText = sanitizeText(question.questionText, AI_LIMITS.questionText);
       const safeTopic = sanitizeText(question.topic, AI_LIMITS.topic);
-      const safeSubjectName = sanitizeText(subject?.name, AI_LIMITS.subjectName) || 'the subject';
 
-      const mockSolution = {
-        content: `Step-by-step resolution for: ${safeQText} (Running in local preview mode without Groq API key).`,
-        steps: [
-          {
-            stepNumber: 1,
-            heading: "Initialize Mathematical Model",
-            content: `For target topic **${safeTopic}**, we set up the initial boundary conditions:\n\n$$y(x) = f(x)$$\n\nIdentify the parameters from the syllabus context of **${safeSubjectName}**.`
-          },
-          {
-            stepNumber: 2,
-            heading: "Perform Core Steps",
-            content: "Applying the appropriate mathematical theorem or algorithm step-by-step:\n\n$$D^n [ f(x) ] = u_{n}v + n u_{n-1}v_1 + \\dots$$\n\nSubstitute the parameters and simplify the terms."
-          },
-          {
-            stepNumber: 3,
-            heading: "Obtain Final Result",
-            content: "Solve the remaining equations to prove the relation:\n\n$$Q.E.D.$$\n\nThis yields the final simplified relation as expected in the university examinations."
-          }
-        ],
+      const prompt = buildSolvePrompt(subjectName, safeQuestionText, question.unit, safeTopic, syllabusJson);
+
+      // Solve Pass: primary model Llama 3.3 70B, fallback to 8B on failure.
+      let modelToUse = 'llama-3.3-70b-versatile';
+      let completion;
+      let responseText = '{}';
+
+      try {
+        completion = await groq!.chat.completions.create({
+          model: modelToUse,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        });
+        responseText = completion.choices[0]?.message?.content || '{}';
+      } catch (err70b) {
+        console.warn('Llama 70B solve failed, falling back to Llama 8B:', err70b);
+        modelToUse = 'llama-3.1-8b-instant';
+        completion = await groq!.chat.completions.create({
+          model: modelToUse,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        });
+        responseText = completion.choices[0]?.message?.content || '{}';
+      }
+
+      const parsedSolution = JSON.parse(responseText);
+      const sanitizedSolution = sanitizeSolutionObject(parsedSolution);
+
+      question.cachedSolution = {
+        content: sanitizedSolution.content || 'Generated Solution:',
+        steps: sanitizedSolution.steps || [],
+        type: sanitizedSolution.type || 'maths',
+        code: sanitizedSolution.code,
+        explanation: sanitizedSolution.explanation,
+        complexity: sanitizedSolution.complexity,
+        inputOutput: sanitizedSolution.inputOutput,
+        mermaid: sanitizedSolution.mermaid,
         generatedAt: new Date()
       };
-
-      question.cachedSolution = mockSolution;
       await question.save();
 
-      return NextResponse.json({ solution: mockSolution });
+      return { solution: question.cachedSolution };
+    }, 30 * 24 * 60 * 60); // 30 days TTL
+
+    return NextResponse.json(cacheResult);
+  } catch (error: any) {
+    if (error.message === 'Question not found') {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
     }
-
-    // ── Sanitise all DB-sourced fields before prompt injection ────────────────
-    const subjectName = sanitizeText(subject?.name, AI_LIMITS.subjectName) || 'the subject';
-    const syllabusJson = safeSyllabusJson(subject?.syllabus);
-    const safeQuestionText = sanitizeText(question.questionText, AI_LIMITS.questionText);
-    const safeTopic = sanitizeText(question.topic, AI_LIMITS.topic);
-
-    const prompt = buildSolvePrompt(subjectName, safeQuestionText, question.unit, safeTopic, syllabusJson);
-
-    // Solve Pass: primary model Llama 3.3 70B, fallback to 8B on failure.
-    let modelToUse = 'llama-3.3-70b-versatile';
-    let completion;
-    let responseText = '{}';
-
-    try {
-      completion = await groq!.chat.completions.create({
-        model: modelToUse,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4096,
-        response_format: { type: 'json_object' }
-      });
-      responseText = completion.choices[0]?.message?.content || '{}';
-    } catch (err70b) {
-      console.warn('Llama 70B solve failed, falling back to Llama 8B:', err70b);
-      modelToUse = 'llama-3.1-8b-instant';
-      completion = await groq!.chat.completions.create({
-        model: modelToUse,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4096,
-        response_format: { type: 'json_object' }
-      });
-      responseText = completion.choices[0]?.message?.content || '{}';
-    }
-
-    const parsedSolution = JSON.parse(responseText);
-    const sanitizedSolution = sanitizeSolutionObject(parsedSolution);
-
-    question.cachedSolution = {
-      content: sanitizedSolution.content || 'Generated Solution:',
-      steps: sanitizedSolution.steps || [],
-      type: sanitizedSolution.type || 'maths',
-      code: sanitizedSolution.code,
-      explanation: sanitizedSolution.explanation,
-      complexity: sanitizedSolution.complexity,
-      inputOutput: sanitizedSolution.inputOutput,
-      mermaid: sanitizedSolution.mermaid,
-      generatedAt: new Date()
-    };
-    await question.save();
-
-    return NextResponse.json({ solution: question.cachedSolution });
-  } catch (error) {
     // V4: Never expose stack traces or file paths in production responses
     console.error('API Error in GET /api/ai/solve:', safeErrorResponse(error));
     return NextResponse.json({ error: 'An internal error occurred. Please try again.' }, { status: 500 });
@@ -265,18 +280,11 @@ export async function GET(req: NextRequest) {
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   // V1: Require authentication — this endpoint was previously unauthenticated
-  const authHeader = req.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-  }
-  const idToken = authHeader.split(' ')[1];
-  const verifiedUser = await verifyFirebaseIdToken(idToken);
-  if (!verifiedUser) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-  }
+  const { user, errorResponse } = await requireAuthorizedUser(req);
+  if (errorResponse) return errorResponse;
 
-  const userId = verifiedUser.uid;
-  if (isRateLimited(`solve-post-${userId}`, 5, 60 * 1000)) {
+  const userId = user._id;
+  if (await isRateLimited(`solve-post-${userId}`, 5, 60 * 1000)) {
     logger.warn(`User is rate limited on POST solve API`, userId, { endpoint: '/api/ai/solve (POST)' });
     return NextResponse.json({ error: 'Too many requests. Please wait a minute and try again.' }, { status: 429 });
   }
@@ -312,78 +320,86 @@ export async function POST(req: NextRequest) {
     // V6: Sanitise and bound syllabus to prevent token cost amplification
     const syllabusJson = safeSyllabusJson(syllabus);
 
-    // Fallback if Groq API is not active
-    if (!isAiEnabled()) {
-      return NextResponse.json({
-        solution: {
-          content: `Step-by-step resolution for: ${safeQuestionText} (Running in local preview mode without Groq API key).`,
-          steps: [
-            {
-              stepNumber: 1,
-              heading: "Initialize Mathematical Model",
-              content: `For target topic **${safeTopic}**, we set up the initial boundary conditions:\n\n$$y(x) = f(x)$$\n\nIdentify the parameters from the syllabus context of **${safeSubjectName}**.`
-            },
-            {
-              stepNumber: 2,
-              heading: "Perform Core Steps",
-              content: "Applying the appropriate mathematical theorem or algorithm step-by-step:\n\n$$D^n [ f(x) ] = u_{n}v + n u_{n-1}v_1 + \\dots$$\n\nSubstitute the parameters and simplify the terms."
-            },
-            {
-              stepNumber: 3,
-              heading: "Obtain Final Result",
-              content: "Solve the remaining equations to prove the relation:\n\n$$Q.E.D.$$\n\nThis yields the final simplified relation as expected in the university examinations."
-            }
-          ]
-        }
-      });
-    }
+    const textHash = crypto.createHash('md5').update(`${safeQuestionText}:${safeSubjectName}`).digest('hex');
+    const cacheKey = `paperhub:v1:solutions:custom:${textHash}`;
 
-    const prompt = buildSolvePrompt(safeSubjectName, safeQuestionText, unit || 1, safeTopic, syllabusJson);
-
-    // Solve Pass: primary model Llama 3.3 70B, fallback to 8B on failure.
-    let modelToUse = 'llama-3.3-70b-versatile';
-    let completion;
-    let responseText = '{}';
-
-    try {
-      completion = await groq!.chat.completions.create({
-        model: modelToUse,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4096,
-        response_format: { type: 'json_object' }
-      });
-      responseText = completion.choices[0]?.message?.content || '{}';
-    } catch (err70b) {
-      console.warn('Llama 70B solve failed in POST, falling back to Llama 8B:', err70b);
-      modelToUse = 'llama-3.1-8b-instant';
-      completion = await groq!.chat.completions.create({
-        model: modelToUse,
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 4096,
-        response_format: { type: 'json_object' }
-      });
-      responseText = completion.choices[0]?.message?.content || '{}';
-    }
-
-    const parsedSolution = JSON.parse(responseText);
-    const sanitizedSolution = sanitizeSolutionObject(parsedSolution);
-
-    return NextResponse.json({
-      solution: {
-        content: sanitizedSolution.content || 'Generated Solution:',
-        steps: sanitizedSolution.steps || [],
-        type: sanitizedSolution.type || 'maths',
-        code: sanitizedSolution.code,
-        explanation: sanitizedSolution.explanation,
-        complexity: sanitizedSolution.complexity,
-        inputOutput: sanitizedSolution.inputOutput,
-        mermaid: sanitizedSolution.mermaid,
-        generatedAt: new Date()
+    const cacheResult = await getOrSetCache(cacheKey, async () => {
+      // Fallback if Groq API is not active
+      if (!isAiEnabled()) {
+        return {
+          solution: {
+            content: `Step-by-step resolution for: ${safeQuestionText} (Running in local preview mode without Groq API key).`,
+            steps: [
+              {
+                stepNumber: 1,
+                heading: "Initialize Mathematical Model",
+                content: `For target topic **${safeTopic}**, we set up the initial boundary conditions:\n\n$$y(x) = f(x)$$\n\nIdentify the parameters from the syllabus context of **${safeSubjectName}**.`
+              },
+              {
+                stepNumber: 2,
+                heading: "Perform Core Steps",
+                content: "Applying the appropriate mathematical theorem or algorithm step-by-step:\n\n$$D^n [ f(x) ] = u_{n}v + n u_{n-1}v_1 + \\dots$$\n\nSubstitute the parameters and simplify the terms."
+              },
+              {
+                stepNumber: 3,
+                heading: "Obtain Final Result",
+                content: "Solve the remaining equations to prove the relation:\n\n$$Q.E.D.$$\n\nThis yields the final simplified relation as expected in the university examinations."
+              }
+            ]
+          }
+        };
       }
-    });
+
+      const prompt = buildSolvePrompt(safeSubjectName, safeQuestionText, unit || 1, safeTopic, syllabusJson);
+
+      // Solve Pass: primary model Llama 3.3 70B, fallback to 8B on failure.
+      let modelToUse = 'llama-3.3-70b-versatile';
+      let completion;
+      let responseText = '{}';
+
+      try {
+        completion = await groq!.chat.completions.create({
+          model: modelToUse,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        });
+        responseText = completion.choices[0]?.message?.content || '{}';
+      } catch (err70b) {
+        console.warn('Llama 70B solve failed in POST, falling back to Llama 8B:', err70b);
+        modelToUse = 'llama-3.1-8b-instant';
+        completion = await groq!.chat.completions.create({
+          model: modelToUse,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        });
+        responseText = completion.choices[0]?.message?.content || '{}';
+      }
+
+      const parsedSolution = JSON.parse(responseText);
+      const sanitizedSolution = sanitizeSolutionObject(parsedSolution);
+
+      return {
+        solution: {
+          content: sanitizedSolution.content || 'Generated Solution:',
+          steps: sanitizedSolution.steps || [],
+          type: sanitizedSolution.type || 'maths',
+          code: sanitizedSolution.code,
+          explanation: sanitizedSolution.explanation,
+          complexity: sanitizedSolution.complexity,
+          inputOutput: sanitizedSolution.inputOutput,
+          mermaid: sanitizedSolution.mermaid,
+          generatedAt: new Date()
+        }
+      };
+    }, 24 * 60 * 60); // 24 hours TTL
+
+    return NextResponse.json(cacheResult);
   } catch (error) {
     // V4: Never expose stack traces or file paths in production responses
     console.error('API Error in POST /api/ai/solve:', safeErrorResponse(error));
     return NextResponse.json({ error: 'An internal error occurred. Please try again.' }, { status: 500 });
   }
 }
+

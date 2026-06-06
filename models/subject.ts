@@ -35,6 +35,7 @@ const SubjectSchema = new Schema<ISubject>(
 
 SubjectSchema.index({ code: 1 });
 SubjectSchema.index({ semester: 1 });
+SubjectSchema.index({ branchIds: 1, semester: 1, name: 1 });
 
 const Subject: Model<ISubject> = mongoose.models.Subject || mongoose.model<ISubject>('Subject', SubjectSchema);
 export default Subject;

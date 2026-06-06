@@ -5,36 +5,17 @@ import Session from '@/models/session';
 import Question from '@/models/question';
 import AuditLog from '@/models/auditLog';
 import UserTopicPerformance from '@/models/userTopicPerformance';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
-import { logger } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid or expired token' }, { status: 401 });
-    }
+    const { errorResponse } = await requireAuthorizedUser(req, { allowedRoles: ['admin'] });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-    const adminUser = await User.findById(verifiedUser.uid);
-    if (!adminUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    // Role boundary guard
-    if (adminUser.role !== 'admin') {
-      logger.warn(`Non-admin attempted to access operational monitoring API`, adminUser._id, { role: adminUser.role });
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 

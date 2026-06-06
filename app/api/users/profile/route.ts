@@ -7,7 +7,7 @@ import University from '@/models/university';
 import College from '@/models/college';
 import Course from '@/models/course';
 import Branch from '@/models/branch';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
@@ -46,53 +46,10 @@ async function populateUserCompat(user: any) {
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid ID token signature' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req, { allowPendingOnboarding: true });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-
-    // Query or create default user in MongoDB
-    let user = await User.findById(verifiedUser.uid);
-    if (!user) {
-      try {
-        user = await User.create({
-          _id: verifiedUser.uid,
-          email: verifiedUser.email,
-          displayName: verifiedUser.displayName || '',
-          photoURL: verifiedUser.photoURL || '',
-          role: 'student',
-          accountStatus: 'active',
-          onboardingCompleted: false,
-          profile: {},
-          engagement: {
-            streakCount: 0,
-            totalXp: 0,
-            sessionsCompleted: 0,
-          },
-        });
-      } catch (createError: any) {
-        if (createError.code === 11000 || createError.message?.includes('E11000') || createError.message?.includes('duplicate key')) {
-          user = await User.findById(verifiedUser.uid);
-          if (!user) {
-            throw createError;
-          }
-        } else {
-          throw createError;
-        }
-      }
-    }
-
-    if (user.accountStatus !== 'active') {
-      return NextResponse.json({ error: 'Unauthorized: Account is suspended or banned' }, { status: 403 });
-    }
 
     const userObj = await populateUserCompat(user);
     return NextResponse.json({ user: userObj });
@@ -104,30 +61,13 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid ID token signature' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req, { allowPendingOnboarding: true });
+    if (errorResponse) return errorResponse;
 
     const body = await req.json();
     const { profile, onboardingCompleted, preferences, engagement, bookmarks, incorrectAttempts, personalNotes, migrationData } = body;
 
     await dbConnect();
-
-    const user = await User.findById(verifiedUser.uid);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    if (user.accountStatus !== 'active') {
-      return NextResponse.json({ error: 'Unauthorized: Account is suspended or banned' }, { status: 403 });
-    }
 
     // Enforce strict academic hierarchy validation if onboarding is completed or is being set to completed
     if (onboardingCompleted === true || (onboardingCompleted === undefined && user.onboardingCompleted)) {
@@ -331,6 +271,21 @@ export async function PUT(req: NextRequest) {
     }
 
     await user.save();
+
+    // Invalidate Redis session cache to force rehydration with completed onboarding state (Finding A.1)
+    try {
+      const { redis } = await import('@/lib/redis');
+      if (redis) {
+        const tokens = await redis.smembers(`paperhub:user:sessions:${user._id}`);
+        if (tokens && tokens.length > 0) {
+          const keysToDelete = tokens.map((token: string) => `paperhub:session:${token}`);
+          await redis.del(...keysToDelete);
+        }
+        await redis.del(`paperhub:user:sessions:${user._id}`);
+      }
+    } catch (redisErr) {
+      console.warn('[Profile Onboarding] Redis cache invalidation failed:', redisErr);
+    }
 
     const userObj = await populateUserCompat(user);
     return NextResponse.json({ user: userObj });

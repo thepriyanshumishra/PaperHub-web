@@ -18,6 +18,7 @@ import {
   Award
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface UsageLimitDetail {
   allowed: boolean;
@@ -54,14 +55,28 @@ interface UsageSummary {
 }
 
 export default function BillingPage() {
-  const { fbUser } = useAuth();
+  const { user, fbUser, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<UsageSummary | null>(null);
   const [error, setError] = useState('');
 
+  // Client-side authentication & authorization redirect guard
   useEffect(() => {
-    if (!fbUser) return;
+    if (!authLoading) {
+      if (!fbUser) {
+        router.push('/login');
+      } else if (fbUser && !fbUser.emailVerified) {
+        router.push('/verify-email');
+      } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
+        router.push('/onboarding');
+      }
+    }
+  }, [user, fbUser, authLoading, router]);
+
+  useEffect(() => {
+    if (authLoading || !fbUser) return;
 
     const fetchUsage = async () => {
       try {
@@ -89,9 +104,9 @@ export default function BillingPage() {
     };
 
     fetchUsage();
-  }, [fbUser]);
+  }, [fbUser, authLoading]);
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex min-h-screen bg-bg-primary text-text-primary overflow-hidden relative">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

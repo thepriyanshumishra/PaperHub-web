@@ -38,9 +38,9 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
     if (!fbUser) return;
 
     let cancelled = false;
-    fbUser.getIdToken().then(token =>
+    fbUser.getIdToken().then((token: string) =>
       fetch('/api/users/analytics', { headers: { Authorization: `Bearer ${token}` } })
-    ).then(res => res.ok ? res.json() : null).then(data => {
+    ).then((res: any) => res.ok ? res.json() : null).then((data: any) => {
       if (!cancelled && data?.metrics) {
         setFetchedStreakCount(data.metrics.streakCount ?? 0);
         if (Array.isArray(data.metrics.streakDays)) {
@@ -63,9 +63,9 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
     { name: 'Home', icon: Home, path: '/dashboard' },
     { name: 'Practice', icon: Edit3, path: '/dashboard#practice' },
     { name: 'Tests', icon: FileText, path: '/tests' },
-    { name: 'Bookmarks', icon: Bookmark, path: '/notebooks' },
+    { name: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
     { name: 'My Progress', icon: Activity, path: '/analytics' },
-    { name: 'Notes', icon: FileSignature, path: '/notebooks' },
+    { name: 'Notes', icon: FileSignature, path: '/notes' },
     { name: 'AI Assistant', icon: Sparkles, path: '/dashboard#ai-assistant' },
   ];
 

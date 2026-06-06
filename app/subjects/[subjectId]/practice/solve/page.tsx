@@ -180,6 +180,33 @@ function PracticeSolveContent() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [personalNote, setPersonalNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
+
+  const loadPlaylists = async () => {
+    if (!fbUser) return;
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch('/api/playlists?type=bookmark', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const filtered = (data.playlists || []).filter((p: any) => String(p.subjectId) === String(subjectId));
+        setPlaylists(filtered);
+      }
+    } catch (err) {
+      console.error("Failed to load subject playlists:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading) {
+      loadPlaylists();
+    }
+  }, [authLoading, fbUser, subjectId]);
 
   // Load preferences from DB user or localStorage
   useEffect(() => {
@@ -306,17 +333,17 @@ function PracticeSolveContent() {
 
     // Fetch session details from real MongoDB API with Authorization token
     fbUser.getIdToken()
-      .then((idToken) => {
+      .then((idToken: string) => {
         fetch(`/api/sessions/${sessionId}`, {
           headers: {
             'Authorization': `Bearer ${idToken}`
           }
         })
-          .then((res) => {
+          .then((res: any) => {
             if (!res.ok) throw new Error('Failed to fetch session');
             return res.json();
           })
-          .then((data) => {
+          .then((data: any) => {
             if (data.session && data.session.questions) {
               setQuestions(data.session.questions);
               setCurrentIdx(data.session.currentQuestionIndex || 0);
@@ -324,7 +351,7 @@ function PracticeSolveContent() {
               router.push(`/subjects/${subjectId}`);
             }
           })
-          .catch((err) => {
+          .catch((err: any) => {
             console.error('Error loading session:', err);
             router.push(`/subjects/${subjectId}`);
           })
@@ -332,7 +359,7 @@ function PracticeSolveContent() {
             setLoading(false);
           });
       })
-      .catch((err) => {
+      .catch((err: any) => {
         console.error('Error getting id token:', err);
         router.push(`/subjects/${subjectId}`);
       });
@@ -536,16 +563,19 @@ function PracticeSolveContent() {
     const qId = currentQuestion._id;
     let newBookmarks = [...(user.bookmarks || [])];
     
-    if (isBookmarked) {
-      newBookmarks = newBookmarks.filter(id => id !== qId);
-    } else {
-      newBookmarks.push(qId);
-    }
-    
-    setIsBookmarked(!isBookmarked);
+    const wasBookmarked = isBookmarked;
+    setIsBookmarked(!wasBookmarked);
     
     try {
       const token = await fbUser?.getIdToken();
+      
+      // Update flat bookmarks
+      if (wasBookmarked) {
+        newBookmarks = newBookmarks.filter(id => id !== qId);
+      } else {
+        newBookmarks.push(qId);
+      }
+      
       await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
@@ -555,8 +585,71 @@ function PracticeSolveContent() {
         body: JSON.stringify({ bookmarks: newBookmarks })
       });
       refreshProfile();
+
+      // Sync with playlists
+      if (wasBookmarked) {
+        // Remove from all playlists of this subject
+        for (const pl of playlists) {
+          const hasQ = (pl.questions || []).some((q: any) => String(q._id) === String(qId) || String(q) === String(qId));
+          if (hasQ) {
+            await fetch(`/api/playlists/${pl._id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ questionId: qId, action: 'remove' })
+            });
+          }
+        }
+      } else {
+        // Add to default playlist "Important For Exams"
+        const defaultPl = playlists.find(p => p.name === 'Important For Exams');
+        if (defaultPl) {
+          const hasQ = (defaultPl.questions || []).some((q: any) => String(q._id) === String(qId) || String(q) === String(qId));
+          if (!hasQ) {
+            await fetch(`/api/playlists/${defaultPl._id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ questionId: qId, action: 'add' })
+            });
+          }
+        }
+      }
+      
+      // Reload playlists
+      await loadPlaylists();
     } catch (err) {
-      console.error("Failed to sync bookmark state:", err);
+      console.error("Failed to sync bookmark state with playlists:", err);
+    }
+  };
+
+  const toggleQuestionInPlaylist = async (playlistId: string, isInPlaylist: boolean) => {
+    if (!currentQuestion?._id) return;
+    playSoundEffect('click');
+    try {
+      const token = await fbUser?.getIdToken();
+      const res = await fetch(`/api/playlists/${playlistId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          questionId: currentQuestion._id,
+          action: isInPlaylist ? 'remove' : 'add'
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update local playlists state
+        setPlaylists(prev => prev.map(p => p._id === data.playlist._id ? data.playlist : p));
+      }
+    } catch (err) {
+      console.error("Failed to toggle question in playlist:", err);
     }
   };
 
@@ -635,7 +728,7 @@ function PracticeSolveContent() {
       {
         title: `${currentQuestion.topic} Formula Sheet`,
         desc: "Essential equations and standard theorems for exam night.",
-        link: "/notebooks"
+        link: "/notes"
       },
       {
         title: `Unit ${currentQuestion.unit} High Yield Syllabus Cards`,
@@ -1058,15 +1151,52 @@ function PracticeSolveContent() {
               )}
 
               <div className="flex items-center justify-between mt-3">
-                <button
-                  onClick={toggleBookmark}
-                  className={`flex items-center space-x-1.5 text-[11px] font-semibold transition-colors ${
-                    isBookmarked ? 'text-amber-400 hover:text-amber-500' : 'text-text-secondary hover:text-text-primary'
-                  }`}
-                >
-                  <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-amber-400' : ''}`} />
-                  <span>{isBookmarked ? 'Bookmarked' : 'Bookmark Question'}</span>
-                </button>
+                <div className="flex items-center gap-3 relative">
+                  <button
+                    onClick={toggleBookmark}
+                    className={`flex items-center space-x-1.5 text-[11px] font-semibold transition-colors ${
+                      isBookmarked ? 'text-amber-400 hover:text-amber-500' : 'text-text-secondary hover:text-text-primary'
+                    }`}
+                  >
+                    <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-amber-400' : ''}`} />
+                    <span>{isBookmarked ? 'Bookmarked' : 'Bookmark Question'}</span>
+                  </button>
+
+                  {isBookmarked && playlists.length > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setIsPlaylistMenuOpen(!isPlaylistMenuOpen)}
+                        className="text-[10px] text-accent hover:underline font-semibold flex items-center gap-0.5"
+                      >
+                        (Add to playlists)
+                      </button>
+                      {isPlaylistMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIsPlaylistMenuOpen(false)} />
+                          <div className="absolute left-0 mt-1.5 w-48 rounded-xl bg-bg-secondary border border-border-primary shadow-2xl p-3 z-50 space-y-2 text-left">
+                            <p className="text-[9px] uppercase font-black tracking-wider text-text-muted">Choose Playlists</p>
+                            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                              {playlists.map((pl) => {
+                                const hasQ = (pl.questions || []).some((q: any) => String(q._id) === String(currentQuestion._id) || String(q) === String(currentQuestion._id));
+                                return (
+                                  <label key={pl._id} className="flex items-center gap-2 text-[10px] font-bold text-text-primary cursor-pointer hover:text-accent select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasQ}
+                                      onChange={() => toggleQuestionInPlaylist(pl._id, hasQ)}
+                                      className="rounded border-border-primary bg-bg-primary text-accent focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                                    />
+                                    <span className="truncate">{pl.name}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {userAttempt.trim() && (
                   <button

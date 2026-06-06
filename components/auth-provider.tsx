@@ -1,19 +1,7 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { 
-  User as FirebaseUser, 
-  signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-  sendEmailVerification,
-  signOut, 
-  onIdTokenChanged 
-} from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import { authClient } from "@/lib/auth-client";
 
 export interface IUserProfile {
   name?: string;
@@ -32,7 +20,7 @@ export interface IUserEngagement {
   lastActiveDateStr?: string;
   totalXp: number;
   sessionsCompleted: number;
-  league: 'beginner' | 'bronze' | 'silver' | 'gold' | 'diamond' | 'elite';
+  league: "beginner" | "bronze" | "silver" | "gold" | "diamond" | "elite";
   dailyGoalSolved: number;
   dailyGoalTarget: number;
 }
@@ -40,9 +28,11 @@ export interface IUserEngagement {
 export interface IDbUser {
   _id: string;
   email: string;
+  name?: string;
+  image?: string;
   displayName?: string;
   photoURL?: string;
-  role: 'student' | 'verifier' | 'moderator' | 'admin';
+  role: "student" | "verifier" | "moderator" | "admin";
   onboardingCompleted: boolean;
   profile: IUserProfile;
   engagement: IUserEngagement;
@@ -50,12 +40,12 @@ export interface IDbUser {
     playSounds: boolean;
     autoTimer: boolean;
     delayAnswer: boolean;
-    textSize: 'small' | 'medium' | 'large' | 'extra-large';
+    textSize: "small" | "medium" | "large" | "extra-large";
   };
   bookmarks: string[];
   incorrectAttempts: string[];
   personalNotes: Record<string, string>;
-  plan?: 'free' | 'pro' | 'institution' | 'beta_pro';
+  plan?: "free" | "pro" | "institution" | "beta_pro";
   planExpiresAt?: string | null;
   betaAccess?: {
     joined: boolean;
@@ -85,12 +75,12 @@ export interface IDbUser {
 
 interface AuthContextType {
   user: IDbUser | null;
-  fbUser: FirebaseUser | null;
+  fbUser: any | null; // Emulated active session object for page compatibility
   loading: boolean;
   error: string | null;
   setError: (err: string | null) => void;
   loginWithGoogle: () => Promise<void>;
-  loginWithEmail: (email: string, password: string) => Promise<FirebaseUser>;
+  loginWithEmail: (email: string, password: string) => Promise<any>;
   registerWithEmail: (email: string, password: string, name: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   logout: () => Promise<void>;
@@ -100,45 +90,45 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [fbUser, setFbUser] = useState<FirebaseUser | null>(null);
+  const [fbUser, setFbUser] = useState<any | null>(null);
   const [user, setUser] = useState<IDbUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const activeFetchTokenRef = useRef<string | null>(null);
 
-  const fetchUserProfile = async (firebaseUser: FirebaseUser) => {
-    const token = await firebaseUser.getIdToken();
-    
-    // Prevent duplicate concurrent profile fetches for the same session token
+  const { data: sessionData, isPending } = authClient.useSession();
+
+  const fetchUserProfile = async (token: string) => {
     if (activeFetchTokenRef.current === token) {
       return;
     }
     activeFetchTokenRef.current = token;
 
     try {
-      const res = await fetch('/api/users/profile', {
+      const res = await fetch("/api/users/profile", {
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          "Authorization": `Bearer ${token}`,
+        },
       });
+
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
         setError(null);
 
-        // If logged in, onboarding is complete, but guest data still exists locally, sync in background!
-        if (data.user && data.user.onboardingCompleted && typeof window !== 'undefined') {
+        // Guest data migration synchronizer
+        if (data.user && data.user.onboardingCompleted && typeof window !== "undefined") {
           try {
-            const guestBookmarksStr = localStorage.getItem('guest_bookmarks');
-            const guestNotesStr = localStorage.getItem('guest_notes');
-            const guestIncorrectStr = localStorage.getItem('guest_incorrect');
+            const guestBookmarksStr = localStorage.getItem("guest_bookmarks");
+            const guestNotesStr = localStorage.getItem("guest_notes");
+            const guestIncorrectStr = localStorage.getItem("guest_incorrect");
 
             const hasBookmarks = guestBookmarksStr && JSON.parse(guestBookmarksStr).length > 0;
             const hasIncorrect = guestIncorrectStr && JSON.parse(guestIncorrectStr).length > 0;
             const hasNotes = guestNotesStr && (
               (Array.isArray(JSON.parse(guestNotesStr)) && JSON.parse(guestNotesStr).length > 0) ||
-              (typeof JSON.parse(guestNotesStr) === 'object' && Object.keys(JSON.parse(guestNotesStr)).length > 0)
+              (typeof JSON.parse(guestNotesStr) === "object" && Object.keys(JSON.parse(guestNotesStr)).length > 0)
             );
 
             if (hasBookmarks || hasIncorrect || hasNotes) {
@@ -149,35 +139,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const parsedNotes = JSON.parse(guestNotesStr);
                 if (Array.isArray(parsedNotes)) {
                   notes = parsedNotes;
-                } else if (typeof parsedNotes === 'object') {
+                } else if (typeof parsedNotes === "object") {
                   notes = Object.entries(parsedNotes).map(([questionId, noteText]) => ({
                     questionId,
-                    noteText
+                    noteText,
                   }));
                 }
               }
 
-              const migrationRes = await fetch('/api/users/profile', {
-                method: 'PUT',
+              const migrationRes = await fetch("/api/users/profile", {
+                method: "PUT",
                 headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                  migrationData: { bookmarks, notes, incorrectAttempts }
-                })
+                  migrationData: { bookmarks, notes, incorrectAttempts },
+                }),
               });
 
               if (migrationRes.ok) {
                 const migrationData = await migrationRes.json();
                 setUser(migrationData.user);
-                localStorage.removeItem('guest_bookmarks');
-                localStorage.removeItem('guest_notes');
-                localStorage.removeItem('guest_incorrect');
+                localStorage.removeItem("guest_bookmarks");
+                localStorage.removeItem("guest_notes");
+                localStorage.removeItem("guest_incorrect");
               }
             }
           } catch (migrationErr) {
-            console.warn('Background guest migration failed:', migrationErr);
+            console.warn("Background guest migration failed:", migrationErr);
           }
         }
 
@@ -193,12 +183,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(msg);
       }
     } catch (err: any) {
-      console.error('Error fetching database user profile:', err);
+      console.error("Error fetching database user profile:", err);
       setUser(null);
-      setError(err.message || 'Error syncing with database profile.');
+      setError(err.message || "Error syncing with database profile.");
       throw err;
     } finally {
-      // Release the token lock after a short delay to permit future updates but block concurrent races
       setTimeout(() => {
         if (activeFetchTokenRef.current === token) {
           activeFetchTokenRef.current = null;
@@ -209,97 +198,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (fbUser) {
-      await fetchUserProfile(fbUser);
+      const token = await fbUser.getIdToken();
+      await fetchUserProfile(token);
     }
   };
 
+  // Sync Better Auth session state with emulated fbUser and load database profile
   useEffect(() => {
-    // Handle redirect result if coming back from signInWithRedirect
-    const handleRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth);
-        if (result && result.user) {
-          setLoading(true);
-          await fetchUserProfile(result.user);
-        }
-      } catch (err: any) {
-        console.error('Error handling redirect result:', err);
-        setError(err.message || 'Failed to complete Google redirect authentication.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    handleRedirect();
+    if (isPending) return;
 
-    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-      setFbUser(firebaseUser);
-      if (firebaseUser) {
-        // If email password provider is used, require email verification
-        const isEmailProvider = firebaseUser.providerData.some(p => p.providerId === 'password');
-        if (isEmailProvider && !firebaseUser.emailVerified) {
-          setUser(null);
-          setLoading(false);
-          return;
-        }
+    if (sessionData && sessionData.user && sessionData.session) {
+      const token = sessionData.session.token;
+      
+      setFbUser({
+        uid: sessionData.user.id,
+        email: sessionData.user.email,
+        displayName: sessionData.user.name,
+        photoURL: sessionData.user.image || "",
+        emailVerified: sessionData.user.emailVerified,
+        getIdToken: async () => token,
+      });
 
-        try {
-          await fetchUserProfile(firebaseUser);
-        } catch (err: any) {
-          console.error('Failed to sync auth identity token:', err);
-        }
-      } else {
+      // Require email verification gate for standard credentials users
+      if (!sessionData.user.emailVerified) {
         setUser(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    });
 
-    return () => unsubscribe();
-  }, []);
+      fetchUserProfile(token).finally(() => setLoading(false));
+    } else {
+      setFbUser(null);
+      setUser(null);
+      setLoading(false);
+    }
+  }, [sessionData, isPending]);
 
   const loginWithGoogle = async (): Promise<void> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      await fetchUserProfile(result.user);
-    } catch (err: any) {
-      console.warn('signInWithPopup failed, checking fallback to signInWithRedirect:', err);
-      // Fall back to redirect if popup is blocked, closed, or denied
-      if (
-        err.code === 'auth/popup-blocked' ||
-        err.code === 'auth/cancelled-popup-request' ||
-        err.code === 'auth/popup-closed-by-user' ||
-        err.message?.includes('popup')
-      ) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return; // The browser will redirect, so we do not call setLoading(false)
-        } catch (redirectErr: any) {
-          console.error('signInWithRedirect also failed:', redirectErr);
-          setError(redirectErr.message || 'Redirect login failed.');
-          setLoading(false);
-          throw redirectErr;
-        }
-      }
-      setError(err.message || 'Authentication failed.');
-      setLoading(false);
-      throw err;
-    } finally {
-      // setLoading(false) is handled in try/catch dynamically
-    }
+    setError("Social single sign-on is disabled. Please sign in with your email/password or username.");
+    throw new Error("OAuth single sign-on is disabled.");
   };
 
-  const loginWithEmail = async (email: string, password: string): Promise<FirebaseUser> => {
+  const loginWithEmail = async (emailOrUsername: string, password: string): Promise<any> => {
     setLoading(true);
     try {
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      if (!cred.user.emailVerified) {
-        await signOut(auth);
-        setLoading(false);
-        throw new Error('Please verify your email address before logging in. A verification link has been sent.');
+      // Determine if email or username was passed
+      const isEmail = emailOrUsername.includes("@");
+      
+      const payload: any = {
+        password,
+      };
+
+      if (isEmail) {
+        payload.email = emailOrUsername;
+      } else {
+        payload.username = emailOrUsername;
       }
-      return cred.user;
-    } catch (err) {
+
+      const result = await authClient.signIn.email(payload);
+      
+      if (result.error) {
+        throw new Error(result.error.message || "Invalid authentication credentials.");
+      }
+
+      const freshSession = await authClient.getSession();
+      if (!freshSession.data?.user.emailVerified) {
+        await authClient.signOut();
+        setLoading(false);
+        throw new Error("Please verify your email address before logging in. A verification link has been sent to your email.");
+      }
+
+      const token = freshSession.data.session.token;
+      const verified = {
+        uid: freshSession.data.user.id,
+        email: freshSession.data.user.email,
+        displayName: freshSession.data.user.name,
+        photoURL: freshSession.data.user.image || "",
+        emailVerified: freshSession.data.user.emailVerified,
+        getIdToken: async () => token,
+      };
+
+      setFbUser(verified);
+      return verified;
+    } catch (err: any) {
       setLoading(false);
       throw err;
     }
@@ -308,13 +289,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const registerWithEmail = async (email: string, password: string, name: string) => {
     setLoading(true);
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email, password);
-      // Set display name in Firebase Auth
-      await updateProfile(cred.user, { displayName: name });
-      // Send verification email (completely free)
-      await sendEmailVerification(cred.user);
-      // Instantly sign out to force verification login wall
-      await signOut(auth);
+      const result = await authClient.signUp.email({
+        email,
+        password,
+        name,
+        username: email.split("@")[0] + "_" + Math.floor(Math.random() * 1000), // Assign a unique default username
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to register user account.");
+      }
+
+      // Sign out immediately to block login until email verification is processed
+      await authClient.signOut();
     } catch (err) {
       setLoading(false);
       throw err;
@@ -322,37 +309,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const sendVerificationEmail = async () => {
-    if (auth.currentUser) {
-      await sendEmailVerification(auth.currentUser);
+    // Better Auth handles verification email triggers on user creation,
+    // but we can expose it via the auth client if needed.
+    try {
+      await authClient.sendVerificationEmail({
+        email: user?.email || sessionData?.user.email || "",
+        callbackURL: window.location.origin + "/login",
+      });
+    } catch (err) {
+      console.error("Failed to re-trigger verification email:", err);
     }
   };
 
   const logout = async () => {
     setLoading(true);
     try {
-      await signOut(auth);
+      await authClient.signOut();
       setUser(null);
       setFbUser(null);
     } catch (err) {
-      console.error('Sign-out error:', err);
+      console.error("Sign-out error:", err);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      fbUser, 
-      loading, 
+    <AuthContext.Provider value={{
+      user,
+      fbUser,
+      loading,
       error,
       setError,
-      loginWithGoogle, 
-      loginWithEmail, 
-      registerWithEmail, 
-      sendVerificationEmail, 
-      logout, 
-      refreshProfile 
+      loginWithGoogle,
+      loginWithEmail,
+      registerWithEmail,
+      sendVerificationEmail,
+      logout,
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>
@@ -362,7 +356,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

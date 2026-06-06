@@ -1149,255 +1149,57 @@ function VerifierDashboardContent() {
             </div>
           </div>
         ) : activeTab === 'pipeline' ? (
-          /* Document Pipeline Tab Ingestion Panel */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-premium-reveal">
-            
-            {/* Upload form Column */}
-            <div className="lg:col-span-5 space-y-6">
-              <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-md space-y-6">
-                <div>
-                  <h3 className="font-display font-extrabold text-base text-text-primary flex items-center space-x-2">
-                    <FileUp className="w-5 h-5 text-accent" />
-                    <span>Upload Exam Documents</span>
-                  </h3>
-                  <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-                    Upload sessional exam papers, semester finals, or scanned question images. Supported files: PDF, ZIP, PNG, JPG, JPEG.
-                  </p>
+          /* Document Pipeline Tab — Phase L.1A: Temporarily disabled for beta launch.
+           * The original upload form, batch viewer, and OCR trigger code is preserved below
+           * and will be re-enabled in Phase L.2 after Cloudflare R2 + QStash migration. */
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center space-y-6 max-w-lg mx-auto">
+              {/* Icon cluster */}
+              <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-accent/20 to-teal-500/20 blur-xl" />
+                <div className="relative w-24 h-24 rounded-3xl bg-bg-secondary border border-border-primary flex items-center justify-center">
+                  <Sparkles className="w-10 h-10 text-accent" />
                 </div>
-
-                <form onSubmit={handleUploadSubmit} className="space-y-4">
-                  {/* Select Subject Dropdown */}
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Subject Hint</label>
-                    <select
-                      value={selectedSubjectId}
-                      onChange={(e) => setSelectedSubjectId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-primary text-xs focus:border-accent"
-                      required
-                    >
-                      {allSubjects.map(s => (
-                        <option key={s._id} value={s._id}>
-                          {s.code} - {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Year and Exam Type hints */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Year Tag</label>
-                      <input
-                        type="number"
-                        value={uploadYear}
-                        onChange={(e) => setUploadYear(parseInt(e.target.value, 10) || new Date().getFullYear())}
-                        className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-primary text-xs text-center focus:border-accent"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Exam Type</label>
-                      <select
-                        value={uploadExamType}
-                        onChange={(e) => setUploadExamType(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-primary text-xs focus:border-accent"
-                        required
-                      >
-                        <option value="Minor 1">Minor 1</option>
-                        <option value="Minor 2">Minor 2</option>
-                        <option value="Major">Semester Major</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Drag-and-drop file selector */}
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-8 border border-dashed border-accent/30 hover:border-accent hover:bg-accent/5 rounded-2xl cursor-pointer text-center space-y-2 transition-all"
-                  >
-                    <Upload className="w-8 h-8 text-accent animate-pulse mx-auto" />
-                    <span className="text-xs font-bold block">
-                      {uploadFile ? uploadFile.name : 'Choose File or Drag Here'}
-                    </span>
-                    <span className="text-[10px] text-text-muted block">
-                      PDF, ZIP, PNG, JPG (Max ZIP/PDF 50MB, Images 10MB)
-                    </span>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                      className="hidden"
-                      accept=".pdf,.zip,.png,.jpg,.jpeg"
-                    />
-                  </div>
-
-                  {uploadError && (
-                    <div className="p-3.5 rounded-xl border border-red-500/25 bg-red-500/5 text-red-500 text-xs flex items-center space-x-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>{uploadError}</span>
-                    </div>
-                  )}
-
-                  {uploadSuccess && (
-                    <div className="p-3.5 rounded-xl border border-green-500/25 bg-green-500/5 text-green-500 text-xs flex items-center space-x-2">
-                      <CheckCircle className="w-4 h-4 shrink-0" />
-                      <span>Batch submitted to processing queue successfully!</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={uploading || !uploadFile}
-                    className="w-full py-3.5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-2"
-                  >
-                    {uploading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Uploading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        <span>Upload and Process Batch</span>
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
-            </div>
-
-            {/* Batch status tracking queue Column */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-md space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display font-extrabold text-base text-text-primary">Ingestion Batches</h3>
-                  <button 
-                    onClick={loadBatches}
-                    className="p-1.5 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-secondary text-text-secondary"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {loadingBatches ? (
-                  <div className="py-12 text-center space-y-2">
-                    <Loader2 className="w-6 h-6 text-accent animate-spin mx-auto" />
-                    <p className="text-xs text-text-secondary">Retrieving ingestion records...</p>
-                  </div>
-                ) : batches.length > 0 ? (
-                  <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-                    {batches.map((b) => {
-                      const completedPercent = b.totalFiles > 0 ? Math.round((b.processedFiles / b.totalFiles) * 100) : 0;
-                      
-                      return (
-                        <div 
-                          key={b._id}
-                          className={`p-4 rounded-xl border cursor-pointer hover:bg-bg-secondary transition-all ${
-                            selectedBatch?._id === b._id ? 'border-accent bg-accent/5' : 'border-border-primary bg-bg-primary/65'
-                          }`}
-                          onClick={() => loadBatchDetails(b._id)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h4 className="text-xs font-bold text-text-primary">{b.name}</h4>
-                              <p className="text-[9px] text-text-muted mt-0.5">
-                                Submitted {new Date(b.createdAt).toLocaleString()}
-                              </p>
-                            </div>
-                            <span className={`text-[8px] px-2 py-0.5 rounded font-extrabold uppercase ${
-                              b.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                              b.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                              'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse'
-                            }`}>
-                              {b.status}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 space-y-1.5">
-                            <div className="h-1.5 w-full rounded-full bg-border-primary overflow-hidden">
-                              <div 
-                                className="h-full bg-accent transition-all duration-300"
-                                style={{ width: `${completedPercent}%` }}
-                              />
-                            </div>
-                            <div className="flex justify-between items-center text-[8px] text-text-muted font-bold font-mono">
-                              <span>{b.processedFiles}/{b.totalFiles} Files Processed</span>
-                              <span>{completedPercent}%</span>
-                            </div>
-                          </div>
-
-                          {b.status === 'failed' && (
-                            <div className="mt-3 flex items-center justify-between border-t border-border-primary/50 pt-2.5">
-                              <span className="text-[9px] text-red-400 italic font-medium">{b.errorMessage}</span>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  triggerRetryBatch(b._id);
-                                }}
-                                className="text-[8px] px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/25 text-red-400 font-bold uppercase"
-                              >
-                                Retry Ingestion
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-6 border border-dashed border-border-primary rounded-xl text-center text-text-secondary text-xs">
-                    No upload batches recorded.
-                  </div>
-                )}
               </div>
 
-              {/* Selected Batch Files Detail listing */}
-              {selectedBatch && (
-                <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-md space-y-4 animate-premium-reveal">
-                  <h4 className="text-xs font-bold text-text-primary">
-                    Files inside: <span className="text-accent">{selectedBatch.name}</span>
-                  </h4>
-
-                  {loadingBatchDocs ? (
-                    <div className="py-8 text-center">
-                      <Loader2 className="w-5 h-5 text-accent animate-spin mx-auto" />
-                    </div>
-                  ) : batchDocs.length > 0 ? (
-                    <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                      {batchDocs.map((doc) => (
-                        <div 
-                          key={doc._id}
-                          className="p-3 rounded-xl border border-border-primary bg-bg-primary/80 flex items-center justify-between text-xs"
-                        >
-                          <div className="space-y-0.5">
-                            <span className="font-bold text-text-primary block max-w-sm truncate">{doc.fileName}</span>
-                            <span className="text-[9px] text-text-muted block">
-                              MIME: {doc.mimeType} • Size: {Math.round(doc.fileSize / 1024)} KB
-                            </span>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                              doc.status === 'completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                              doc.status === 'failed' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                              'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 animate-pulse'
-                            }`}>
-                              {doc.status}
-                            </span>
-                            {doc.status === 'failed' && doc.errorMessage && (
-                              <span className="text-[8px] text-red-400 max-w-xs truncate" title={doc.errorMessage}>
-                                ({doc.errorMessage})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-text-muted">No documents found inside this batch.</p>
-                  )}
+              {/* Heading */}
+              <div className="space-y-2">
+                <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-wider">
+                  <Layers className="w-3 h-3" />
+                  <span>Coming Soon</span>
                 </div>
-              )}
+                <h2 className="font-display font-black text-2xl text-text-primary tracking-tight">
+                  Document Intelligence Pipeline
+                </h2>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  The automated PDF/ZIP ingestion, OCR extraction, and question mining pipeline is temporarily 
+                  offline during the beta launch while we migrate to cloud-native infrastructure.
+                </p>
+              </div>
+
+              {/* What's coming */}
+              <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 text-left space-y-3">
+                <p className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">What's in the pipeline</p>
+                {[
+                  { icon: <FileUp className="w-3.5 h-3.5 text-accent" />, text: 'Client-direct uploads to Cloudflare R2 (bypasses serverless limits)' },
+                  { icon: <RefreshCw className="w-3.5 h-3.5 text-teal-400" />, text: 'Asynchronous OCR processing via QStash background queue' },
+                  { icon: <Sparkles className="w-3.5 h-3.5 text-purple-400" />, text: 'AI-powered question extraction with Groq Vision' },
+                  { icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />, text: 'Duplicate detection and auto-merge suggestions' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start space-x-2.5">
+                    <div className="mt-0.5 p-1.5 rounded-lg bg-bg-primary border border-border-primary flex-shrink-0">
+                      {item.icon}
+                    </div>
+                    <p className="text-xs text-text-secondary leading-relaxed">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <p className="text-[11px] text-text-muted">
+                In the meantime, questions can be added manually by the admin via the database seed tools. 
+                The <span className="text-accent font-semibold">Question Queue</span> tab remains fully operational.
+              </p>
             </div>
           </div>
         ) : (

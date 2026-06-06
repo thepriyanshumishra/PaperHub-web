@@ -4,7 +4,7 @@ import dbConnect from '@/lib/db';
 import Session from '@/models/session';
 import Question from '@/models/question';
 import TestBlueprint from '@/models/testBlueprint';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
@@ -30,16 +30,11 @@ function seededShuffle<T>(array: T[], seed: number): T[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
+  // ─── Step 1: Authentication & Authorization ───────────────────────────────
+  const { user, errorResponse } = await requireAuthorizedUser(req);
+  if (errorResponse) return errorResponse;
 
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+  const userId = user._id;
 
     await dbConnect();
     const body = await req.json();
@@ -55,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify ownership
-    if (session.userId !== verifiedUser.uid) {
+    if (session.userId !== userId) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 
@@ -70,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Load user's solved questions history to prioritize unattempted questions
-    const userSessions = await Session.find({ userId: verifiedUser.uid }).lean();
+    const userSessions = await Session.find({ userId }).lean();
     const solvedQuestionIds = new Set<string>();
     userSessions.forEach((s) => {
       if (s.questions) {

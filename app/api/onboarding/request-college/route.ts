@@ -4,20 +4,14 @@ import dbConnect from '@/lib/db';
 import College from '@/models/college';
 import CollegeRequest from '@/models/collegeRequest';
 import University from '@/models/university';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { sanitizeText, safeErrorResponse } from '@/lib/promptSafety';
 import { logger } from '@/lib/logger';
 
 export async function POST(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req, { allowPendingOnboarding: true });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
     const body = await req.json();
@@ -70,14 +64,14 @@ export async function POST(req: NextRequest) {
 
     // Log the request
     await CollegeRequest.create({
-      userId: verifiedUser.uid,
-      userEmail: verifiedUser.email,
+      userId: user._id,
+      userEmail: user.email,
       universityId,
       collegeName: cleanCollegeName,
       status: 'pending',
     });
 
-    logger.info('User requested new college onboarding bypass', verifiedUser.uid, {
+    logger.info('User requested new college onboarding bypass', user._id, {
       collegeId: college._id,
       collegeName: cleanCollegeName,
     });

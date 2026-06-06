@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import Question from '@/models/question';
 import SearchAnalytics from '@/models/searchAnalytics';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 
 export const dynamic = 'force-dynamic';
@@ -29,16 +29,8 @@ function checkLevenshteinDistance(s1: string, s2: string, maxDist = 2): boolean 
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized: Missing Authorization Bearer token' }, { status: 401 });
-    }
-
-    const idToken = authHeader.split(' ')[1];
-    const verifiedUser = await verifyFirebaseIdToken(idToken);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
-    }
+    const { user, errorResponse } = await requireAuthorizedUser(req);
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
 
@@ -135,7 +127,7 @@ export async function GET(req: NextRequest) {
       // Log search query in SearchAnalytics logging system
       try {
         await SearchAnalytics.create({
-          userId: verifiedUser.uid,
+          userId: user._id,
           query: q,
           subjectId: subjectId && mongoose.Types.ObjectId.isValid(subjectId) ? new mongoose.Types.ObjectId(subjectId) : undefined,
           topic: topic || undefined

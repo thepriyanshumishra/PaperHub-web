@@ -3,28 +3,17 @@ import dbConnect from '@/lib/db';
 import CollegeRequest from '@/models/collegeRequest';
 import College from '@/models/college';
 import User from '@/models/user';
-import { verifyFirebaseIdToken } from '@/lib/verifyAuth';
-import { hasPermission } from '@/lib/permissions';
+import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse } from '@/lib/promptSafety';
 import { logger } from '@/lib/logger';
 import mongoose from 'mongoose';
 
 export async function GET(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { errorResponse } = await requireAuthorizedUser(req, { allowedRoles: ['admin'] });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-    const adminUser = await User.findById(verifiedUser.uid);
-    if (!adminUser || !hasPermission(adminUser.role, 'admin')) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     const requests = await CollegeRequest.find({ status: 'pending' })
       .populate('universityId', 'name code')
@@ -39,20 +28,10 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const authHeader = req.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const verifiedUser = await verifyFirebaseIdToken(authHeader.split(' ')[1]);
-    if (!verifiedUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { user: adminUser, errorResponse } = await requireAuthorizedUser(req, { allowedRoles: ['admin'] });
+    if (errorResponse) return errorResponse;
 
     await dbConnect();
-    const adminUser = await User.findById(verifiedUser.uid);
-    if (!adminUser || !hasPermission(adminUser.role, 'admin')) {
-      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
-    }
 
     const body = await req.json();
     const { requestId, action, mergeCollegeId, adminNotes } = body;
@@ -88,7 +67,7 @@ export async function PATCH(req: NextRequest) {
         await collegePlaceholder.save();
       }
 
-      logger.info('Admin approved college request', verifiedUser.uid, { requestId, collegeName: request.collegeName });
+      logger.info('Admin approved college request', adminUser._id, { requestId, collegeName: request.collegeName });
       return NextResponse.json({ message: 'College request approved successfully' });
     } else {
       // Reject: mark request as rejected. If mergeCollegeId is provided, merge users.
@@ -113,7 +92,7 @@ export async function PATCH(req: NextRequest) {
           // Deactivate/delete the temporary college placeholder
           await College.findByIdAndDelete(collegePlaceholder._id);
 
-          logger.info('Admin rejected and merged college request', verifiedUser.uid, {
+          logger.info('Admin rejected and merged college request', adminUser._id, {
             requestId,
             collegeName: request.collegeName,
             mergedTo: mergeCollege.name,
@@ -132,7 +111,7 @@ export async function PATCH(req: NextRequest) {
           );
           await College.findByIdAndDelete(collegePlaceholder._id);
 
-          logger.info('Admin rejected college request and reset users', verifiedUser.uid, {
+          logger.info('Admin rejected college request and reset users', adminUser._id, {
             requestId,
             collegeName: request.collegeName,
             usersReset: updateResult.modifiedCount
@@ -144,7 +123,7 @@ export async function PATCH(req: NextRequest) {
         }
       }
 
-      logger.info('Admin rejected college request', verifiedUser.uid, { requestId, collegeName: request.collegeName });
+      logger.info('Admin rejected college request', adminUser._id, { requestId, collegeName: request.collegeName });
       return NextResponse.json({ message: 'College request rejected successfully' });
     }
   } catch (error) {
