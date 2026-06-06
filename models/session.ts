@@ -28,6 +28,12 @@ export interface ISession extends Document {
     units: number[];
     topics: string[];
     questionCount: number;
+    subjectIds?: mongoose.Types.ObjectId[] | string[];
+    selections?: {
+      subjectId: mongoose.Types.ObjectId | string;
+      units: number[];
+      topics: string[];
+    }[];
   };
   questions: mongoose.Types.ObjectId[];
   currentQuestionIndex: number;
@@ -96,6 +102,12 @@ const SessionSchema = new Schema<ISession>(
       units: [{ type: Number }],
       topics: [{ type: String }],
       questionCount: { type: Number },
+      subjectIds: [{ type: Schema.Types.ObjectId, ref: 'Subject' }],
+      selections: [{
+        subjectId: { type: Schema.Types.ObjectId, ref: 'Subject' },
+        units: [{ type: Number }],
+        topics: [{ type: String }]
+      }]
     },
     questions: [{ type: Schema.Types.ObjectId, ref: 'Question', required: true }],
     currentQuestionIndex: { type: Number, default: 0 },

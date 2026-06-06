@@ -120,6 +120,11 @@ export default function SubjectsPage() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch notifications
   useEffect(() => {
@@ -317,7 +322,7 @@ export default function SubjectsPage() {
                 <div className="hidden md:flex flex-col items-start select-none min-w-0">
                   <span className="text-[13px] font-semibold text-text-primary leading-tight truncate max-w-[120px]">{activeName || 'Account'}</span>
                   <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
-                    {activeBranch && activeSemester ? `${activeBranch} · ${ordinal(activeSemester)} Sem` : activeBranch || 'Student'}
+                    {!mounted ? 'Student' : (activeBranch && activeSemester ? `${activeBranch} · ${ordinal(activeSemester)} Sem` : activeBranch || 'Student')}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />

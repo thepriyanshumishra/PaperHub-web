@@ -87,6 +87,11 @@ export default function SubjectPage() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch notifications
   useEffect(() => {
@@ -137,8 +142,8 @@ export default function SubjectPage() {
 
   // User info
   const activeName     = user?.profile?.name || user?.displayName || '';
-  const activeBranch   = user?.profile?.branch || localStorage.getItem('selectedBranch') || '';
-  const activeSemester = user?.profile?.semester || Number(localStorage.getItem('selectedSemester') || 1);
+  const activeBranch   = user?.profile?.branch || (typeof window !== 'undefined' ? localStorage.getItem('selectedBranch') : '') || '';
+  const activeSemester = user?.profile?.semester || (typeof window !== 'undefined' ? Number(localStorage.getItem('selectedSemester') || 1) : 1);
   const userInitials   = activeName ? activeName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : '?';
 
   const handleLogout = async () => {
@@ -330,7 +335,7 @@ export default function SubjectPage() {
                 <div className="hidden md:flex flex-col items-start select-none min-w-0">
                   <span className="text-[13px] font-semibold text-text-primary leading-tight truncate max-w-[120px]">{activeName || 'Account'}</span>
                   <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
-                    {activeBranch && activeSemester ? `${activeBranch} · ${ordinal(activeSemester)} Sem` : activeBranch || 'Student'}
+                    {!mounted ? 'Student' : (activeBranch && activeSemester ? `${activeBranch} · ${ordinal(activeSemester)} Sem` : activeBranch || 'Student')}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />

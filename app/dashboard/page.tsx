@@ -80,6 +80,11 @@ export default function Dashboard() {
   
   // Profile dropdown state
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -610,9 +615,9 @@ export default function Dashboard() {
                     {activeName || 'Account'}
                   </span>
                   <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
-                    {activeBranch && activeSemester
+                    {!mounted ? 'Student' : (activeBranch && activeSemester
                       ? `${activeBranch} · ${ordinal(activeSemester)} Sem`
-                      : activeBranch || 'Student'}
+                      : activeBranch || 'Student')}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />

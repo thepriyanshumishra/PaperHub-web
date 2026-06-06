@@ -134,9 +134,20 @@ html:not(.dark) .streak-card {
   border-color: hsl(var(--border-primary) / 0.85) !important;
 }
 
-/* Light mode cards get warm shadows */
+/* Light mode cards get warm shadows and explicit background/borders */
 html:not(.dark) .bg-bg-secondary {
+  background-color: hsl(var(--bg-secondary)) !important;
+  border-color: hsl(var(--border-primary)) !important;
   box-shadow: 0 2px 16px hsl(24 30% 60% / 0.10) !important;
+}
+
+html:not(.dark) .bg-bg-tertiary {
+  background-color: hsl(var(--bg-tertiary)) !important;
+  border-color: hsl(var(--border-primary)) !important;
+}
+
+html:not(.dark) .bg-bg-primary {
+  background-color: hsl(var(--bg-primary)) !important;
 }
 
 /* Badge — light mode warm orange tint */

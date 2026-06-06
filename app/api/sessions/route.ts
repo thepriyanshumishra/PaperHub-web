@@ -46,20 +46,57 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { units, topics, questionCount } = config;
+    const { units, topics, questionCount, difficulty, selections } = config;
 
-    const query: {
-      subjectId: string;
-      unit?: { $in: number[] };
-      topic?: { $in: string[] };
-    } = { subjectId };
-    
-    if (units && units.length > 0) {
-      query.unit = { $in: units };
+    let primarySubjectId = subjectId;
+    let allSubjectIds: string[] = [];
+    if (Array.isArray(subjectId)) {
+      primarySubjectId = subjectId[0];
+      allSubjectIds = subjectId;
+    } else if (typeof subjectId === 'string') {
+      primarySubjectId = subjectId;
+      allSubjectIds = [subjectId];
+    } else if (selections && Array.isArray(selections) && selections.length > 0) {
+      primarySubjectId = selections[0].subjectId;
+      allSubjectIds = selections.map((s: any) => s.subjectId);
     }
-    
-    if (topics && topics.length > 0) {
-      query.topic = { $in: topics };
+
+    let allUnits: number[] = [];
+    let allTopics: string[] = [];
+    let orConditions: any[] = [];
+
+    if (selections && Array.isArray(selections) && selections.length > 0) {
+      allUnits = selections.flatMap((s: any) => s.units || []);
+      allTopics = selections.flatMap((s: any) => s.topics || []);
+      for (const sel of selections) {
+        const cond: any = { subjectId: sel.subjectId };
+        if (sel.units && sel.units.length > 0) {
+          cond.unit = { $in: sel.units };
+        }
+        if (sel.topics && sel.topics.length > 0) {
+          cond.topic = { $in: sel.topics };
+        }
+        orConditions.push(cond);
+      }
+    } else {
+      allUnits = units || [];
+      allTopics = topics || [];
+      const cond: any = { subjectId: { $in: allSubjectIds } };
+      if (units && units.length > 0) {
+        cond.unit = { $in: units };
+      }
+      if (topics && topics.length > 0) {
+        cond.topic = { $in: topics };
+      }
+      orConditions.push(cond);
+    }
+
+    const query: any = {
+      $or: orConditions
+    };
+
+    if (difficulty && difficulty !== 'all' && difficulty !== 'All Levels') {
+      query.difficulty = difficulty.toLowerCase();
     }
 
     // Pull candidate questions
@@ -87,14 +124,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const isExam = type === 'test';
+    const durationMins = body.duration || config.duration || 60; // in minutes
+    const durationSeconds = durationMins * 60;
+
     const session = await Session.create({
       userId,
-      subjectId,
+      subjectId: primarySubjectId,
       type,
       subType,
       config: {
         ...config,
-        questionCount: limit
+        units: allUnits,
+        topics: allTopics,
+        questionCount: limit,
+        subjectIds: allSubjectIds,
+        selections: selections || []
       },
       questions: selectedQuestions,
       currentQuestionIndex: 0,
@@ -115,7 +160,11 @@ export async function POST(req: NextRequest) {
         score: undefined,
         notes: ''
       })),
-      status: 'active'
+      status: 'active',
+      isExamMode: isExam,
+      examDuration: isExam ? durationSeconds : undefined,
+      timeRemaining: isExam ? durationSeconds : undefined,
+      timerLastSyncedAt: isExam ? new Date() : undefined
     });
 
     // Track usage

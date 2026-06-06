@@ -23,7 +23,8 @@ try {
 // Optional pdf-img-convert for PDF page conversion
 let pdf2img: any = null;
 try {
-  pdf2img = require('pdf-img-convert');
+  const req = eval('require');
+  pdf2img = req('pdf-img-convert');
 } catch (e) {
   console.warn('[Process API] pdf-img-convert is not installed. PDF page conversion will be mocked.');
 }

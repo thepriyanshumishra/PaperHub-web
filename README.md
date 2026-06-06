@@ -14,7 +14,7 @@ PaperHub transforms scattered PDFs, disorganized WhatsApp PYQs, and random Drive
 
 ### 2. 📝 Practice & Test Arenas
 - **Practice Mode**: Browse question banks with instant step-by-step solution generators, interactive hints, and a persistent AI doubts assistant drawer scoped to the current question context.
-- **Test Mode**: A distraction-free onboarding wizard (Coverage Selection, Evaluation Type, Time Modes) that generates custom test sheets from live database question counts.
+- **Test Mode**: A premium multi-select Combined Subject tests builder. Users can configure a test spanning multiple subjects, choose the scope (Full Syllabus, Unit-wise with subject collapsible accordion trees, or Topic-wise with nested unit/topic checkbox pill structures), and customize duration and question counts dynamically matched with the live question bank.
 
 ### 3. 🤖 Multimodal AI Grading Sandbox
 - **Dynamic File Ingestion**: Upload handwritten answer sheets with strict client/server validations (formats: `JPG`, `PNG`, `WEBP`; size: up to **10 MB** per page).
