@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
         unit: group.unit,
         difficulty: group.difficulty,
         marks: group.marks,
-        verificationStatus: 'verified'
+        verificationStatus: { $in: ['verified', 'pending'] }
       }).lean();
 
       // Fallback 1: relax difficulty
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
           subjectId: blueprint.subjectId,
           unit: group.unit,
           marks: group.marks,
-          verificationStatus: 'verified'
+          verificationStatus: { $in: ['verified', 'pending'] }
         }).lean();
       }
 
@@ -88,15 +88,15 @@ export async function POST(req: NextRequest) {
         candidates = await Question.find({
           subjectId: blueprint.subjectId,
           unit: group.unit,
-          verificationStatus: 'verified'
+          verificationStatus: { $in: ['verified', 'pending'] }
         }).lean();
       }
 
-      // Fallback 3: relax unit too (any verified question for subject)
+      // Fallback 3: relax unit too (any verified/pending question for subject)
       if (candidates.length < group.count) {
         candidates = await Question.find({
           subjectId: blueprint.subjectId,
-          verificationStatus: 'verified'
+          verificationStatus: { $in: ['verified', 'pending'] }
         }).lean();
       }
 

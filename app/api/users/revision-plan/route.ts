@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
     // 3. Fallback: If revision items are few, suggest practicing unattempted units
     if (revisionPlan.length < 4) {
       for (const sub of activeSubjects) {
-        const subQs = await Question.find({ subjectId: sub._id, verificationStatus: 'verified' }).lean();
+        const subQs = await Question.find({ subjectId: sub._id, verificationStatus: { $in: ['verified', 'pending'] } }).lean();
         const units = Array.from(new Set(subQs.map((q) => q.unit)));
 
         for (const unit of units) {

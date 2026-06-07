@@ -33,7 +33,10 @@ import {
   ArrowDown,
   BadgeCheck,
   Trophy,
-  Download
+  Download,
+  Flag,
+  X,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateTestPaperPDF } from '@/lib/generatePDF';
@@ -130,6 +133,13 @@ function TestSolveContent() {
   const [cheatNoticeMsg, setCheatNoticeMsg] = useState('');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+
+  // Report Modal States
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReasons, setReportReasons] = useState<string[]>([]);
+  const [reportComment, setReportComment] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
 
   // Refs for container
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -256,6 +266,14 @@ function TestSolveContent() {
       }).catch((e: any) => console.error("Error syncing question index:", e));
     }).catch((e: any) => console.error("Error getting token:", e));
   }, [currentIdx, sessionId, loading, questions.length, isInitialized, fbUser]);
+
+  // Reset report state on active question change
+  useEffect(() => {
+    setShowReportModal(false);
+    setReportReasons([]);
+    setReportComment('');
+    setReportSuccess(false);
+  }, [currentIdx]);
 
   // Auto-fetch solution if the active question is already revealed but not loaded
   useEffect(() => {
@@ -445,6 +463,39 @@ function TestSolveContent() {
       ...prev,
       [currentQId]: text
     }));
+  };
+
+  const handleReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (reportReasons.length === 0 || submittingReport || !currentQuestion?._id) return;
+    setSubmittingReport(true);
+    try {
+      const token = await fbUser?.getIdToken();
+      const res = await fetch(`/api/questions/${currentQuestion._id}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          reasons: reportReasons,
+          comment: reportComment
+        })
+      });
+      if (res.ok) {
+        setReportSuccess(true);
+        setTimeout(() => {
+          setShowReportModal(false);
+          setReportSuccess(false);
+          setReportReasons([]);
+          setReportComment('');
+        }, 1500);
+      }
+    } catch (err) {
+      console.error("Failed to submit question report:", err);
+    } finally {
+      setSubmittingReport(false);
+    }
   };
 
   const fetchSolutionForQuestion = async (qId: string) => {
@@ -806,10 +857,20 @@ function TestSolveContent() {
           
           <div>
             <div className="flex items-center justify-between mb-6">
-              <span className="text-[10px] uppercase font-black tracking-wider px-3 py-1.5 rounded-lg border border-accent/25 bg-accent/5 text-accent shadow-sm flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 animate-pulse text-accent" />
-                Unit {currentQuestion.unit} • Descriptive
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase font-black tracking-wider px-3 py-1.5 rounded-lg border border-accent/25 bg-accent/5 text-accent shadow-sm flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 animate-pulse text-accent" />
+                  Unit {currentQuestion.unit} • Descriptive
+                </span>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="p-1 px-2.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all flex items-center gap-1 text-[10px] font-bold shadow-sm shrink-0"
+                  title="Report incorrect content/solution to moderators"
+                >
+                  <Flag className="w-3 h-3" />
+                  <span>Report</span>
+                </button>
+              </div>
               <span className="text-[10px] uppercase font-black px-3 py-1.5 rounded-lg bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 border border-yellow-500/20 shadow-sm flex items-center gap-1">
                 <BadgeCheck className="w-3.5 h-3.5 text-yellow-500 dark:text-yellow-400" />
                 {currentQuestion.marks ? `${currentQuestion.marks} Marks` : '10 Marks'}
@@ -1224,6 +1285,105 @@ function TestSolveContent() {
                   Submit
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Report Question Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-bg-secondary border border-border-primary max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 relative"
+            >
+              <button 
+                onClick={() => setShowReportModal(false)}
+                className="absolute right-4.5 top-4.5 p-1 rounded-lg hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-2.5 text-red-500">
+                <Flag className="w-5 h-5" />
+                <h3 className="font-display font-bold text-base text-text-primary">Report Question</h3>
+              </div>
+
+              {reportSuccess ? (
+                <div className="py-8 text-center space-y-2 flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-500 mb-2">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-display font-bold text-sm text-text-primary">Report Submitted</h4>
+                  <p className="text-xs text-text-secondary">Thank you. The verification team will inspect this question.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleReportSubmit} className="space-y-4 text-left">
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    Identify what is incorrect with this descriptive question. Select all options that apply:
+                  </p>
+
+                  <div className="space-y-2.5">
+                    {[
+                      { key: 'wrong_answer', label: 'Wrong Answer / Solution Steps' },
+                      { key: 'latex_error', label: 'LaTeX / Text Formatting Typo' },
+                      { key: 'incorrect_diagram', label: 'Incorrect Diagram / Context Image' },
+                      { key: 'other', label: 'Other Issue' }
+                    ].map((opt) => (
+                      <label key={opt.key} className="flex items-center gap-2.5 text-xs text-text-primary cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={reportReasons.includes(opt.label)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setReportReasons(prev => [...prev, opt.label]);
+                            } else {
+                              setReportReasons(prev => prev.filter(r => r !== opt.label));
+                            }
+                          }}
+                          className="rounded border-border-primary bg-bg-primary text-red-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Comment / Additional Context</label>
+                    <textarea
+                      value={reportComment}
+                      onChange={(e) => setReportComment(e.target.value)}
+                      placeholder="Describe what is wrong or provide the correct formula/answer..."
+                      className="w-full h-24 text-xs p-3 rounded-xl border border-border-primary bg-bg-primary/50 text-text-primary focus:border-red-500 focus:ring-0 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowReportModal(false)}
+                      className="flex-grow py-2 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-tertiary text-xs font-bold text-text-primary transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={reportReasons.length === 0 || submittingReport}
+                      className="flex-grow py-2 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-red-500/10"
+                    >
+                      {submittingReport ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <span>Submit Report</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

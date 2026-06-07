@@ -20,10 +20,10 @@ export async function GET(req: NextRequest, { params }: { params: { subjectId: s
 
     const query: {
       subjectId: string;
-      verificationStatus: 'pending' | 'verified' | 'flagged' | 'archived';
+      verificationStatus: any;
       unit?: { $in: number[] };
       topic?: { $in: string[] };
-    } = { subjectId, verificationStatus: 'verified' };
+    } = { subjectId, verificationStatus: { $in: ['verified', 'pending'] } };
 
     if (unitsParam && unitsParam.trim() !== '') {
       const units = unitsParam.split(',').map(Number).filter((n) => !isNaN(n) && n > 0);

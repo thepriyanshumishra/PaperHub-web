@@ -39,6 +39,7 @@ import {
   Volume2,
   VolumeX,
   Bookmark,
+  Flag,
   FileEdit,
   ThumbsUp,
   ChevronRight,
@@ -181,6 +182,13 @@ function PracticeSolveContent() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
+
+  // Report Modal States
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReasons, setReportReasons] = useState<string[]>([]);
+  const [reportComment, setReportComment] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
 
   const loadPlaylists = async () => {
     if (!fbUser) return;
@@ -397,6 +405,10 @@ function PracticeSolveContent() {
     setHasCheckedAnswer(false);
     setHintContent(null);
     setSolutionTab('verified');
+    setShowReportModal(false);
+    setReportReasons([]);
+    setReportComment('');
+    setReportSuccess(false);
   }, [currentIdx, questions, user]);
 
   // Scroll to bottom of chat
@@ -543,6 +555,40 @@ function PracticeSolveContent() {
   };
 
 
+
+  const handleReportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (reportReasons.length === 0 || submittingReport || !currentQuestion?._id) return;
+    setSubmittingReport(true);
+    try {
+      const token = await fbUser?.getIdToken();
+      const res = await fetch(`/api/questions/${currentQuestion._id}/report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          reasons: reportReasons,
+          comment: reportComment
+        })
+      });
+      if (res.ok) {
+        setReportSuccess(true);
+        playSoundEffect('success');
+        setTimeout(() => {
+          setShowReportModal(false);
+          setReportSuccess(false);
+          setReportReasons([]);
+          setReportComment('');
+        }, 1500);
+      }
+    } catch (err) {
+      console.error("Failed to submit question report:", err);
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
 
   // DB Toggle Bookmark helper
   const toggleBookmark = async () => {
@@ -1061,6 +1107,16 @@ function PracticeSolveContent() {
                     {currentQuestion.marks} Marker
                   </span>
                 )}
+
+                {/* Report Question Button */}
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="p-1 px-2.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-all flex items-center gap-1.5 text-[10px] font-bold shrink-0 shadow-sm"
+                  title="Report this question to verification team"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>Report</span>
+                </button>
 
                 {/* Bookmark & Playlist Controls in Header */}
                 <div className="flex items-center gap-1 bg-bg-primary/40 border border-border-primary/50 rounded-lg p-0.5 relative shrink-0">
@@ -1878,6 +1934,105 @@ function PracticeSolveContent() {
                   Confirm
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Report Question Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-bg-secondary border border-border-primary max-w-md w-full p-6 rounded-2xl shadow-2xl space-y-4 relative"
+            >
+              <button 
+                onClick={() => setShowReportModal(false)}
+                className="absolute right-4.5 top-4.5 p-1 rounded-lg hover:bg-bg-tertiary text-text-muted hover:text-text-primary transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-2.5 text-red-500">
+                <Flag className="w-5 h-5" />
+                <h3 className="font-display font-bold text-base text-text-primary">Report Question</h3>
+              </div>
+
+              {reportSuccess ? (
+                <div className="py-8 text-center space-y-2 flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-center text-emerald-500 mb-2">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-display font-bold text-sm text-text-primary">Report Submitted</h4>
+                  <p className="text-xs text-text-secondary">Thank you. The verification team will inspect this question.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleReportSubmit} className="space-y-4 text-left">
+                  <p className="text-xs text-text-secondary leading-relaxed">
+                    Identify what is incorrect with this sessional question. Select all options that apply:
+                  </p>
+
+                  <div className="space-y-2.5">
+                    {[
+                      { key: 'wrong_answer', label: 'Wrong Answer / Solution Steps' },
+                      { key: 'latex_error', label: 'LaTeX / Text Formatting Typo' },
+                      { key: 'incorrect_diagram', label: 'Incorrect Diagram / Context Image' },
+                      { key: 'other', label: 'Other Issue' }
+                    ].map((opt) => (
+                      <label key={opt.key} className="flex items-center gap-2.5 text-xs text-text-primary cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={reportReasons.includes(opt.label)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setReportReasons(prev => [...prev, opt.label]);
+                            } else {
+                              setReportReasons(prev => prev.filter(r => r !== opt.label));
+                            }
+                          }}
+                          className="rounded border-border-primary bg-bg-primary text-red-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">Comment / Additional Context</label>
+                    <textarea
+                      value={reportComment}
+                      onChange={(e) => setReportComment(e.target.value)}
+                      placeholder="Describe what is wrong or provide the correct formula/answer..."
+                      className="w-full h-24 text-xs p-3 rounded-xl border border-border-primary bg-bg-primary/50 text-text-primary focus:border-red-500 focus:ring-0 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowReportModal(false)}
+                      className="flex-grow py-2 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-tertiary text-xs font-bold text-text-primary transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={reportReasons.length === 0 || submittingReport}
+                      className="flex-grow py-2 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-red-500/10"
+                    >
+                      {submittingReport ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <span>Submit Report</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

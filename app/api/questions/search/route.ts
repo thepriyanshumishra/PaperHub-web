@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     if (verificationStatus) {
       query.verificationStatus = verificationStatus;
     } else {
-      query.verificationStatus = 'verified';
+      query.verificationStatus = { $in: ['verified', 'pending'] };
     }
 
     if (year) {

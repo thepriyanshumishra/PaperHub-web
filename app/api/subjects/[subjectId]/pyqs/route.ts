@@ -22,8 +22,8 @@ export async function GET(
 
     await dbConnect();
 
-    // Fetch all verified questions for this subject
-    const questions = await Question.find({ subjectId, verificationStatus: 'verified' }).lean();
+    // Fetch all verified/pending questions for this subject
+    const questions = await Question.find({ subjectId, verificationStatus: { $in: ['verified', 'pending'] } }).lean();
 
     if (questions.length === 0) {
       return NextResponse.json({

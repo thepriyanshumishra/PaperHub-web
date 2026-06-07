@@ -23,8 +23,8 @@ export async function GET(
 
     await dbConnect();
 
-    // Fetch all verified questions for the subject
-    const questions = await Question.find({ subjectId: new mongoose.Types.ObjectId(subjectId), verificationStatus: 'verified' }).lean();
+    // Fetch all verified/pending questions for the subject
+    const questions = await Question.find({ subjectId: new mongoose.Types.ObjectId(subjectId), verificationStatus: { $in: ['verified', 'pending'] } }).lean();
 
     if (questions.length === 0) {
       return NextResponse.json({ heatmap: [] });

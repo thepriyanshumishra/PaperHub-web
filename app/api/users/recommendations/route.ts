@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
           const weakQs = await Question.find({
             subjectId: { $in: activeSubjectIds },
             topic: { $in: weakTopicsList },
-            verificationStatus: 'verified'
+            verificationStatus: { $in: ['verified', 'pending'] }
           }).limit(15).lean();
 
           const freshWeakQs = weakQs.filter((q) => {
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
         if (user.bookmarks && user.bookmarks.length > 0 && recommendedQuestions.length < 8) {
           const bookmarkedQs = await Question.find({
             _id: { $in: user.bookmarks },
-            verificationStatus: 'verified'
+            verificationStatus: { $in: ['verified', 'pending'] }
           }).limit(10).lean();
 
           bookmarkedQs.forEach((q) => {
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
         if (recommendedQuestions.length < 8) {
           const repeatedQs = await Question.find({
             subjectId: { $in: activeSubjectIds },
-            verificationStatus: 'verified'
+            verificationStatus: { $in: ['verified', 'pending'] }
           })
           .sort({ repetitionFrequency: -1 })
           .limit(30)
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
         const recommendedUnits: { subjectId: string; subjectName: string; unit: number; reason: string }[] = [];
 
         for (const sub of activeSubjects) {
-          const subQs = await Question.find({ subjectId: sub._id, verificationStatus: 'verified' }).lean();
+          const subQs = await Question.find({ subjectId: sub._id, verificationStatus: { $in: ['verified', 'pending'] } }).lean();
           const distinctUnits = Array.from(new Set(subQs.map((q) => q.unit)));
 
           for (const unit of distinctUnits) {

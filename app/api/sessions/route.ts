@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     } else {
       const query: any = {
         $or: orConditions,
-        verificationStatus: 'verified'
+        verificationStatus: { $in: ['verified', 'pending'] }
       };
 
       if (subType === 'pyq' && config.examType && config.year) {
