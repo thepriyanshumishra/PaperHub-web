@@ -219,13 +219,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         getIdToken: async () => token,
       });
 
-      // Require email verification gate for standard credentials users
-      if (!sessionData.user.emailVerified) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
-
       fetchUserProfile(token).finally(() => setLoading(false));
     } else {
       setFbUser(null);
@@ -257,10 +250,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       const freshSession = await authClient.getSession();
-      if (!freshSession.data?.user.emailVerified) {
-        await authClient.signOut();
-        setLoading(false);
-        throw new Error("Please verify your email address before logging in. A verification link has been sent to your email.");
+      
+      if (!freshSession.data?.session) {
+        throw new Error("Failed to retrieve session after login.");
       }
 
       const token = freshSession.data.session.token;
@@ -294,9 +286,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.error) {
         throw new Error(result.error.message || "Failed to register user account.");
       }
-
-      // Sign out immediately to block login until email verification is processed
-      await authClient.signOut();
+      
+      // Auto-login happens natively via Better Auth, so we just await state sync
     } catch (err) {
       setLoading(false);
       throw err;

@@ -78,12 +78,7 @@ export default function Login() {
         await loginWithEmail(email, password);
       } else {
         await registerWithEmail(email, password, name, username);
-        setAuthSuccess('Registration successful! A verification link has been sent to your email. Please verify your email to log in.');
-        setEmail('');
-        setUsername('');
-        setPassword('');
-        setName('');
-        setActiveTab('login');
+        setAuthSuccess('Registration successful! Setting up your workspace...');
       }
     } catch (err: any) {
       setAuthError(err.message || 'Authentication failed. Please check your credentials.');

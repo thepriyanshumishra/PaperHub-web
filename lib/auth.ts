@@ -45,13 +45,13 @@ export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: false,
     sendResetPassword: async (data) => {
       await sendResetPasswordEmail(data.user.email, data.url);
     },
   },
   emailVerification: {
-    sendOnSignUp: true,
+    sendOnSignUp: false,
     sendVerificationEmail: async (data) => {
       await sendVerificationEmail(data.user.email, data.url);
     },
