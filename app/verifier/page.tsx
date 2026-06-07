@@ -131,10 +131,7 @@ function VerifierDashboardContent() {
   const searchParams = useSearchParams();
   const { user, fbUser, loading, logout } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'queue' | 'pipeline' | 'review' | 'reported'>('queue');
-  const [reportedQuestions, setReportedQuestions] = useState<IQuestion[]>([]);
-  const [loadingReported, setLoadingReported] = useState(false);
-  const [selectedReportedQuestion, setSelectedReportedQuestion] = useState<IQuestion | null>(null);
+  const [activeTab, setActiveTab] = useState<'queue' | 'review'>('queue');
 
   // Review Queue States
   const [escalations, setEscalations] = useState<any[]>([]);
@@ -265,24 +262,6 @@ function VerifierDashboardContent() {
     }
   };
 
-  const loadReportedQuestions = async () => {
-    if (!fbUser) return;
-    setLoadingReported(true);
-    try {
-      const token = await fbUser.getIdToken();
-      const res = await fetch('/api/verifier/questions?status=flagged', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setReportedQuestions(data.questions || []);
-      }
-    } catch (err) {
-      console.error('Failed to load reported questions:', err);
-    } finally {
-      setLoadingReported(false);
-    }
-  };
 
   const handleResolveEscalation = async () => {
     if (!fbUser || !selectedReviewItem) return;
@@ -483,8 +462,6 @@ function VerifierDashboardContent() {
       loadEscalations();
       loadAppeals();
       loadReviewMetrics();
-    } else if (activeTab === 'reported' && fbUser) {
-      loadReportedQuestions();
     }
   }, [activeTab, fbUser]);
 
@@ -1573,12 +1550,6 @@ function VerifierDashboardContent() {
               Question Queue
             </button>
             <button
-              onClick={() => setActiveTab('pipeline')}
-              className={`px-4 py-1.5 rounded-lg font-bold transition-all ${activeTab === 'pipeline' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-            >
-              Document Pipeline
-            </button>
-            <button
               onClick={() => {
                 setActiveTab('review');
                 setSelectedReviewItem(null);
@@ -1586,14 +1557,6 @@ function VerifierDashboardContent() {
               className={`px-4 py-1.5 rounded-lg font-bold transition-all ${activeTab === 'review' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
             >
               Review Queue
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('reported');
-              }}
-              className={`px-4 py-1.5 rounded-lg font-bold transition-all ${activeTab === 'reported' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-            >
-              Reported Questions by Verifier
             </button>
           </div>
 
@@ -2083,61 +2046,7 @@ function VerifierDashboardContent() {
               </>
             )}
           </div>
-        ) : activeTab === 'pipeline' ? (
-          /* Document Pipeline Tab — Phase L.1A: Temporarily disabled for beta launch.
-           * The original upload form, batch viewer, and OCR trigger code is preserved below
-           * and will be re-enabled in Phase L.2 after Cloudflare R2 + QStash migration. */
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center space-y-6 max-w-lg mx-auto">
-              {/* Icon cluster */}
-              <div className="relative mx-auto w-24 h-24 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-accent/20 to-teal-500/20 blur-xl" />
-                <div className="relative w-24 h-24 rounded-3xl bg-bg-secondary border border-border-primary flex items-center justify-center">
-                  <Sparkles className="w-10 h-10 text-accent" />
-                </div>
-              </div>
-
-              {/* Heading */}
-              <div className="space-y-2">
-                <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-bold uppercase tracking-wider">
-                  <Layers className="w-3 h-3" />
-                  <span>Coming Soon</span>
-                </div>
-                <h2 className="font-display font-black text-2xl text-text-primary tracking-tight">
-                  Document Intelligence Pipeline
-                </h2>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  The automated PDF/ZIP ingestion, OCR extraction, and question mining pipeline is temporarily 
-                  offline during the beta launch while we migrate to cloud-native infrastructure.
-                </p>
-              </div>
-
-              {/* What's coming */}
-              <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 text-left space-y-3">
-                <p className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">What's in the pipeline</p>
-                {[
-                  { icon: <FileUp className="w-3.5 h-3.5 text-accent" />, text: 'Client-direct uploads to Cloudflare R2 (bypasses serverless limits)' },
-                  { icon: <RefreshCw className="w-3.5 h-3.5 text-teal-400" />, text: 'Asynchronous OCR processing via QStash background queue' },
-                  { icon: <Sparkles className="w-3.5 h-3.5 text-purple-400" />, text: 'AI-powered question extraction with Groq Vision' },
-                  { icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />, text: 'Duplicate detection and auto-merge suggestions' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start space-x-2.5">
-                    <div className="mt-0.5 p-1.5 rounded-lg bg-bg-primary border border-border-primary flex-shrink-0">
-                      {item.icon}
-                    </div>
-                    <p className="text-xs text-text-secondary leading-relaxed">{item.text}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* CTA */}
-              <p className="text-[11px] text-text-muted">
-                In the meantime, questions can be added manually by the admin via the database seed tools. 
-                The <span className="text-accent font-semibold">Question Queue</span> tab remains fully operational.
-              </p>
-            </div>
-          </div>
-        ) : activeTab === 'review' ? (
+        ) : (
           /* Review Queue Tab (AI Escalations & Student Appeals) */
           <div className="space-y-6 animate-premium-reveal">
             {/* 1. Quality Analytics Dashboard (Staff-Only) */}
@@ -2548,183 +2457,6 @@ function VerifierDashboardContent() {
                       <h3 className="font-display font-bold text-text-primary text-sm">Select Audit Item</h3>
                       <p className="text-xs text-text-secondary max-w-xs mx-auto">
                         Choose an AI sessional escalation or student grading appeal from the left column to view grading details.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          /* Reported Questions Tab */
-          <div className="space-y-6 animate-premium-reveal text-left">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left Column: Reported Questions List */}
-              <div className="lg:col-span-5 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-display font-extrabold text-sm uppercase tracking-wider text-text-secondary flex items-center space-x-2">
-                    <Flag className="w-4 h-4 text-red-500" />
-                    <span>Reported Questions Queue</span>
-                  </h2>
-                  <span className="text-xs px-2 py-0.5 rounded bg-bg-secondary border border-border-primary font-bold">
-                    {reportedQuestions.length} items
-                  </span>
-                </div>
-
-                {loadingReported ? (
-                  <div className="py-12 text-center space-y-2.5">
-                    <Loader2 className="w-6 h-6 text-accent animate-spin mx-auto" />
-                    <p className="text-xs text-text-secondary">Retrieving reported questions...</p>
-                  </div>
-                ) : reportedQuestions.length > 0 ? (
-                  <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                    {reportedQuestions.map((q) => {
-                      const isSelected = selectedReportedQuestion && selectedReportedQuestion._id === q._id;
-                      return (
-                        <button
-                          key={q._id}
-                          onClick={() => setSelectedReportedQuestion(q)}
-                          className={`w-full p-4 rounded-xl border text-left flex flex-col justify-between group transition-all duration-200 ${
-                            isSelected
-                              ? 'border-accent bg-accent/5 ring-2 ring-accent/10 shadow-sm'
-                              : 'border-border-primary bg-bg-secondary/40 hover:border-accent/40 hover:bg-bg-secondary'
-                          }`}
-                        >
-                          <div className="w-full space-y-2">
-                            <div className="flex items-center justify-between flex-wrap gap-1">
-                              <span className="text-[9px] px-2 py-0.5 rounded bg-border-primary text-text-secondary font-bold uppercase tracking-wide">
-                                {q.subjectId?.code || 'SUB'}
-                              </span>
-                              <span className="text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase tracking-wide border bg-red-500/10 border-red-500/25 text-red-500">
-                                flagged
-                              </span>
-                            </div>
-                            <h3 className="font-display font-bold text-text-primary text-xs leading-snug group-hover:text-accent transition-colors line-clamp-2">
-                              {q.topic}
-                            </h3>
-                            {q.verificationComment && (
-                              <p className="text-[9px] text-red-400 bg-red-400/5 p-2 rounded border border-red-400/10 line-clamp-2">
-                                Flag: {q.verificationComment}
-                              </p>
-                            )}
-                            <div className="text-[8px] font-bold text-text-muted flex justify-between mt-1">
-                              <span>Reported By: {q.flaggedByName || 'Verifier'}</span>
-                              <span>{q.flaggedAt ? new Date(q.flaggedAt).toLocaleDateString() : ''}</span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-6 text-center border border-dashed border-border-primary rounded-xl text-text-secondary text-xs">
-                    No reported questions found.
-                  </div>
-                )}
-              </div>
-
-              {/* Right Column: Question Audit Details */}
-              <div className="lg:col-span-7 space-y-6">
-                {selectedReportedQuestion ? (
-                  <div className="space-y-5">
-                    {/* Header info */}
-                    <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/20 flex justify-between items-start gap-4">
-                      <div>
-                        <h3 className="font-display font-extrabold text-sm text-text-primary">
-                          {selectedReportedQuestion.subjectId?.name || 'Curated Question'}
-                        </h3>
-                        <p className="text-[10px] text-text-secondary uppercase tracking-wider font-bold mt-0.5">
-                          Unit {selectedReportedQuestion.unit} • {selectedReportedQuestion.marks} Marks • {selectedReportedQuestion.difficulty}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* LaTeX Preview */}
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted">LaTeX / Math Preview</label>
-                      <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/80 text-sm leading-relaxed overflow-x-auto text-left">
-                        <MathMarkdown content={selectedReportedQuestion.questionText || 'Empty question text'} />
-                      </div>
-                    </div>
-
-                    {/* Flag comment details */}
-                    {selectedReportedQuestion.verificationComment && (
-                      <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 space-y-1">
-                        <label className="text-[10px] uppercase font-bold tracking-wider text-red-400">Flag Reason / Comment</label>
-                        <p className="text-xs text-text-primary leading-relaxed">
-                          {selectedReportedQuestion.verificationComment}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Verifier Identity Information */}
-                    <div className="p-4 rounded-xl border border-border-primary/50 bg-bg-secondary/40 space-y-3">
-                      <div className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Verifier Audit Information</div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                        {selectedReportedQuestion.flaggedBy && (
-                          <div className="p-3 rounded-xl bg-bg-primary/50 border border-border-primary/30 space-y-1">
-                            <span className="font-bold text-red-500 text-[10px] uppercase tracking-wider block">⚑ Reported By</span>
-                            <div className="text-text-primary font-semibold">{selectedReportedQuestion.flaggedByName || 'Verifier'}</div>
-                            <div className="text-[10px] text-text-muted">ID: {selectedReportedQuestion.flaggedBy}</div>
-                            {selectedReportedQuestion.flaggedAt && (
-                              <div className="text-[10px] text-text-muted">At: {new Date(selectedReportedQuestion.flaggedAt).toLocaleString()}</div>
-                            )}
-                          </div>
-                        )}
-                        {selectedReportedQuestion.verifiedBy && (
-                          <div className="p-3 rounded-xl bg-bg-primary/50 border border-border-primary/30 space-y-1">
-                            <span className="font-bold text-emerald-500 text-[10px] uppercase tracking-wider block">✓ Verified By</span>
-                            <div className="text-text-primary font-semibold">{selectedReportedQuestion.verifiedByName || 'Verifier'}</div>
-                            <div className="text-[10px] text-text-muted">ID: {selectedReportedQuestion.verifiedBy}</div>
-                            {selectedReportedQuestion.verifiedAt && (
-                              <div className="text-[10px] text-text-muted">At: {new Date(selectedReportedQuestion.verifiedAt).toLocaleString()}</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Verifier Changes Diff Block */}
-                    {selectedReportedQuestion.verifierChanges && (
-                      <div className="p-4 rounded-xl border border-border-primary/50 bg-bg-secondary/40 space-y-3">
-                        <div className="text-[10px] uppercase font-bold tracking-wider text-text-secondary flex items-center space-x-1">
-                          <span>Verifier Changes Applied</span>
-                        </div>
-                        <div className="space-y-3">
-                          {Object.entries(selectedReportedQuestion.verifierChanges).map(([field, diff]: [string, any]) => (
-                            <div key={field} className="p-3 rounded-xl bg-bg-primary/50 border border-border-primary/30 space-y-2 text-left">
-                              <span className="font-bold text-accent text-[10px] uppercase tracking-wider block">{field}</span>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                <div className="p-2 rounded bg-red-500/5 border border-red-500/10 space-y-1">
-                                  <span className="font-bold text-red-500 text-[9px] uppercase tracking-wider block">Original</span>
-                                  {field === 'questionText' ? (
-                                    <div className="text-xs text-text-secondary overflow-x-auto"><MathMarkdown content={diff.old} /></div>
-                                  ) : (
-                                    <p className="text-xs text-text-secondary whitespace-pre-wrap">{String(diff.old)}</p>
-                                  )}
-                                </div>
-                                <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 space-y-1">
-                                  <span className="font-bold text-emerald-500 text-[9px] uppercase tracking-wider block">Edited</span>
-                                  {field === 'questionText' ? (
-                                    <div className="text-xs text-text-primary overflow-x-auto"><MathMarkdown content={diff.new} /></div>
-                                  ) : (
-                                    <p className="text-xs text-text-primary whitespace-pre-wrap">{String(diff.new)}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="h-96 flex items-center justify-center border border-dashed border-border-primary/60 rounded-2xl bg-bg-secondary/10">
-                    <div className="text-center space-y-2">
-                      <Flag className="w-8 h-8 text-text-muted mx-auto animate-pulse" />
-                      <h3 className="font-display font-bold text-text-primary text-sm">Select Question</h3>
-                      <p className="text-xs text-text-secondary max-w-xs mx-auto">
-                        Choose a reported question from the left queue to view details and changes.
                       </p>
                     </div>
                   </div>
