@@ -20,7 +20,10 @@ import {
   Check,
   Palette,
   Volume2,
-  Undo2
+  Undo2,
+  Flag,
+  AlertTriangle,
+  Cpu
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -432,39 +435,41 @@ export default function SettingsPage() {
             </div>
 
             {/* Daily Goal Sessional Target */}
-            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
-              <h3 className="font-display font-bold text-sm text-text-primary flex items-center gap-2">
-                <Target className="w-4 h-4 text-accent" /> Daily Target Questions
-              </h3>
-              <p className="text-[11px] text-text-secondary">
-                Set a daily limit target to keep track of your practice goals.
-              </p>
-              
-              <div className="relative flex p-1 bg-bg-tertiary/40 border border-border-primary/50 rounded-2xl w-full">
-                {[10, 20, 30, 50].map((t) => {
-                  const isSelected = dailyGoalTarget === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setDailyGoalTarget(t)}
-                      className={`relative flex-1 py-3 text-center rounded-xl text-xs font-bold transition-all z-10 cursor-pointer ${
-                        isSelected ? 'text-white' : 'text-text-secondary hover:text-text-primary'
-                      }`}
-                    >
-                      {isSelected && (
-                        <motion.div
-                          layoutId="activeTargetPill"
-                          className="absolute inset-0 bg-accent rounded-xl shadow-[0_0_12px_hsl(var(--accent)/0.3)] -z-10"
-                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                        />
-                      )}
-                      <span>{t} Qs</span>
-                    </button>
-                  );
-                })}
+            {user?.role === 'student' && (
+              <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
+                <h3 className="font-display font-bold text-sm text-text-primary flex items-center gap-2">
+                  <Target className="w-4 h-4 text-accent" /> Daily Target Questions
+                </h3>
+                <p className="text-[11px] text-text-secondary">
+                  Set a daily limit target to keep track of your practice goals.
+                </p>
+                
+                <div className="relative flex p-1 bg-bg-tertiary/40 border border-border-primary/50 rounded-2xl w-full">
+                  {[10, 20, 30, 50].map((t) => {
+                    const isSelected = dailyGoalTarget === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setDailyGoalTarget(t)}
+                        className={`relative flex-1 py-3 text-center rounded-xl text-xs font-bold transition-all z-10 cursor-pointer ${
+                          isSelected ? 'text-white' : 'text-text-secondary hover:text-text-primary'
+                        }`}
+                      >
+                        {isSelected && (
+                          <motion.div
+                            layoutId="activeTargetPill"
+                            className="absolute inset-0 bg-accent rounded-xl shadow-[0_0_12px_hsl(var(--accent)/0.3)] -z-10"
+                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                          />
+                        )}
+                        <span>{t} Qs</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Notification Preferences */}
             <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
@@ -472,54 +477,90 @@ export default function SettingsPage() {
                 <Bell className="w-4 h-4 text-accent" /> Notification Channels
               </h3>
               <p className="text-[11px] text-text-secondary">
-                Allow PaperHub to request browser notification permission to keep you on schedule.
+                {user?.role === 'student' 
+                  ? 'Allow PaperHub to request browser notification permission to keep you on schedule.'
+                  : 'Manage system and workspace alerts delivered directly to your browser.'}
               </p>
               <div className="space-y-3">
-                <PremiumToggle
-                  checked={goalNotificationsEnabled}
-                  onChange={(checked) => handleNotificationToggle('goal', checked)}
-                  label="Daily Goal Milestones"
-                  description="Receive alerts when achieving daily questions solved targets."
-                  icon={Target}
-                />
+                {user?.role === 'student' ? (
+                  <>
+                    <PremiumToggle
+                      checked={goalNotificationsEnabled}
+                      onChange={(checked) => handleNotificationToggle('goal', checked)}
+                      label="Daily Goal Milestones"
+                      description="Receive alerts when achieving daily questions solved targets."
+                      icon={Target}
+                    />
 
-                <PremiumToggle
-                  checked={streakNotificationsEnabled}
-                  onChange={(checked) => handleNotificationToggle('streak', checked)}
-                  label="Streak Warnings & Milestones"
-                  description="Alerts for streak milestones and warnings when your active streak is at risk."
-                  icon={Bell}
-                />
+                    <PremiumToggle
+                      checked={streakNotificationsEnabled}
+                      onChange={(checked) => handleNotificationToggle('streak', checked)}
+                      label="Streak Warnings & Milestones"
+                      description="Alerts for streak milestones and warnings when your active streak is at risk."
+                      icon={Bell}
+                    />
 
-                <PremiumToggle
-                  checked={leaderboardNotificationsEnabled}
-                  onChange={(checked) => handleNotificationToggle('leaderboard', checked)}
-                  label="Leaderboard & League Promotes"
-                  description="Updates about rank changes, promotions, or demotions in leagues."
-                  icon={Palette}
-                />
+                    <PremiumToggle
+                      checked={leaderboardNotificationsEnabled}
+                      onChange={(checked) => handleNotificationToggle('leaderboard', checked)}
+                      label="Leaderboard & League Promotes"
+                      description="Updates about rank changes, promotions, or demotions in leagues."
+                      icon={Palette}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <PremiumToggle
+                      checked={goalNotificationsEnabled}
+                      onChange={(checked) => handleNotificationToggle('goal', checked)}
+                      label="Flagged Content Alerts"
+                      description="Get notified immediately when verifiers escalate a question for moderator audit."
+                      icon={Flag}
+                    />
+
+                    <PremiumToggle
+                      checked={streakNotificationsEnabled}
+                      onChange={(checked) => handleNotificationToggle('streak', checked)}
+                      label="Appeal Dispute Alerts"
+                      description="Get notified when students submit new grading appeals for review."
+                      icon={AlertTriangle}
+                    />
+
+                    {user?.role === 'admin' && (
+                      <PremiumToggle
+                        checked={leaderboardNotificationsEnabled}
+                        onChange={(checked) => handleNotificationToggle('leaderboard', checked)}
+                        label="System Performance Alerts"
+                        description="Get notified about database latencies, Redis status, or OCR pipeline errors."
+                        icon={Cpu}
+                      />
+                    )}
+                  </>
+                )}
               </div>
             </div>
 
             {/* Privacy & Sounds */}
             <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm space-y-4">
               <h3 className="font-display font-bold text-sm text-text-primary flex items-center gap-2">
-                <Eye className="w-4 h-4 text-accent" /> Privacy & Sounds
+                <Eye className="w-4 h-4 text-accent" /> {user?.role === 'student' ? 'Privacy & Sounds' : 'System Sounds'}
               </h3>
               <div className="space-y-3">
-                <PremiumToggle
-                  checked={leaderboardVisible}
-                  onChange={setLeaderboardVisible}
-                  label="Leaderboard Visibility"
-                  description="Display your study statistics and league status on leaderboards."
-                  icon={Eye}
-                />
+                {user?.role === 'student' && (
+                  <PremiumToggle
+                    checked={leaderboardVisible}
+                    onChange={setLeaderboardVisible}
+                    label="Leaderboard Visibility"
+                    description="Display your study statistics and league status on leaderboards."
+                    icon={Eye}
+                  />
+                )}
 
                 <PremiumToggle
                   checked={playSounds}
                   onChange={setPlaySounds}
                   label="Play Sound Effects"
-                  description="Sound cues for successful grades or learning milestones."
+                  description="Sound cues for successful workspace actions or system alerts."
                   icon={Volume2}
                 />
               </div>

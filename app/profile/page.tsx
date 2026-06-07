@@ -31,7 +31,18 @@ import {
   Code,
   Rocket,
   Edit2,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  Flag,
+  Cpu,
+  AlertTriangle,
+  XCircle,
+  MessageSquare,
+  Users,
+  Globe,
+  Activity,
+  Database,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserAvatar } from '@/components/user-avatar';
@@ -57,6 +68,8 @@ export default function ProfilePage() {
   const [showIdModal, setShowIdModal] = useState(false);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [staffStats, setStaffStats] = useState<any>(null);
+  const [loadingStaffStats, setLoadingStaffStats] = useState(false);
 
   // Edit Profile States
   const [showEditModal, setShowEditModal] = useState(false);
@@ -202,7 +215,7 @@ export default function ProfilePage() {
     setEditError('');
 
     const selectedCrs = courseList.find(c => c._id === editCourseId);
-    if (selectedCrs && selectedCrs.isBranchRequired && !editBranchId) {
+    if (user?.role === 'student' && selectedCrs && selectedCrs.isBranchRequired && !editBranchId) {
       setEditError('Branch is required for this course.');
       setSavingProfile(false);
       return;
@@ -210,6 +223,19 @@ export default function ProfilePage() {
 
     try {
       const token = await fbUser.getIdToken();
+      const profileData: any = {
+        name: editName,
+        gender: editGender
+      };
+
+      if (user?.role === 'student') {
+        profileData.universityId = editUniversityId;
+        profileData.collegeId = editCollegeId;
+        profileData.courseId = editCourseId;
+        profileData.branchId = selectedCrs?.isBranchRequired ? editBranchId : null;
+        profileData.semester = Number(editSemester);
+      }
+
       const res = await fetch('/api/users/profile', {
         method: 'PUT',
         headers: {
@@ -217,15 +243,7 @@ export default function ProfilePage() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          profile: {
-            name: editName,
-            gender: editGender,
-            universityId: editUniversityId,
-            collegeId: editCollegeId,
-            courseId: editCourseId,
-            branchId: selectedCrs?.isBranchRequired ? editBranchId : null,
-            semester: Number(editSemester)
-          }
+          profile: profileData
         })
       });
 
@@ -338,6 +356,30 @@ export default function ProfilePage() {
     .catch((err: any) => console.error("Error loading subjects in profile:", err))
     .finally(() => setLoadingSubjects(false));
   }, [authLoading, fbUser, user, localCollege, localBranch]);
+
+  useEffect(() => {
+    if (authLoading || !fbUser || !user || user.role === 'student') return;
+    
+    setLoadingStaffStats(true);
+    fbUser.getIdToken().then((token: string) => {
+      const endpoint = user.role === 'admin' ? '/api/admin/platform-stats' : `/api/stats/${user.role}`;
+      return fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    })
+    .then((res: any) => res && res.ok ? res.json() : null)
+    .then((data: any) => {
+      if (data) {
+        if (user.role === 'admin') {
+          setStaffStats(data);
+        } else {
+          setStaffStats(data.metrics);
+        }
+      }
+    })
+    .catch((err: any) => console.error("Error loading staff stats in profile:", err))
+    .finally(() => setLoadingStaffStats(false));
+  }, [fbUser, user, authLoading]);
 
   if (authLoading) {
     return (
@@ -514,7 +556,7 @@ export default function ProfilePage() {
               My Profile
             </h1>
             <p className="text-[11px] sm:text-xs text-text-secondary">
-              Your academic identity and information.
+              {user?.role === 'student' ? 'Your academic identity and information.' : 'Your staff workspace identity and statistics.'}
             </p>
           </div>
 
@@ -553,21 +595,37 @@ export default function ProfilePage() {
                   </button>
                 </div>
 
-                <span className="inline-block px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
-                  {activeBranch}
-                </span>
+                {user?.role === 'student' ? (
+                  <span className="inline-block px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                    {activeBranch}
+                  </span>
+                ) : (
+                  <span className="inline-block px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider font-mono">
+                    {user?.role === 'verifier' ? 'Verifier Partner' : user?.role === 'moderator' ? 'Moderator Admin' : 'Super Administrator'}
+                  </span>
+                )}
 
-                <div className="flex items-center gap-3.5 flex-wrap justify-center sm:justify-start text-[10.5px] font-bold text-text-secondary">
-                  <span className="flex items-center gap-1">
-                    <GraduationCap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> {activeCollege}
-                  </span>
-                  <span className="text-text-muted">•</span>
-                  <span>Semester {activeSemester}</span>
-                  <span className="text-text-muted">•</span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Joined {joinedDate}
-                  </span>
-                </div>
+                {user?.role === 'student' ? (
+                  <div className="flex items-center gap-3.5 flex-wrap justify-center sm:justify-start text-[10.5px] font-bold text-text-secondary">
+                    <span className="flex items-center gap-1">
+                      <GraduationCap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> {activeCollege}
+                    </span>
+                    <span className="text-text-muted">•</span>
+                    <span>Semester {activeSemester}</span>
+                    <span className="text-text-muted">•</span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Joined {joinedDate}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3.5 flex-wrap justify-center sm:justify-start text-[10.5px] font-bold text-text-secondary">
+                    <span>{activeEmail}</span>
+                    <span className="text-text-muted">•</span>
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Joined {joinedDate}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -577,7 +635,14 @@ export default function ProfilePage() {
               <div className="space-y-1.5 max-w-[200px] text-left">
                 <span className="text-2xl font-serif text-purple-400 font-bold block leading-none">“</span>
                 <p className="text-[10px] text-text-secondary font-bold leading-normal italic">
-                  Code. Learn. Build. Repeat. Every line of code is a step towards a better future.
+                  {user?.role === 'student'
+                    ? "Code. Learn. Build. Repeat. Every line of code is a step towards a better future."
+                    : user?.role === 'verifier'
+                    ? "Strive for absolute precision in examination digitizations. Accuracy defines PaperHub."
+                    : user?.role === 'moderator'
+                    ? "Ensure absolute fairness, quality content checks, and audit integrity across all queues."
+                    : "Orchestrate, monitor, and scale the learning ecosystem with system health and metrics."
+                  }
                 </p>
               </div>
 
@@ -587,7 +652,7 @@ export default function ProfilePage() {
                 <svg viewBox="0 0 100 80" className="w-full h-full z-10 filter drop-shadow-[0_0_12px_rgba(124,102,255,0.45)]">
                   <rect x="15" y="10" width="70" height="46" rx="4" fill="#080614" stroke="#7c66ff" strokeWidth="1.5" />
                   <rect x="19" y="14" width="62" height="38" rx="2" fill="#0c0a21" />
-                  <text x="32" y="36" fill="#7c66ff" fontSize="13" fontWeight="900" fontFamily="monospace" letterSpacing="1">{"</>"}</text>
+                  <text x="32" y="36" fill="#7c66ff" fontSize="13" fontWeight="900" fontFamily="monospace" letterSpacing="1">{user?.role === 'student' ? '</>' : '{}'}</text>
                   <path d="M 12 56 L 88 56 L 82 62 L 18 62 Z" fill="#181438" stroke="#7c66ff" strokeWidth="1" />
                   <path d="M 8 62 L 92 62 L 94 65 L 6 65 Z" fill="#0c0a21" stroke="#7c66ff" strokeWidth="1" />
                   <ellipse cx="50" cy="67" rx="36" ry="4" fill="#7c66ff" fillOpacity="0.25" />
@@ -596,137 +661,344 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Academic Information Grid */}
-          <div className="space-y-4">
-            <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-              <GraduationCap className="w-4 h-4 text-purple-400" /> Academic Information
-            </h3>
+          {/* Academic Information Grid (Student Only) */}
+          {user?.role === 'student' && (
+            <div className="space-y-4">
+              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+                <GraduationCap className="w-4 h-4 text-purple-400" /> Academic Information
+              </h3>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* College Card */}
-              <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex items-center gap-3.5 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/15 flex items-center justify-center shrink-0">
-                  <GraduationCap className="w-5 h-5" />
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* College Card */}
+                <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex items-center gap-3.5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/15 flex items-center justify-center shrink-0">
+                    <GraduationCap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] text-text-muted font-bold uppercase tracking-wider">College</h4>
+                    <p className="font-display font-black text-xs text-text-primary mt-0.5 truncate max-w-[140px] uppercase tracking-wide font-mono">
+                      {activeCollege}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-[10px] text-text-muted font-bold uppercase tracking-wider">College</h4>
-                  <p className="font-display font-black text-xs text-text-primary mt-0.5 truncate max-w-[140px] uppercase tracking-wide font-mono">
-                    {activeCollege}
-                  </p>
+
+                {/* Branch Card */}
+                <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex items-center gap-3.5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/15 flex items-center justify-center shrink-0">
+                    <Monitor className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Branch</h4>
+                    <p className="font-display font-black text-xs text-text-primary mt-0.5 truncate max-w-[140px] uppercase tracking-wide font-mono">
+                      {activeBranch}
+                    </p>
+                  </div>
                 </div>
+
+                {/* Semester Card */}
+                <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex items-center gap-3.5 shadow-sm">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Semester</h4>
+                    <p className="font-display font-black text-xs text-text-primary mt-0.5 truncate max-w-[140px] uppercase tracking-wide font-mono">
+                      Semester {activeSemester}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Student ID Card trigger Option */}
+                <button 
+                  onClick={() => setShowIdModal(true)}
+                  className="p-5 rounded-2xl border border-purple-500/25 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all flex items-center gap-3.5 text-left shadow-sm group cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-300 border border-purple-500/35 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <CreditCard className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">ID Card</h4>
+                    <p className="font-display font-black text-xs text-text-primary mt-0.5 flex items-center gap-1">
+                      Show My ID <ChevronRight className="w-3.5 h-3.5 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
+                    </p>
+                  </div>
+                </button>
               </div>
-
-              {/* Branch Card */}
-              <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex items-center gap-3.5 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/15 flex items-center justify-center shrink-0">
-                  <Monitor className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Branch</h4>
-                  <p className="font-display font-black text-xs text-text-primary mt-0.5 truncate max-w-[140px] uppercase tracking-wide font-mono">
-                    {activeBranch}
-                  </p>
-                </div>
-              </div>
-
-              {/* Semester Card */}
-              <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm flex items-center gap-3.5 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Semester</h4>
-                  <p className="font-display font-black text-xs text-text-primary mt-0.5 truncate max-w-[140px] uppercase tracking-wide font-mono">
-                    Semester {activeSemester}
-                  </p>
-                </div>
-              </div>
-
-              {/* Student ID Card trigger Option */}
-              <button 
-                onClick={() => setShowIdModal(true)}
-                className="p-5 rounded-2xl border border-purple-500/25 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all flex items-center gap-3.5 text-left shadow-sm group cursor-pointer"
-              >
-                <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-300 border border-purple-500/35 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                  <CreditCard className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-[10px] text-purple-300 font-bold uppercase tracking-wider">ID Card</h4>
-                  <p className="font-display font-black text-xs text-text-primary mt-0.5 flex items-center gap-1">
-                    Show My ID <ChevronRight className="w-3.5 h-3.5 text-purple-400 group-hover:translate-x-0.5 transition-transform" />
-                  </p>
-                </div>
-              </button>
             </div>
-          </div>
+          )}
 
-          {/* Current Subjects section */}
-          <div className="space-y-4">
-            <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-purple-400" /> Current Subjects
-            </h3>
+          {/* Current Subjects section (Student Only) */}
+          {user?.role === 'student' && (
+            <div className="space-y-4">
+              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-purple-400" /> Current Subjects
+              </h3>
 
-            {loadingSubjects ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 animate-spin text-accent" />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-                {displayedSubjects.map((subject, idx) => {
-                  const SubjectIcon = subject.icon;
-                  return (
-                    <div 
-                      key={(subject as any)._id || idx}
-                      className="bg-bg-secondary/40 border border-border-primary/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between h-36 hover:scale-[1.02] hover:border-accent/30 transition-all duration-300 group shadow-sm select-none"
-                    >
-                      {/* Ambient subject visual background formula */}
-                      <span className="absolute right-3.5 top-3 text-[10.5px] font-mono font-extrabold opacity-[0.025] dark:opacity-[0.045] select-none text-right leading-relaxed whitespace-pre pointer-events-none max-w-[120px] overflow-hidden h-[60px]">
-                        {subject.formula}
-                      </span>
+              {loadingSubjects ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                  {displayedSubjects.map((subject, idx) => {
+                    const SubjectIcon = subject.icon;
+                    return (
+                      <div 
+                        key={(subject as any)._id || idx}
+                        className="bg-bg-secondary/40 border border-border-primary/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between h-36 hover:scale-[1.02] hover:border-accent/30 transition-all duration-300 group shadow-sm select-none"
+                      >
+                        {/* Ambient subject visual background formula */}
+                        <span className="absolute right-3.5 top-3 text-[10.5px] font-mono font-extrabold opacity-[0.025] dark:opacity-[0.045] select-none text-right leading-relaxed whitespace-pre pointer-events-none max-w-[120px] overflow-hidden h-[60px]">
+                          {subject.formula}
+                        </span>
 
-                      {/* Icon */}
-                      <div className="w-9 h-9 rounded-lg bg-bg-tertiary/60 border border-border-primary/50 flex items-center justify-center shrink-0">
-                        <SubjectIcon className="w-4.5 h-4.5 text-text-secondary" />
+                        {/* Icon */}
+                        <div className="w-9 h-9 rounded-lg bg-bg-tertiary/60 border border-border-primary/50 flex items-center justify-center shrink-0">
+                          <SubjectIcon className="w-4.5 h-4.5 text-text-secondary" />
+                        </div>
+
+                        {/* Text */}
+                        <div className="space-y-1 mt-3">
+                          <h4 className="font-display font-bold text-xs text-text-primary truncate">
+                            {subject.name}
+                          </h4>
+                          <p className="text-[9px] text-text-secondary line-clamp-2 leading-relaxed" title={subject.description}>
+                            {subject.description}
+                          </p>
+                        </div>
+
+                        {/* Accent color strip at bottom */}
+                        <div className={`absolute bottom-0 inset-x-0 h-1.5 ${subject.colorBar}`} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Staff Workspace activity statistics */}
+          {user?.role !== 'student' && (
+            <div className="space-y-6 text-left">
+              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary flex items-center gap-1.5">
+                <Activity className="w-4 h-4 text-purple-400" /> Workspace Activity Metrics
+              </h3>
+
+              {loadingStaffStats ? (
+                <div className="py-12 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent mx-auto" />
+                  <p className="text-xs text-text-secondary mt-2">Loading workspace metrics...</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Grid layout for staff statistics */}
+                  {user?.role === 'verifier' && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Verified Questions</span>
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.verifiedQuestions ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Successfully approved</p>
                       </div>
 
-                      {/* Text */}
-                      <div className="space-y-1 mt-3">
-                        <h4 className="font-display font-bold text-xs text-text-primary truncate">
-                          {subject.name}
-                        </h4>
-                        <p className="text-[9px] text-text-secondary line-clamp-2 leading-relaxed" title={subject.description}>
-                          {subject.description}
-                        </p>
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Flagged Content</span>
+                          <Flag className="w-4 h-4 text-red-500" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.flaggedQuestions ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Reported to moderator</p>
                       </div>
 
-                      {/* Accent color strip at bottom */}
-                      <div className={`absolute bottom-0 inset-x-0 h-1.5 ${subject.colorBar}`} />
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Pipeline Batches</span>
+                          <Cpu className="w-4 h-4 text-purple-400" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.processingBatches ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Active document uploads</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Workspace Access</span>
+                          <Shield className="w-4 h-4 text-accent" />
+                        </div>
+                        <h3 className="font-display font-black text-xs mt-3.5 text-emerald-400 uppercase tracking-wide">ACTIVE PARTNER</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Verifier privileges enabled</p>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  )}
 
-          {/* Dynamic Bottom CTA Banner */}
-          <div className="bg-gradient-to-r from-purple-500/10 via-accent/5 to-purple-500/10 border border-purple-500/25 rounded-2xl p-4.5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-md">
-            <div className="flex items-center gap-3 text-center sm:text-left">
-              <div className="w-9 h-9 rounded-xl bg-purple-500/15 flex items-center justify-center shrink-0">
-                <Rocket className="w-4.5 h-4.5 text-purple-400" />
-              </div>
-              <p className="text-[11px] text-text-secondary font-bold leading-normal">
-                You are at the beginning of an amazing journey! Stay consistent, keep learning and build your future in {activeBranch}.
-              </p>
+                  {user?.role === 'moderator' && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Flagged Items</span>
+                          <Flag className="w-4 h-4 text-red-500" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.flaggedQuestions ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Awaiting moderation</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Grade Appeals</span>
+                          <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.pendingAppeals ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Student disputes open</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Feedback Tickets</span>
+                          <MessageSquare className="w-4 h-4 text-purple-400" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.openFeedback ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Bugs / queries pending</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Moderation Level</span>
+                          <Shield className="w-4 h-4 text-accent" />
+                        </div>
+                        <h3 className="font-display font-black text-xs mt-3.5 text-purple-400 uppercase tracking-wide">STAFF ADMIN</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">All queues active</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {user?.role === 'admin' && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Total Registrations</span>
+                          <Users className="w-4 h-4 text-purple-400" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.users?.total ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">User database size</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Daily Active Users</span>
+                          <Globe className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.users?.dailyActiveUsers ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Active within 24h</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">Practice Sessions</span>
+                          <BookOpen className="w-4 h-4 text-accent" />
+                        </div>
+                        <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{staffStats?.sessions?.total ?? 0}</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">{staffStats?.sessions?.today ?? 0} started today</p>
+                      </div>
+
+                      <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+                        <div className="flex items-center justify-between text-text-muted">
+                          <span className="text-[10px] font-black uppercase tracking-wider">System Health</span>
+                          <Activity className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        </div>
+                        <h3 className="font-display font-black text-xs mt-3.5 text-emerald-400 uppercase tracking-wide font-mono font-bold">HEALTHY</h3>
+                        <p className="text-[9px] text-text-secondary mt-1">Database & Redis connected</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Navigation Panel */}
+                  <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/20 space-y-4">
+                    <h4 className="font-display font-bold text-xs uppercase tracking-wider text-text-primary">
+                      Quick Workspace Navigation
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {user?.role === 'verifier' && (
+                        <>
+                          <Link 
+                            href="/verifier?tab=queue" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-accent/30 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">Verification Queue</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                          <Link 
+                            href="/verifier?tab=review" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-accent/30 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">Grade Review Queue</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                        </>
+                      )}
+                      {user?.role === 'moderator' && (
+                        <>
+                          <Link 
+                            href="/moderator?status=flagged" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-red-500/20 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">Flagged Questions</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                          <Link 
+                            href="/verifier?tab=review" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-amber-500/20 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">Appeals Review</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                          <Link 
+                            href="/admin?tab=feedback" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-purple-500/20 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">User Feedbacks</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                        </>
+                      )}
+                      {user?.role === 'admin' && (
+                        <>
+                          <Link 
+                            href="/admin?tab=users" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-accent/30 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">User Management</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                          <Link 
+                            href="/admin?tab=monitoring" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-emerald-500/30 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">System Monitoring</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                          <Link 
+                            href="/staff/audit" 
+                            className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-purple-500/20 transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs font-semibold text-text-primary">Audit Log View</span>
+                            <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                          </Link>
+                        </>
+                      )}
+                      <Link 
+                        href="/settings" 
+                        className="p-4 rounded-xl border border-border-primary/50 bg-bg-primary hover:border-accent/30 transition-all flex items-center justify-between group"
+                      >
+                        <span className="text-xs font-semibold text-text-primary">System Settings</span>
+                        <ChevronRight className="w-4 h-4 text-text-secondary group-hover:translate-x-0.5 transition-transform" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-            
-            <Link
-              href="/analytics"
-              className="py-2 px-4.5 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-md shadow-accent/20 shrink-0"
-            >
-              <span>View My Progress</span>
-              <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
+          )}
 
         </main>
       </div>
