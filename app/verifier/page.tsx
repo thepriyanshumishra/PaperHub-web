@@ -973,79 +973,85 @@ function VerifierDashboardContent() {
     );
   };
 
-  const renderEditForm = (q: IQuestion) => {
+  const renderQuestionDetails = (q: IQuestion) => {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-premium-reveal">
-        {/* Left Column: Vision Original Crop Preview */}
-        <div className="lg:col-span-5 space-y-2">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted flex items-center space-x-1">
-            <Eye className="w-3.5 h-3.5 text-accent" />
-            <span>Original Question Crop</span>
-          </label>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-premium-reveal mt-4">
+        {/* Left Column: Source Material */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2 text-text-secondary border-b border-border-primary/40 pb-2">
+            <Eye className="w-4 h-4 text-accent" />
+            <h4 className="text-xs font-display font-black uppercase tracking-widest">Original Source</h4>
+          </div>
           
           {q.croppedQuestionImage ? (
-            <div className="relative rounded-xl border border-border-primary overflow-hidden bg-black/5 flex flex-col justify-between group shadow-inner">
+            <div className="relative rounded-2xl border border-border-primary/50 overflow-hidden bg-bg-secondary/40 group shadow-lg flex items-center justify-center min-h-[200px]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src={q.croppedQuestionImage} 
                 alt="Original Crop" 
-                className="w-full h-auto object-contain max-h-60"
+                className="w-full h-auto object-contain max-h-[400px] transition-transform duration-500 group-hover:scale-[1.02]"
               />
               {q.sourcePageImage && (
                 <a 
                   href={q.sourcePageImage}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute bottom-2 right-2 text-[8px] bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded font-bold hover:bg-black/80 flex items-center space-x-1 border border-white/10 uppercase tracking-widest"
+                  className="absolute bottom-3 right-3 text-[10px] bg-black/70 backdrop-blur-md text-white px-3 py-1.5 rounded-lg font-bold hover:bg-black transition-colors flex items-center space-x-1.5 border border-white/20 uppercase tracking-widest shadow-xl"
                 >
-                  <Layers className="w-3 h-3" />
-                  <span>Full Page {q.sourcePageNumber && `(${q.sourcePageNumber})`}</span>
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Full Page {q.sourcePageNumber ? `(${q.sourcePageNumber})` : ''}</span>
                 </a>
               )}
             </div>
           ) : (
-            <div className="p-8 border border-dashed border-border-primary rounded-xl text-center text-text-muted text-[10px]">
-              No Vision Image available for this question.
+            <div className="flex flex-col items-center justify-center min-h-[200px] p-8 border-2 border-dashed border-border-primary/40 rounded-2xl bg-bg-secondary/20 text-center space-y-2">
+              <HelpCircle className="w-8 h-8 text-text-muted" />
+              <p className="text-xs font-medium text-text-muted">No vision crop available</p>
             </div>
           )}
         </div>
 
-        {/* Right Column: Question Content Details */}
-        <div className="lg:col-span-7 space-y-5">
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted">LaTeX / Math Preview</label>
-            <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/80 text-sm leading-relaxed overflow-x-auto min-h-24 text-left">
+        {/* Right Column: Digitized Content & Metadata */}
+        <div className="space-y-6">
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2 text-text-secondary border-b border-border-primary/40 pb-2">
+              <FileText className="w-4 h-4 text-emerald-400" />
+              <h4 className="text-xs font-display font-black uppercase tracking-widest">Digitized Output</h4>
+            </div>
+            
+            <div className="p-6 rounded-2xl border border-border-primary/60 bg-bg-secondary shadow-inner text-base leading-relaxed text-text-primary overflow-x-auto min-h-[200px]">
               <MathMarkdown content={q.questionText || 'Empty question body'} />
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl border border-border-primary bg-bg-secondary/20 space-y-3.5 text-left">
-            <div className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Question Parameters</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 space-y-1">
-                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Topic</span>
-                <span className="text-text-primary font-semibold block">{q.topic || 'N/A'}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 text-center space-y-1">
-                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Unit</span>
-                  <span className="text-text-primary font-bold block">{q.unit}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 text-center space-y-1">
-                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Marks</span>
-                  <span className="text-text-primary font-bold block">{q.marks}</span>
-                </div>
-                <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 text-center space-y-1">
-                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Difficulty</span>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider block px-1.5 py-0.5 rounded ${
-                    q.difficulty === 'easy' ? 'text-emerald-500 bg-emerald-500/10' :
-                    q.difficulty === 'medium' ? 'text-yellow-500 bg-yellow-500/10' :
-                    'text-red-500 bg-red-500/10'
-                  }`}>
-                    {q.difficulty}
-                  </span>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl bg-bg-secondary border border-border-primary/40 flex flex-col justify-center text-center shadow-sm">
+              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">Topic</span>
+              <span className="text-xs font-bold text-text-primary truncate px-1" title={q.topic}>{q.topic || 'Uncategorized'}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-bg-secondary border border-border-primary/40 flex flex-col justify-center text-center shadow-sm">
+              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">Unit / Marks</span>
+              <span className="text-xs font-bold text-text-primary">U{q.unit} • {q.marks}M</span>
+            </div>
+            <div className="p-3 rounded-xl bg-bg-secondary border border-border-primary/40 flex flex-col justify-center text-center shadow-sm">
+              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">Difficulty</span>
+              <span className={`text-[10px] font-extrabold uppercase tracking-widest ${
+                q.difficulty === 'easy' ? 'text-emerald-400' :
+                q.difficulty === 'medium' ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {q.difficulty}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-bg-secondary border border-border-primary/40 flex flex-col justify-center text-center shadow-sm">
+              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider mb-1">OCR Match</span>
+              <span className={`text-xs font-extrabold ${
+                (q.ocrConfidence || 0) >= 90 ? 'text-green-400' :
+                (q.ocrConfidence || 0) >= 70 ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {q.ocrConfidence !== undefined ? `${q.ocrConfidence}%` : 'N/A'}
+              </span>
             </div>
           </div>
         </div>
@@ -1096,14 +1102,17 @@ function VerifierDashboardContent() {
                             onClick={() => handleExpandQuestion(q)}
                             className="text-xs text-accent hover:underline font-bold"
                           >
-                            {isExpanded ? 'Hide Details / Edit' : 'Edit / Classify'}
+                            {isExpanded ? 'Hide Details' : 'View Details'}
                           </button>
                         </div>
-                        <div className="text-sm text-text-primary font-medium leading-relaxed bg-bg-primary/40 p-4 rounded-xl border border-border-primary/40">
+                        <div className="text-sm text-text-primary/90 leading-relaxed font-normal bg-bg-primary/40 p-4 rounded-xl border border-border-primary/30 mt-2 shadow-inner max-h-32 overflow-hidden relative">
                           <MathMarkdown content={q.questionText} />
+                          {!isExpanded && (
+                            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-bg-primary/40 to-transparent pointer-events-none" />
+                          )}
                         </div>
                         
-                        {isExpanded && renderEditForm(q)}
+                        {isExpanded && renderQuestionDetails(q)}
                       </div>
                       
                       <div className="space-y-2 pl-4 border-l-2 border-yellow-500/30">
@@ -1186,58 +1195,62 @@ function VerifierDashboardContent() {
                   >
                     <div
                       onClick={() => handleExpandQuestion(q)}
-                      className="p-5 flex items-start justify-between cursor-pointer select-none"
+                      className="p-5 flex items-start justify-between cursor-pointer select-none hover:bg-bg-primary/30 transition-colors"
                     >
-                      <div className="flex-grow space-y-2 pr-4">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <span className="text-[9px] px-2 py-0.5 rounded bg-accent/10 border border-accent/25 text-accent font-bold uppercase tracking-wider">
-                            Unit {q.unit}
+                      <div className="flex-grow space-y-3 pr-6">
+                        <div className="flex flex-wrap gap-2.5 items-center">
+                          <span className="text-[10px] px-2.5 py-1 rounded-md bg-accent/10 border border-accent/25 text-accent font-extrabold uppercase tracking-widest shadow-sm">
+                            U{q.unit}
                           </span>
-                          <span className="text-[9px] px-2 py-0.5 rounded bg-border-primary text-text-secondary font-semibold uppercase tracking-wider">
+                          <span className="text-[10px] px-2.5 py-1 rounded-md bg-bg-primary border border-border-primary text-text-secondary font-bold uppercase tracking-widest shadow-sm">
                             {q.marks} Marks
                           </span>
                           {q.ocrConfidence !== undefined && (
-                            <span className={`text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
+                            <span className={`text-[10px] px-2.5 py-1 rounded-md font-mono font-bold uppercase tracking-widest shadow-sm ${
                               q.ocrConfidence >= 90 ? 'bg-green-500/10 text-green-400 border border-green-500/25' :
                               q.ocrConfidence >= 70 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/25' :
                               'bg-red-500/10 text-red-400 border border-red-500/25'
                             }`}>
-                              {q.ocrConfidence}% Confidence
+                              {q.ocrConfidence}% OCR
                             </span>
                           )}
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${
-                            q.verificationStatus === 'verified' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500' :
-                            q.verificationStatus === 'flagged' ? 'bg-red-500/15 border-red-500/30 text-red-500' :
-                            'bg-yellow-500/15 border-yellow-500/30 text-yellow-500'
+                          <span className={`text-[10px] px-2.5 py-1 rounded-md font-extrabold uppercase tracking-widest shadow-sm ${
+                            q.verificationStatus === 'verified' ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400' :
+                            q.verificationStatus === 'flagged' ? 'bg-red-500/15 border border-red-500/30 text-red-400' :
+                            'bg-yellow-500/15 border border-yellow-500/30 text-yellow-500'
                           }`}>
                             {q.verificationStatus}
                           </span>
                         </div>
                         
-                        <div className="text-xs text-text-primary leading-relaxed font-semibold">
-                          Q{groupIdx + 1}. <span className="font-normal text-text-secondary">{q.topic}</span>
+                        <div className="text-sm text-text-primary leading-relaxed font-bold flex items-start space-x-2">
+                          <span className="text-accent mt-0.5">Q{groupIdx + 1}.</span> 
+                          <span className="font-semibold text-text-secondary">{q.topic || 'Uncategorized Topic'}</span>
                         </div>
                         
-                        <div className="text-sm text-text-primary/90 leading-relaxed font-normal bg-bg-primary/20 p-3 rounded-lg border border-border-primary/20 mt-1">
+                        <div className="text-sm text-text-primary/90 leading-relaxed font-normal bg-bg-primary/40 p-4 rounded-xl border border-border-primary/30 mt-2 shadow-inner max-h-32 overflow-hidden relative">
                           <MathMarkdown content={q.questionText} />
+                          {!isExpanded && (
+                            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-bg-primary/40 to-transparent pointer-events-none" />
+                          )}
                         </div>
                         
                         {q.verificationStatus === 'flagged' && q.verificationComment && (
-                          <div className="text-[10px] text-red-500 flex items-start space-x-1 font-semibold leading-relaxed bg-red-500/5 p-2 rounded-lg border border-red-500/10">
-                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                            <span>Flagged Comment: {q.verificationComment}</span>
+                          <div className="text-[11px] text-red-400 flex items-start space-x-2 font-bold leading-relaxed bg-red-500/5 p-3 rounded-xl border border-red-500/20 shadow-sm mt-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>Reported: {q.verificationComment}</span>
                           </div>
                         )}
                       </div>
                       
-                      <div className="mt-1">
-                        {isExpanded ? <ChevronDown className="w-4 h-4 text-text-secondary" /> : <ChevronRight className="w-4 h-4 text-text-secondary" />}
+                      <div className="mt-2 bg-bg-primary p-2 rounded-full border border-border-primary/50 shadow-sm">
+                        {isExpanded ? <ChevronDown className="w-5 h-5 text-text-primary" /> : <ChevronRight className="w-5 h-5 text-text-primary" />}
                       </div>
                     </div>
                     
                     {isExpanded && (
                       <div className="p-5 border-t border-border-primary/50 bg-bg-secondary/20 space-y-6">
-                        {renderEditForm(q)}
+                        {renderQuestionDetails(q)}
                         
                         {/* Actions panel */}
                         <div className="flex flex-wrap items-center justify-between border-t border-border-primary/50 pt-4 gap-2">
@@ -1381,68 +1394,51 @@ function VerifierDashboardContent() {
               )}
 
               {/* Question primary details */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 border border-accent/25 text-accent font-bold uppercase tracking-wider">
-                    Unit {q.unit}
-                  </span>
-                  {q.ocrConfidence !== undefined && (
-                    <span className="text-text-secondary">OCR Confidence: {q.ocrConfidence}%</span>
-                  )}
-                </div>
-
-                {/* Math / LaTeX content preview */}
-                <div className="text-base text-text-primary leading-relaxed bg-bg-primary/30 p-5 rounded-2xl border border-border-primary/50">
-                  <MathMarkdown content={q.questionText} />
-                </div>
-
-                {/* Edit inputs directly nested in the card */}
-                <div className="pt-4 border-t border-border-primary/30">
-                  {renderEditForm(q)}
-                </div>
-
-                {/* Stacked duplicate candidates inside this card block */}
-                {group.isDuplicateGroup && (
-                  <div className="space-y-3 pt-6 border-t border-border-primary/30">
-                    <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Duplicate Candidates</h4>
-                    <div className="space-y-3">
-                      {group.duplicates.map((dup: IQuestion) => (
-                        <div
-                          key={dup._id}
-                          className="p-4 rounded-xl border border-border-primary/40 bg-bg-secondary/30 flex items-start justify-between gap-4 animate-premium-reveal"
-                        >
-                          <div className="flex-grow space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-mono">
-                                ID: {dup.questionId}
-                              </span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-bold">
-                                {dup.ocrConfidence}% OCR
-                              </span>
-                            </div>
-                            <div className="text-xs text-text-secondary leading-relaxed">
-                              <MathMarkdown content={dup.questionText} />
-                            </div>
-                          </div>
-                          
-                          <button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete duplicate question ${dup.questionId}?`)) {
-                                executeDeleteQuestion(dup._id);
-                              }
-                            }}
-                            disabled={submittingVerification}
-                            className="p-2 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors flex-shrink-0"
-                            title="Delete Duplicate"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="w-full">
+                {renderQuestionDetails(q)}
               </div>
+
+              {/* Stacked duplicate candidates inside this card block */}
+              {group.isDuplicateGroup && (
+                <div className="space-y-3 pt-6 border-t border-border-primary/40">
+                  <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Duplicate Candidates</h4>
+                  <div className="space-y-3">
+                    {group.duplicates.map((dup: IQuestion) => (
+                      <div
+                        key={dup._id}
+                        className="p-4 rounded-xl border border-border-primary/40 bg-bg-secondary/30 flex items-start justify-between gap-4 animate-premium-reveal shadow-sm"
+                      >
+                        <div className="flex-grow space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-bg-primary border border-border-primary text-text-secondary font-mono">
+                              ID: {dup.questionId}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-bold border border-green-500/20">
+                              {dup.ocrConfidence}% OCR
+                            </span>
+                          </div>
+                          <div className="text-xs text-text-secondary leading-relaxed p-3 bg-bg-primary/40 rounded-lg border border-border-primary/30">
+                            <MathMarkdown content={dup.questionText} />
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to delete duplicate question ${dup.questionId}?`)) {
+                              executeDeleteQuestion(dup._id);
+                            }
+                          }}
+                          disabled={submittingVerification}
+                          className="p-2.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors flex-shrink-0"
+                          title="Delete Duplicate"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Highly visible actions */}
               <div className="flex items-center justify-between border-t border-border-primary/40 pt-6 mt-6">
@@ -1453,12 +1449,13 @@ function VerifierDashboardContent() {
                     }
                   }}
                   disabled={activeGroupIndex === 0}
-                  className="px-4 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors disabled:opacity-30"
+                  className="px-5 py-2.5 rounded-xl border border-border-primary/60 bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-all disabled:opacity-30 flex items-center space-x-1.5 shadow-sm hover:shadow"
                 >
-                  Previous Card
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Previous</span>
                 </button>
 
-                <div className="flex items-center space-x-3.5">
+                <div className="flex items-center space-x-4">
                   <button
                     onClick={() => {
                       submitVerification(q._id, 'verified');
@@ -1467,18 +1464,18 @@ function VerifierDashboardContent() {
                       }
                     }}
                     disabled={submittingVerification}
-                    className="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-extrabold shadow-lg shadow-emerald-500/15 transition-all flex items-center space-x-2"
+                    className="group px-8 py-3.5 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 text-white text-sm font-extrabold shadow-xl shadow-emerald-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center space-x-2 border border-emerald-400/50"
                   >
-                    <Check className="w-4 h-4" />
+                    <CheckCircle2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     <span>{group.isDuplicateGroup ? 'Accept Primary (A)' : 'Accept (A)'}</span>
                   </button>
 
                   <button
                     onClick={() => setFlagQId(q._id)}
                     disabled={submittingVerification}
-                    className="px-6 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white text-sm font-extrabold shadow-lg shadow-red-500/15 transition-all flex items-center space-x-2"
+                    className="group px-8 py-3.5 rounded-2xl bg-gradient-to-b from-red-400 to-red-600 hover:from-red-300 hover:to-red-500 text-white text-sm font-extrabold shadow-xl shadow-red-500/20 transition-all hover:-translate-y-0.5 active:translate-y-0 flex items-center space-x-2 border border-red-400/50"
                   >
-                    <Flag className="w-4 h-4" />
+                    <Flag className="w-5 h-5 group-hover:scale-110 transition-transform" />
                     <span>{group.isDuplicateGroup ? 'Report Group (R)' : 'Report (R)'}</span>
                   </button>
 
@@ -1490,9 +1487,9 @@ function VerifierDashboardContent() {
                         setActiveGroupIndex(0);
                       }
                     }}
-                    className="px-5 py-3 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-sm font-bold text-text-secondary transition-colors"
+                    className="px-6 py-3.5 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-sm font-bold text-text-secondary transition-all shadow-sm flex items-center space-x-2"
                   >
-                    Skip (S)
+                    <span>Skip (S)</span>
                   </button>
                 </div>
 
@@ -1503,9 +1500,10 @@ function VerifierDashboardContent() {
                     }
                   }}
                   disabled={activeGroupIndex === flattenedGroups.length - 1}
-                  className="px-4 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors disabled:opacity-30"
+                  className="px-5 py-2.5 rounded-xl border border-border-primary/60 bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-all disabled:opacity-30 flex items-center space-x-1.5 shadow-sm hover:shadow"
                 >
-                  Next Card
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </motion.div>
