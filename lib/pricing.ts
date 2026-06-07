@@ -2,6 +2,8 @@
 export type PlanId = 'free' | 'plus' | 'pro' | 'institution' | 'beta_pro';
 
 export interface PlanFeatures {
+  solutionsAccess: 'limited' | 'full' | 'unlimited';
+  dailyHints: number;         // -1 = unlimited
   dailyAiChats: number;       // -1 = unlimited
   dailyEvaluations: number;   // -1 = unlimited
   mockTestsPerMonth: number;  // -1 = unlimited
@@ -28,7 +30,9 @@ export const PLANS: Record<PlanId, Plan> = {
     description: 'Get started with essential PYQ practice tools',
     price: 0,
     features: {
-      dailyAiChats: 5,
+      solutionsAccess: 'unlimited',
+      dailyHints: 5,
+      dailyAiChats: 10,
       dailyEvaluations: 0,
       mockTestsPerMonth: 2,
       questionBankAccess: 'limited',
@@ -38,30 +42,15 @@ export const PLANS: Record<PlanId, Plan> = {
     },
     badge: '🆓',
   },
-  pro: {
-    id: 'pro',
-    name: 'Pro',
-    description: 'Unlock the full PaperHub experience for serious exam preparation',
-    price: 99,
-    features: {
-      dailyAiChats: 50,
-      dailyEvaluations: 20,
-      mockTestsPerMonth: -1,
-      questionBankAccess: 'full',
-      studyRecommendations: true,
-      exportReports: true,
-      prioritySupport: false,
-    },
-    badge: '⚡',
-    highlighted: true,
-  },
   plus: {
     id: 'plus',
     name: 'Plus',
     description: 'Enhanced limits and basic AI evaluation for your handwritten papers',
-    price: 49,
+    price: 99,
     features: {
-      dailyAiChats: 20,
+      solutionsAccess: 'unlimited',
+      dailyHints: 25,
+      dailyAiChats: 30,
       dailyEvaluations: 5,
       mockTestsPerMonth: 10,
       questionBankAccess: 'full',
@@ -71,12 +60,33 @@ export const PLANS: Record<PlanId, Plan> = {
     },
     badge: '📈',
   },
+  pro: {
+    id: 'pro',
+    name: 'Pro',
+    description: 'Unlock the full PaperHub experience for serious exam preparation',
+    price: 499,
+    features: {
+      solutionsAccess: 'unlimited',
+      dailyHints: -1,
+      dailyAiChats: -1,
+      dailyEvaluations: 25,
+      mockTestsPerMonth: -1,
+      questionBankAccess: 'full',
+      studyRecommendations: true,
+      exportReports: true,
+      prioritySupport: false,
+    },
+    badge: '⚡',
+    highlighted: true,
+  },
   institution: {
     id: 'institution',
     name: 'Institution',
     description: 'Custom deployment for universities and coaching centers',
     price: -1,
     features: {
+      solutionsAccess: 'unlimited',
+      dailyHints: -1,
       dailyAiChats: -1,
       dailyEvaluations: -1,
       mockTestsPerMonth: -1,
@@ -93,8 +103,10 @@ export const PLANS: Record<PlanId, Plan> = {
     description: 'Full Pro access during the beta period — completely free',
     price: 0,
     features: {
-      dailyAiChats: 50,
-      dailyEvaluations: 20,
+      solutionsAccess: 'unlimited',
+      dailyHints: -1,
+      dailyAiChats: -1,
+      dailyEvaluations: 25,
       mockTestsPerMonth: -1,
       questionBankAccess: 'full',
       studyRecommendations: true,
@@ -122,18 +134,20 @@ export function isUnlimited(value: number): boolean {
 
 // Feature display labels for the pricing page
 export const FEATURE_LABELS: { key: keyof PlanFeatures; label: string; format: 'number' | 'boolean' | 'text' }[] = [
-  { key: 'dailyAiChats', label: 'AI Chat Sessions / Day', format: 'number' },
-  { key: 'dailyEvaluations', label: 'AI Evaluations / Day', format: 'number' },
+  { key: 'solutionsAccess', label: 'Verified Solutions', format: 'text' },
+  { key: 'dailyHints', label: 'AI Hints / Day', format: 'number' },
+  { key: 'dailyAiChats', label: 'Ask AI Messages / Day', format: 'number' },
+  { key: 'dailyEvaluations', label: 'AI Copy Evaluations', format: 'number' },
   { key: 'mockTestsPerMonth', label: 'Mock Tests / Month', format: 'number' },
   { key: 'questionBankAccess', label: 'Question Bank Access', format: 'text' },
   { key: 'studyRecommendations', label: 'AI Study Recommendations', format: 'boolean' },
   { key: 'exportReports', label: 'Export Reports (PDF)', format: 'boolean' },
-  { key: 'prioritySupport', label: 'Priority Support', format: 'boolean' },
 ];
 
 export function formatFeatureValue(value: number | boolean | string): string {
   if (typeof value === 'boolean') return value ? '✓' : '—';
   if (typeof value === 'string') {
+    if (value === 'unlimited') return 'Unlimited';
     if (value === 'limited') return 'Last 2 Years';
     if (value === 'full') return 'All Years';
     return value;
