@@ -178,12 +178,7 @@ function PracticeSolveContent() {
   } | null>(null);
   const [hasCheckedAnswer, setHasCheckedAnswer] = useState(false);
 
-  // Bookmark & Note states
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [personalNote, setPersonalNote] = useState('');
-  const [savingNote, setSavingNote] = useState(false);
-  const [isNoteOpen, setIsNoteOpen] = useState(false);
-  const [generatingNote, setGeneratingNote] = useState(false);
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
 
@@ -388,15 +383,13 @@ function PracticeSolveContent() {
       });
   }, [subjectId, sessionId, router, fbUser, authLoading]);
 
-  // Load current bookmarks & personal notes from authenticated user context
+  // Load current bookmarks from authenticated user context
   useEffect(() => {
     const q = questions[currentIdx];
     if (user && q?._id) {
       setIsBookmarked((user.bookmarks || []).includes(q._id));
-      setPersonalNote((user.personalNotes && user.personalNotes[q._id]) || '');
     } else {
       setIsBookmarked(false);
-      setPersonalNote('');
     }
     // Reset verify states per question
     setUserAttempt('');
@@ -404,7 +397,6 @@ function PracticeSolveContent() {
     setHasCheckedAnswer(false);
     setHintContent(null);
     setSolutionTab('verified');
-    setIsNoteOpen(false);
   }, [currentIdx, questions, user]);
 
   // Scroll to bottom of chat
@@ -550,69 +542,7 @@ function PracticeSolveContent() {
     }
   };
 
-  // DB Save Notebook Note helper
-  const savePersonalNote = async () => {
-    if (!user || !currentQuestion?._id) return;
-    setSavingNote(true);
-    playSoundEffect('click');
-    
-    const updatedNotes = {
-      ...(user.personalNotes || {}),
-      [currentQuestion._id]: personalNote
-    };
-    
-    try {
-      const token = await fbUser?.getIdToken();
-      await fetch('/api/users/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ personalNotes: updatedNotes })
-      });
-      refreshProfile();
-    } catch (err) {
-      console.error("Failed to save notebook note:", err);
-    } finally {
-      setSavingNote(false);
-    }
-  };
 
-  // AI Generate Note helper
-  const generateAiNote = async () => {
-    if (generatingNote || !currentQuestion?._id) return;
-    setGeneratingNote(true);
-    playSoundEffect('click');
-
-    try {
-      const token = await fbUser?.getIdToken();
-      const res = await fetch(`/api/ai/generate-note?questionId=${currentQuestion._id}`, {
-        headers: {
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
-      });
-
-      if (!res.ok) {
-        throw new Error('API server returned a non-200 status');
-      }
-
-      const data = await res.json();
-      if (data.noteText) {
-        setPersonalNote(data.noteText);
-        playSoundEffect('success');
-      } else {
-        throw new Error('No note text generated');
-      }
-    } catch (err) {
-      console.error("AI Note generation failed:", err);
-      // Fallback
-      setPersonalNote(`### Core Concept: ${currentQuestion.topic}\nThis study note summarizes key properties of ${currentQuestion.topic}.`);
-      playSoundEffect('failure');
-    } finally {
-      setGeneratingNote(false);
-    }
-  };
 
   // DB Toggle Bookmark helper
   const toggleBookmark = async () => {
@@ -780,21 +710,7 @@ function PracticeSolveContent() {
     ];
   };
 
-  // Related study notes banners
-  const getRelatedNotes = () => {
-    return [
-      {
-        title: `${currentQuestion.topic} Formula Sheet`,
-        desc: "Essential equations and standard theorems for exam night.",
-        link: "/notes"
-      },
-      {
-        title: `Unit ${currentQuestion.unit} High Yield Syllabus Cards`,
-        desc: "Review sessional checklists and previous year trends.",
-        link: `/subjects/${subjectId}`
-      }
-    ];
-  };
+
 
   // Perceived performance loading simulation for solution
   const triggerSolutionFetch = () => {
@@ -1531,97 +1447,7 @@ function PracticeSolveContent() {
                 </div>
               )}
 
-              {/* Related notes and concept cards shortcut banners */}
-              <div className="mt-6 border-t border-border-primary/30 pt-6">
-                <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-3">Related Study Notes</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {getRelatedNotes().map((note, nIdx) => (
-                    <Link
-                      key={nIdx}
-                      href={note.link}
-                      className="p-4 rounded-xl border border-border-primary bg-bg-primary/30 hover:border-accent/30 hover:bg-accent/[0.01] transition-all flex items-center justify-between group"
-                    >
-                      <div>
-                        <div className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors">{note.title}</div>
-                        <div className="text-[10px] text-text-muted mt-0.5">{note.desc}</div>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
             </motion.div>
-          )}
-
-          {/* Personal Notebook Note Section (Collapsible) */}
-          {user && (
-            <div id="notes-section" className="space-y-3">
-              {!isNoteOpen ? (
-                <button
-                  onClick={() => setIsNoteOpen(true)}
-                  className="w-full p-4.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary/60 hover:border-accent/30 transition-all flex items-center justify-between group"
-                >
-                  <div className="flex items-center space-x-3 text-left">
-                    <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 text-accent flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-text-primary">Personal Study Notes</h4>
-                      <p className="text-[10px] text-text-secondary mt-0.5">Write or generate custom key formulas & study tips.</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all shrink-0" />
-                </button>
-              ) : (
-                <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm shadow-sm space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-text-primary flex items-center space-x-2">
-                      <FileText className="w-4 h-4 text-accent" />
-                      <span>My Notebook Study Note</span>
-                    </h3>
-                    <button
-                      onClick={() => setIsNoteOpen(false)}
-                      className="text-[10px] text-text-muted hover:text-text-primary font-bold px-2 py-1 rounded bg-bg-primary/50 border border-border-primary/50 transition-all"
-                    >
-                      Collapse
-                    </button>
-                  </div>
-                  <textarea
-                    value={personalNote}
-                    onChange={(e) => setPersonalNote(e.target.value)}
-                    placeholder="Write down any tips, formulas, or corrections you want to save for this question. This will be persisted to your Notebooks manager..."
-                    className="w-full h-24 p-3 text-xs rounded-xl bg-bg-primary/30 text-text-primary border border-border-primary focus:outline-none focus:border-accent resize-none"
-                  />
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      onClick={generateAiNote}
-                      disabled={generatingNote}
-                      className="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/35 text-[10px] font-bold text-accent hover:bg-accent/25 transition-all flex items-center space-x-1 disabled:opacity-50"
-                    >
-                      {generatingNote ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Sparkles className="w-3 h-3" />
-                      )}
-                      <span>{generatingNote ? 'Generating...' : 'Generate AI Note'}</span>
-                    </button>
-                    
-                    <button
-                      onClick={savePersonalNote}
-                      disabled={savingNote}
-                      className="px-3.5 py-1.5 rounded-lg bg-bg-primary hover:bg-bg-tertiary border border-border-primary text-[10px] font-semibold text-text-primary flex items-center space-x-1 transition-colors"
-                    >
-                      {savingNote ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <CheckCircle className="w-3 h-3 text-emerald-400" />
-                      )}
-                      <span>{savingNote ? 'Saving...' : 'Save Note'}</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
           )}
         </div>
       </main>

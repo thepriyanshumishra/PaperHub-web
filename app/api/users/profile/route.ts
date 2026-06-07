@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/db';
 import User from '@/models/user';
-import Note from '@/models/note';
 import University from '@/models/university';
 import College from '@/models/college';
 import Course from '@/models/course';
@@ -15,14 +14,6 @@ export const dynamic = 'force-dynamic';
 // Helper to append legacy fields for backward compatibility with frontend pages
 async function populateUserCompat(user: any) {
   const userObj = user.toObject();
-
-  // 1. Fetch user notes and populate personalNotes map
-  const notes = await Note.find({ userId: user._id }).lean();
-  const personalNotesMap: Record<string, string> = {};
-  for (const note of notes) {
-    personalNotesMap[note.questionId] = note.noteText;
-  }
-  userObj.personalNotes = personalNotesMap;
 
   // 2. Fetch and populate legacy university/college/branch/course codes for backward compatibility
   if (user.profile) {
@@ -67,7 +58,7 @@ export async function PUT(req: NextRequest) {
     if (errorResponse) return errorResponse;
 
     const body = await req.json();
-    const { profile, onboardingCompleted, preferences, engagement, bookmarks, incorrectAttempts, personalNotes, migrationData } = body;
+    const { profile, onboardingCompleted, preferences, engagement, bookmarks, incorrectAttempts, migrationData } = body;
 
     await dbConnect();
 
@@ -204,26 +195,11 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Update Personal Notes (write to separate Note collection)
-    if (personalNotes !== undefined) {
-      for (const [qId, noteText] of Object.entries(personalNotes)) {
-        if (typeof noteText === 'string') {
-          if (noteText.trim()) {
-            await Note.findOneAndUpdate(
-              { userId: user._id, questionId: qId },
-              { noteText: noteText.trim() },
-              { upsert: true, new: true }
-            );
-          } else {
-            await Note.deleteOne({ userId: user._id, questionId: qId });
-          }
-        }
-      }
-    }
+
 
     // Transaction-safe Guest Data Migration
     if (migrationData) {
-      const { bookmarks: guestBookmarks, notes: guestNotes, incorrectAttempts: guestIncorrect } = migrationData;
+      const { bookmarks: guestBookmarks, incorrectAttempts: guestIncorrect } = migrationData;
 
       const runMigration = async (opts?: { session?: mongoose.ClientSession }) => {
         if (Array.isArray(guestBookmarks) && guestBookmarks.length > 0) {
@@ -236,19 +212,6 @@ export async function PUT(req: NextRequest) {
           const validIncorrect = guestIncorrect.filter(id => typeof id === 'string');
           const currentIncorrect = user.incorrectAttempts || [];
           user.incorrectAttempts = Array.from(new Set([...currentIncorrect, ...validIncorrect]));
-        }
-
-        if (Array.isArray(guestNotes) && guestNotes.length > 0) {
-          for (const noteItem of guestNotes) {
-            const { questionId, noteText } = noteItem;
-            if (typeof questionId === 'string' && typeof noteText === 'string' && noteText.trim()) {
-              await Note.findOneAndUpdate(
-                { userId: user._id, questionId },
-                { noteText: noteText.trim() },
-                { upsert: true, new: true, ...opts }
-              );
-            }
-          }
         }
       };
 

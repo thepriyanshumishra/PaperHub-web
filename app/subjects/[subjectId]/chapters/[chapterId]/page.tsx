@@ -9,7 +9,7 @@ import { Navbar } from '@/components/navbar';
 import {
   ChevronDown, ChevronRight, ChevronLeft,
   BookOpen, Loader2, Bookmark, FileText, ArrowRight, Menu,
-  FileCheck, NotebookPen, RotateCcw, Filter, SortDesc,
+  FileCheck, RotateCcw, Filter, SortDesc,
 } from 'lucide-react';
 
 interface SourcePaper {
@@ -574,11 +574,7 @@ export default function ChapterPage() {
                   </div>
                 </div>
 
-                {/* View Unit Notes */}
-                <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:border-accent/30 hover:text-accent text-xs font-bold text-text-secondary transition-all">
-                  <FileCheck className="w-3.5 h-3.5" />
-                  View Unit Notes
-                </button>
+
               </div>
 
             </div>

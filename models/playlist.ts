@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface IPlaylist extends Document {
   name: string;
   description?: string;
-  type: 'bookmark' | 'note';
+  type: 'bookmark';
   userId: string;
   subjectId: mongoose.Types.ObjectId;
   questions: mongoose.Types.ObjectId[];
@@ -18,7 +18,7 @@ const PlaylistSchema = new Schema<IPlaylist>(
   {
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
-    type: { type: String, enum: ['bookmark', 'note'], default: 'bookmark', required: true },
+    type: { type: String, enum: ['bookmark'], default: 'bookmark', required: true },
     userId: { type: String, required: true, index: true },
     subjectId: { type: Schema.Types.ObjectId, ref: 'Subject', required: true, index: true },
     questions: [{ type: Schema.Types.ObjectId, ref: 'Question' }],

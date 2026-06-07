@@ -3,7 +3,6 @@ import dbConnect from '@/lib/db';
 import User from '@/models/user';
 import Subject from '@/models/subject';
 import Question from '@/models/question';
-import Note from '@/models/note';
 import Playlist from '@/models/playlist';
 import { requireAuthorizedUser } from '@/lib/verifyAuth';
 import { safeErrorResponse, sanitizeText } from '@/lib/promptSafety';
@@ -16,8 +15,7 @@ export async function GET(req: NextRequest) {
     const { user, errorResponse } = await requireAuthorizedUser(req);
     if (errorResponse) return errorResponse;
 
-    const { searchParams } = new URL(req.url);
-    const type = (searchParams.get('type') || 'bookmark') as 'bookmark' | 'note';
+    const type = 'bookmark';
 
     // 1. Fetch user's semester subjects based on profile
     const subjectQuery: Record<string, any> = {};
@@ -45,13 +43,6 @@ export async function GET(req: NextRequest) {
       let userBookmarks: string[] = [];
       if (type === 'bookmark') {
         userBookmarks = user.bookmarks || [];
-      }
-
-      // Find user notes if type is note
-      let userNoteQuestionIds: string[] = [];
-      if (type === 'note') {
-        const notes = await Note.find({ userId: user._id }).lean();
-        userNoteQuestionIds = notes.map(n => String(n.questionId));
       }
 
       for (const subj of subjectsToSeed) {
@@ -103,60 +94,6 @@ export async function GET(req: NextRequest) {
               name: item.name,
               description: item.description,
               type: 'bookmark',
-              userId: user._id,
-              subjectId: subj._id,
-              questions: item.questions,
-              isPrivate: true,
-              icon: item.icon,
-              color: item.color
-            });
-            seededPlaylists.push(pl);
-          }
-        } else {
-          // Notes folders
-          const subjNotesQuestions = await Question.find({
-            _id: { $in: userNoteQuestionIds },
-            subjectId: subj._id
-          }).select('_id').lean();
-
-          const notesIds = subjNotesQuestions.map(q => q._id);
-
-          const defaultNotesData = [
-            {
-              name: 'Exam Formulas',
-              description: 'Important formulas and definitions',
-              icon: 'file-check',
-              color: 'purple',
-              questions: notesIds // Put existing notes here by default
-            },
-            {
-              name: 'Class Notes',
-              description: 'Notes taken during classroom lectures',
-              icon: 'file-text',
-              color: 'blue',
-              questions: []
-            },
-            {
-              name: 'AI Insights',
-              description: 'AI explained sessional steps',
-              icon: 'sparkles',
-              color: 'yellow',
-              questions: []
-            },
-            {
-              name: 'Sessional Prep',
-              description: 'High-yield question study cards',
-              icon: 'edit-3',
-              color: 'green',
-              questions: []
-            }
-          ];
-
-          for (const item of defaultNotesData) {
-            const pl = await Playlist.create({
-              name: item.name,
-              description: item.description,
-              type: 'note',
               userId: user._id,
               subjectId: subj._id,
               questions: item.questions,

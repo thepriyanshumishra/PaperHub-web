@@ -292,27 +292,13 @@ function OnboardingContent() {
     let migrationData = null;
     try {
       const guestBookmarksStr = localStorage.getItem('guest_bookmarks');
-      const guestNotesStr = localStorage.getItem('guest_notes');
       const guestIncorrectStr = localStorage.getItem('guest_incorrect');
 
       const bookmarks = guestBookmarksStr ? JSON.parse(guestBookmarksStr) : [];
       const incorrectAttempts = guestIncorrectStr ? JSON.parse(guestIncorrectStr) : [];
-      
-      let notes = [];
-      if (guestNotesStr) {
-        const parsedNotes = JSON.parse(guestNotesStr);
-        if (Array.isArray(parsedNotes)) {
-          notes = parsedNotes;
-        } else if (typeof parsedNotes === 'object') {
-          notes = Object.entries(parsedNotes).map(([questionId, noteText]) => ({
-            questionId,
-            noteText
-          }));
-        }
-      }
 
-      if (bookmarks.length > 0 || notes.length > 0 || incorrectAttempts.length > 0) {
-        migrationData = { bookmarks, notes, incorrectAttempts };
+      if (bookmarks.length > 0 || incorrectAttempts.length > 0) {
+        migrationData = { bookmarks, incorrectAttempts };
       }
     } catch (e) {
       console.warn('Failed to parse guest data for migration:', e);
@@ -379,7 +365,6 @@ function OnboardingContent() {
       // Clear guest keys ONLY on successful migration
       try {
         localStorage.removeItem('guest_bookmarks');
-        localStorage.removeItem('guest_notes');
         localStorage.removeItem('guest_incorrect');
       } catch (_) {}
 

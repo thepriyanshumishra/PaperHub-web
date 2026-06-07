@@ -185,7 +185,7 @@ export default function Login() {
               </div>
               <div>
                 <h3 className="font-semibold text-text-primary/90 text-sm">Save & Organize</h3>
-                <p className="text-text-secondary text-xs mt-1 leading-relaxed">Bookmarks, notes and quick revision</p>
+                <p className="text-text-secondary text-xs mt-1 leading-relaxed">Bookmarks, playlists and quick revision</p>
               </div>
             </div>
           </div>

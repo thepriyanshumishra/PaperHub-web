@@ -52,7 +52,6 @@ export interface IDbUser {
   };
   bookmarks: string[];
   incorrectAttempts: string[];
-  personalNotes: Record<string, string>;
   plan?: "free" | "pro" | "institution" | "beta_pro";
   planExpiresAt?: string | null;
   betaAccess?: {
@@ -141,32 +140,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Guest data migration synchronizer
         if (data.user && data.user.onboardingCompleted && typeof window !== "undefined") {
           try {
-            const guestBookmarksStr = localStorage.getItem("guest_bookmarks");
-            const guestNotesStr = localStorage.getItem("guest_notes");
+             const guestBookmarksStr = localStorage.getItem("guest_bookmarks");
             const guestIncorrectStr = localStorage.getItem("guest_incorrect");
 
             const hasBookmarks = guestBookmarksStr && JSON.parse(guestBookmarksStr).length > 0;
             const hasIncorrect = guestIncorrectStr && JSON.parse(guestIncorrectStr).length > 0;
-            const hasNotes = guestNotesStr && (
-              (Array.isArray(JSON.parse(guestNotesStr)) && JSON.parse(guestNotesStr).length > 0) ||
-              (typeof JSON.parse(guestNotesStr) === "object" && Object.keys(JSON.parse(guestNotesStr)).length > 0)
-            );
 
-            if (hasBookmarks || hasIncorrect || hasNotes) {
+            if (hasBookmarks || hasIncorrect) {
               const bookmarks = guestBookmarksStr ? JSON.parse(guestBookmarksStr) : [];
               const incorrectAttempts = guestIncorrectStr ? JSON.parse(guestIncorrectStr) : [];
-              let notes = [];
-              if (guestNotesStr) {
-                const parsedNotes = JSON.parse(guestNotesStr);
-                if (Array.isArray(parsedNotes)) {
-                  notes = parsedNotes;
-                } else if (typeof parsedNotes === "object") {
-                  notes = Object.entries(parsedNotes).map(([questionId, noteText]) => ({
-                    questionId,
-                    noteText,
-                  }));
-                }
-              }
 
               const migrationRes = await fetch("/api/users/profile", {
                 method: "PUT",
@@ -175,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   "Authorization": `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                  migrationData: { bookmarks, notes, incorrectAttempts },
+                  migrationData: { bookmarks, incorrectAttempts },
                 }),
               });
 
@@ -183,7 +165,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const migrationData = await migrationRes.json();
                 setUser(migrationData.user);
                 localStorage.removeItem("guest_bookmarks");
-                localStorage.removeItem("guest_notes");
                 localStorage.removeItem("guest_incorrect");
               }
             }

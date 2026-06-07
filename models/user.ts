@@ -93,7 +93,6 @@ export interface IUser extends Omit<mongoose.Document, '_id'> {
   incorrectAttempts: string[]; // Question IDs
   coachInsights?: string[];
   coachInsightsGeneratedAt?: Date;
-  personalNotes?: Record<string, string>; // Dynamic note map for legacy frontend compatibility
   // Phase J: Pricing & Beta
   plan: PlanId;
   planExpiresAt: Date | null;

@@ -68,7 +68,6 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
     { name: 'Tests', icon: FileText, path: '/tests' },
     { name: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
     { name: 'My Progress', icon: Activity, path: '/analytics' },
-    { name: 'Notes', icon: FileSignature, path: '/notes' },
     { name: 'AI Assistant', icon: Sparkles, path: '/dashboard#ai-assistant', badge: 'Beta' },
     { name: 'Settings', icon: Settings, path: '/settings' },
     { name: 'Profile', icon: User, path: '/profile' },

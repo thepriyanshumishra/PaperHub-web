@@ -37,7 +37,6 @@ export interface IQuestion extends Document {
   marks: number;
   sourcePapers: ISourcePaper[];
   cachedSolution?: ICachedSolution;
-  cachedNote?: string;
   humanVerified: boolean;
   verificationStatus: 'pending' | 'verified' | 'flagged' | 'archived';
   verificationComment?: string;
@@ -116,7 +115,6 @@ const QuestionSchema = new Schema<IQuestion>(
     marks: { type: Number, required: true },
     sourcePapers: [SourcePaperSchema],
     cachedSolution: CachedSolutionSchema,
-    cachedNote: { type: String },
     humanVerified: { type: Boolean, default: false },
     verificationStatus: { 
       type: String, 
