@@ -26,7 +26,10 @@ export async function GET(req: NextRequest) {
     const { leaderboard: rankedUsers, userRank } = await ttlCache.getOrSet(
       cacheKey,
       async () => {
-        const query: any = { onboardingCompleted: true, accountStatus: 'active' };
+        const query: any = { 
+          onboardingCompleted: true, 
+          accountStatus: { $in: ['active', null, undefined] } 
+        };
 
         // Apply scoping filters
         if (currentUser.profile) {

@@ -12,6 +12,7 @@ const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mo
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAuth } from '@/components/auth-provider';
+import { SessionLoader } from '@/components/session-loader';
 
 import { 
   Clock, 
@@ -105,6 +106,7 @@ function TestSolveContent() {
   const [questions, setQuestions] = useState<TestQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isLoaderVisible, setIsLoaderVisible] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
   const [timeLeft, setTimeLeft] = useState(durationParam * 60); // seconds
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -632,14 +634,13 @@ function TestSolveContent() {
     }
   };
 
-  if (loading) {
+  if (isLoaderVisible) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
-          <p className="text-xs text-text-secondary">Loading your exam sheet...</p>
-        </div>
-      </div>
+      <SessionLoader 
+        type="test"
+        isDataReady={!loading}
+        onFinished={() => setIsLoaderVisible(false)}
+      />
     );
   }
 

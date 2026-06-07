@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ThemeToggle } from '@/components/theme-toggle';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/components/auth-provider';
+import { SessionLoader } from '@/components/session-loader';
 
 const MathMarkdown = dynamic(() => import('@/components/math-markdown').then((mod) => mod.MathMarkdown), {
   ssr: false,
@@ -121,6 +122,7 @@ function PracticeSolveContent() {
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isLoaderVisible, setIsLoaderVisible] = useState(true);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   
   // Solution states
@@ -180,6 +182,8 @@ function PracticeSolveContent() {
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [personalNote, setPersonalNote] = useState('');
   const [savingNote, setSavingNote] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [generatingNote, setGeneratingNote] = useState(false);
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
 
@@ -307,6 +311,25 @@ function PracticeSolveContent() {
     return () => clearInterval(interval);
   }, [isTimerActive]);
 
+  // Load saved timer on mount / sessionId change
+  useEffect(() => {
+    if (sessionId) {
+      const saved = localStorage.getItem(`practice_time_${sessionId}`);
+      if (saved) {
+        setTimeElapsed(parseInt(saved, 10));
+      } else {
+        setTimeElapsed(0);
+      }
+    }
+  }, [sessionId]);
+
+  // Persist timer in localStorage when timeElapsed changes
+  useEffect(() => {
+    if (sessionId && timeElapsed > 0) {
+      localStorage.setItem(`practice_time_${sessionId}`, String(timeElapsed));
+    }
+  }, [sessionId, timeElapsed]);
+
   const toggleTimerState = () => {
     playSoundEffect('click');
     setIsTimerActive(!isTimerActive);
@@ -380,8 +403,8 @@ function PracticeSolveContent() {
     setEvaluationResult(null);
     setHasCheckedAnswer(false);
     setHintContent(null);
-    setTimeElapsed(0);
     setSolutionTab('verified');
+    setIsNoteOpen(false);
   }, [currentIdx, questions, user]);
 
   // Scroll to bottom of chat
@@ -553,6 +576,41 @@ function PracticeSolveContent() {
       console.error("Failed to save notebook note:", err);
     } finally {
       setSavingNote(false);
+    }
+  };
+
+  // AI Generate Note helper
+  const generateAiNote = async () => {
+    if (generatingNote || !currentQuestion?._id) return;
+    setGeneratingNote(true);
+    playSoundEffect('click');
+
+    try {
+      const token = await fbUser?.getIdToken();
+      const res = await fetch(`/api/ai/generate-note?questionId=${currentQuestion._id}`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error('API server returned a non-200 status');
+      }
+
+      const data = await res.json();
+      if (data.noteText) {
+        setPersonalNote(data.noteText);
+        playSoundEffect('success');
+      } else {
+        throw new Error('No note text generated');
+      }
+    } catch (err) {
+      console.error("AI Note generation failed:", err);
+      // Fallback
+      setPersonalNote(`### Core Concept: ${currentQuestion.topic}\nThis study note summarizes key properties of ${currentQuestion.topic}.`);
+      playSoundEffect('failure');
+    } finally {
+      setGeneratingNote(false);
     }
   };
 
@@ -952,14 +1010,13 @@ function PracticeSolveContent() {
     setShowConfirmModal(true);
   };
 
-  if (loading) {
+  if (isLoaderVisible) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
-          <p className="text-xs text-text-secondary">Loading questions...</p>
-        </div>
-      </div>
+      <SessionLoader 
+        type="practice"
+        isDataReady={!loading}
+        onFinished={() => setIsLoaderVisible(false)}
+      />
     );
   }
 
@@ -1088,92 +1145,32 @@ function PracticeSolveContent() {
                     {currentQuestion.marks} Marker
                   </span>
                 )}
-              </div>
-            </div>
-            
-            <h2 className={`${getTextSizeClass(preferences.textSize)} font-semibold leading-relaxed text-text-primary mb-6`}>
-              <MathMarkdown content={currentQuestion.questionText} />
-            </h2>
 
-            {/* Answer Attempt Area */}
-            <div className="mt-6 border-t border-border-primary/40 pt-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
-                  <FileEdit className="w-4 h-4 text-accent" />
-                  <span>Draft Your Answer Attempt</span>
-                </span>
-                <span className="text-[10px] text-text-muted">
-                  {userAttempt.length} characters
-                </span>
-              </div>
-              
-              <textarea
-                value={userAttempt}
-                onChange={(e) => {
-                  setUserAttempt(e.target.value);
-                  if (e.target.value && !isTimerActive && !preferences.autoTimer) {
-                    setIsTimerActive(true); // Start timer once user starts typing
-                  }
-                }}
-                placeholder="Type your mathematical equations, steps, or program code logic here. Submit to the AI grader for accuracy validation and feedback..."
-                className={`w-full h-32 p-4 text-xs rounded-xl bg-bg-primary/50 text-text-primary border ${
-                  evaluationResult 
-                    ? evaluationResult.accuracy >= 70 
-                      ? 'border-emerald-500/50 focus:border-emerald-500' 
-                      : 'border-rose-500/50 focus:border-rose-500'
-                    : 'border-border-primary focus:border-accent'
-                } focus:outline-none transition-all duration-300 resize-none`}
-              />
-
-              {evaluationResult && (
-                <motion.div
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`mt-3 p-4 rounded-xl border text-xs leading-relaxed ${
-                    evaluationResult.accuracy >= 70
-                      ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300'
-                      : 'bg-rose-500/5 border-rose-500/20 text-rose-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between font-bold mb-1">
-                    <span className="flex items-center gap-1">
-                      {evaluationResult.accuracy >= 70 ? (
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                      )}
-                      <span>Accuracy Score: {evaluationResult.accuracy}%</span>
-                    </span>
-                    <span>{evaluationResult.accuracy >= 70 ? '+15 XP' : 'Incorrect Attempt'}</span>
-                  </div>
-                  <p className="text-text-secondary">{evaluationResult.feedback}</p>
-                </motion.div>
-              )}
-
-              <div className="flex items-center justify-between mt-3">
-                <div className="flex items-center gap-3 relative">
+                {/* Bookmark & Playlist Controls in Header */}
+                <div className="flex items-center gap-1 bg-bg-primary/40 border border-border-primary/50 rounded-lg p-0.5 relative shrink-0">
                   <button
                     onClick={toggleBookmark}
-                    className={`flex items-center space-x-1.5 text-[11px] font-semibold transition-colors ${
+                    className={`p-1 rounded transition-colors ${
                       isBookmarked ? 'text-amber-400 hover:text-amber-500' : 'text-text-secondary hover:text-text-primary'
                     }`}
+                    title={isBookmarked ? 'Bookmarked' : 'Bookmark Question'}
                   >
                     <Bookmark className={`w-3.5 h-3.5 ${isBookmarked ? 'fill-amber-400' : ''}`} />
-                    <span>{isBookmarked ? 'Bookmarked' : 'Bookmark Question'}</span>
                   </button>
 
                   {isBookmarked && playlists.length > 0 && (
                     <div className="relative">
                       <button
                         onClick={() => setIsPlaylistMenuOpen(!isPlaylistMenuOpen)}
-                        className="text-[10px] text-accent hover:underline font-semibold flex items-center gap-0.5"
+                        className="text-[9px] px-1.5 py-0.5 rounded hover:bg-bg-secondary text-accent font-bold transition-all"
+                        title="Add to playlists"
                       >
-                        (Add to playlists)
+                        + Playlists
                       </button>
                       {isPlaylistMenuOpen && (
                         <>
-                          <div className="fixed inset-0 z-40" onClick={() => setIsPlaylistMenuOpen(false)} />
-                          <div className="absolute left-0 mt-1.5 w-48 rounded-xl bg-bg-secondary border border-border-primary shadow-2xl p-3 z-50 space-y-2 text-left">
+                          <div className="fixed inset-0 z-45" onClick={() => setIsPlaylistMenuOpen(false)} />
+                          <div className="absolute right-0 mt-1.5 w-48 rounded-xl bg-bg-secondary border border-border-primary shadow-2xl p-3 z-50 space-y-2 text-left">
                             <p className="text-[9px] uppercase font-black tracking-wider text-text-muted">Choose Playlists</p>
                             <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                               {playlists.map((pl) => {
@@ -1197,23 +1194,14 @@ function PracticeSolveContent() {
                     </div>
                   )}
                 </div>
-
-                {userAttempt.trim() && (
-                  <button
-                    onClick={verifyAttempt}
-                    disabled={evaluationLoading}
-                    className="px-4 py-2 rounded-lg bg-accent/15 border border-accent/30 text-accent text-xs font-semibold hover:bg-accent/25 transition-all flex items-center space-x-1.5"
-                  >
-                    {evaluationLoading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5" />
-                    )}
-                    <span>Grade My Answer</span>
-                  </button>
-                )}
               </div>
             </div>
+            
+            <h2 className={`${getTextSizeClass(preferences.textSize)} font-semibold leading-relaxed text-text-primary mb-6`}>
+              <MathMarkdown content={currentQuestion.questionText} />
+            </h2>
+
+            {/* Answer Attempt Area Removed for Practice Mode */}
 
             {/* Buttons Row */}
             <div className="flex flex-col sm:flex-row items-center gap-3 mt-6 pt-4 border-t border-border-primary/30">
@@ -1565,33 +1553,74 @@ function PracticeSolveContent() {
             </motion.div>
           )}
 
-          {/* Personal Notebook Note Section */}
+          {/* Personal Notebook Note Section (Collapsible) */}
           {user && (
-            <div id="notes-section" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm shadow-sm space-y-3">
-              <h3 className="text-xs font-bold text-text-primary flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-accent" />
-                <span>My Notebook Study Note</span>
-              </h3>
-              <textarea
-                value={personalNote}
-                onChange={(e) => setPersonalNote(e.target.value)}
-                placeholder="Write down any tips, formulas, or corrections you want to save for this question. This will be persisted to your Notebooks manager..."
-                className="w-full h-20 p-3 text-xs rounded-xl bg-bg-primary/30 text-text-primary border border-border-primary focus:outline-none focus:border-accent resize-none"
-              />
-              <div className="flex justify-end">
+            <div id="notes-section" className="space-y-3">
+              {!isNoteOpen ? (
                 <button
-                  onClick={savePersonalNote}
-                  disabled={savingNote}
-                  className="px-3.5 py-1.5 rounded-lg bg-bg-primary hover:bg-bg-tertiary border border-border-primary text-[10px] font-semibold text-text-primary flex items-center space-x-1 transition-colors"
+                  onClick={() => setIsNoteOpen(true)}
+                  className="w-full p-4.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary/60 hover:border-accent/30 transition-all flex items-center justify-between group"
                 >
-                  {savingNote ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <CheckCircle className="w-3 h-3 text-emerald-400" />
-                  )}
-                  <span>{savingNote ? 'Saving...' : 'Save Note'}</span>
+                  <div className="flex items-center space-x-3 text-left">
+                    <div className="w-8 h-8 rounded-lg bg-accent/15 border border-accent/30 text-accent flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-text-primary">Personal Study Notes</h4>
+                      <p className="text-[10px] text-text-secondary mt-0.5">Write or generate custom key formulas & study tips.</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all shrink-0" />
                 </button>
-              </div>
+              ) : (
+                <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-text-primary flex items-center space-x-2">
+                      <FileText className="w-4 h-4 text-accent" />
+                      <span>My Notebook Study Note</span>
+                    </h3>
+                    <button
+                      onClick={() => setIsNoteOpen(false)}
+                      className="text-[10px] text-text-muted hover:text-text-primary font-bold px-2 py-1 rounded bg-bg-primary/50 border border-border-primary/50 transition-all"
+                    >
+                      Collapse
+                    </button>
+                  </div>
+                  <textarea
+                    value={personalNote}
+                    onChange={(e) => setPersonalNote(e.target.value)}
+                    placeholder="Write down any tips, formulas, or corrections you want to save for this question. This will be persisted to your Notebooks manager..."
+                    className="w-full h-24 p-3 text-xs rounded-xl bg-bg-primary/30 text-text-primary border border-border-primary focus:outline-none focus:border-accent resize-none"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={generateAiNote}
+                      disabled={generatingNote}
+                      className="px-3 py-1.5 rounded-lg bg-accent/15 border border-accent/35 text-[10px] font-bold text-accent hover:bg-accent/25 transition-all flex items-center space-x-1 disabled:opacity-50"
+                    >
+                      {generatingNote ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      <span>{generatingNote ? 'Generating...' : 'Generate AI Note'}</span>
+                    </button>
+                    
+                    <button
+                      onClick={savePersonalNote}
+                      disabled={savingNote}
+                      className="px-3.5 py-1.5 rounded-lg bg-bg-primary hover:bg-bg-tertiary border border-border-primary text-[10px] font-semibold text-text-primary flex items-center space-x-1 transition-colors"
+                    >
+                      {savingNote ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-3 h-3 text-emerald-400" />
+                      )}
+                      <span>{savingNote ? 'Saving...' : 'Save Note'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

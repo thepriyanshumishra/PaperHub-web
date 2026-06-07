@@ -230,7 +230,8 @@ export async function requireAuthorizedUser(
   }
 
   // 4. Enforce active account status
-  if (user.accountStatus !== "active") {
+  const effectiveStatus = user.accountStatus || "active";
+  if (effectiveStatus !== "active") {
     return {
       user: null,
       errorResponse: NextResponse.json({ error: "Forbidden: Account is suspended or banned" }, { status: 403 }),

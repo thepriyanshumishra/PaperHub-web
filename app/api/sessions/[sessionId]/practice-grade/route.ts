@@ -43,7 +43,7 @@ export async function POST(
     }
 
     // Enforce ownership
-    if (session.userId !== user._id) {
+    if (String(session.userId) !== String(user._id)) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 

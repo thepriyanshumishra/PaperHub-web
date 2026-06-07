@@ -36,7 +36,7 @@ export async function GET(req: NextRequest, { params }: { params: { sessionId: s
     }
 
     // Enforce ownership: users may only read their own sessions
-    if (session.userId !== user._id) {
+    if (String(session.userId) !== String(user._id)) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 
@@ -68,7 +68,7 @@ export async function PUT(req: NextRequest, { params }: { params: { sessionId: s
     }
 
     // Enforce ownership: users may only update their own sessions
-    if (session.userId !== user._id) {
+    if (String(session.userId) !== String(user._id)) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 

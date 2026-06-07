@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     // Even an authenticated user must only be able to trigger evaluation on
     // sessions they own. Without this, authenticated attacker B can force-
     // complete student A's session with fabricated grades.
-    if (session.userId !== userId) {
+    if (String(session.userId) !== String(userId)) {
       return NextResponse.json({ error: 'Forbidden: You do not own this session' }, { status: 403 });
     }
 
