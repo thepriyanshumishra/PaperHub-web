@@ -41,12 +41,16 @@ interface IQuestion {
   verificationStatus: 'pending' | 'verified' | 'flagged' | 'archived';
   verificationComment?: string;
   verifiedBy?: string;
+  verifiedByName?: string;
   verifiedAt?: string;
   flaggedBy?: string;
+  flaggedByName?: string;
   flaggedAt?: string;
   ocrConfidence?: number;
   verificationCorrectionCount?: number;
   flaggedCount?: number;
+  originalTextBeforeVerification?: string;
+  verifierChanges?: any;
   subjectId?: {
     _id: string;
     name: string;
@@ -259,7 +263,7 @@ function ModeratorDashboardContent() {
           {/* Filter Tabs */}
           <div className="flex flex-wrap gap-1 border-b border-border-primary pb-2">
             {[
-              { id: 'flagged', label: 'Flagged' },
+              { id: 'flagged', label: 'Reported Questions by Verifier' },
               { id: 'pending', label: 'Pending' },
               { id: 'verified', label: 'Verified' },
               { id: 'archived', label: 'Archived' },
@@ -442,20 +446,68 @@ function ModeratorDashboardContent() {
               </div>
 
               {/* Audit Details */}
-              {(selectedQuestion.verifiedBy || selectedQuestion.flaggedBy) && (
-                <div className="text-[10px] text-text-muted bg-bg-secondary/40 p-3.5 rounded-xl border border-border-primary/50 space-y-1 text-left">
-                  {selectedQuestion.verifiedBy && (
-                    <div>
-                      <span className="font-bold text-emerald-500">✓ Verified: </span>
-                      <span>By UID {selectedQuestion.verifiedBy} {selectedQuestion.verifiedAt ? `on ${new Date(selectedQuestion.verifiedAt).toLocaleString()}` : ''}</span>
-                    </div>
-                  )}
+              <div className="p-4 rounded-xl border border-border-primary/50 bg-bg-secondary/40 space-y-3 mt-4 text-left">
+                <div className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Verifier Audit Information</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   {selectedQuestion.flaggedBy && (
-                    <div>
-                      <span className="font-bold text-red-500">⚑ Flagged: </span>
-                      <span>By {selectedQuestion.flaggedBy} {selectedQuestion.flaggedAt ? `on ${new Date(selectedQuestion.flaggedAt).toLocaleString()}` : ''}</span>
+                    <div className="p-3 rounded-xl bg-bg-primary/50 border border-border-primary/30 space-y-1">
+                      <span className="font-bold text-red-500 text-[10px] uppercase tracking-wider block">⚑ Reported By</span>
+                      <div className="text-text-primary font-semibold">{selectedQuestion.flaggedByName || 'Verifier'}</div>
+                      <div className="text-[10px] text-text-muted">ID: {selectedQuestion.flaggedBy}</div>
+                      {selectedQuestion.flaggedAt && (
+                        <div className="text-[10px] text-text-muted">At: {new Date(selectedQuestion.flaggedAt).toLocaleString()}</div>
+                      )}
                     </div>
                   )}
+                  {selectedQuestion.verifiedBy && (
+                    <div className="p-3 rounded-xl bg-bg-primary/50 border border-border-primary/30 space-y-1">
+                      <span className="font-bold text-emerald-500 text-[10px] uppercase tracking-wider block">✓ Verified By</span>
+                      <div className="text-text-primary font-semibold">{selectedQuestion.verifiedByName || 'Verifier'}</div>
+                      <div className="text-[10px] text-text-muted">ID: {selectedQuestion.verifiedBy}</div>
+                      {selectedQuestion.verifiedAt && (
+                        <div className="text-[10px] text-text-muted">At: {new Date(selectedQuestion.verifiedAt).toLocaleString()}</div>
+                      )}
+                    </div>
+                  )}
+                  {(!selectedQuestion.flaggedBy && !selectedQuestion.verifiedBy) && (
+                    <div className="col-span-2 text-center text-text-muted py-2">
+                      No verifier audit details recorded for this question.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Verifier Changes Diff Block */}
+              {selectedQuestion.verifierChanges && (
+                <div className="p-4 rounded-xl border border-border-primary/50 bg-bg-secondary/40 space-y-3 mt-4 text-left font-sans">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-text-secondary flex items-center space-x-1">
+                    <span>Verifier Changes Applied</span>
+                  </div>
+                  <div className="space-y-3">
+                    {Object.entries(selectedQuestion.verifierChanges).map(([field, diff]: [string, any]) => (
+                      <div key={field} className="p-3 rounded-xl bg-bg-primary/50 border border-border-primary/30 space-y-2">
+                        <span className="font-bold text-accent text-[10px] uppercase tracking-wider block">{field}</span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="p-2 rounded bg-red-500/5 border border-red-500/10 space-y-1">
+                            <span className="font-bold text-red-500 text-[9px] uppercase tracking-wider block">Original</span>
+                            {field === 'questionText' ? (
+                              <div className="text-xs text-text-secondary overflow-x-auto"><MathMarkdown content={diff.old} /></div>
+                            ) : (
+                              <p className="text-xs text-text-secondary whitespace-pre-wrap">{String(diff.old)}</p>
+                            )}
+                          </div>
+                          <div className="p-2 rounded bg-emerald-500/5 border border-emerald-500/10 space-y-1">
+                            <span className="font-bold text-emerald-500 text-[9px] uppercase tracking-wider block">Edited</span>
+                            {field === 'questionText' ? (
+                              <div className="text-xs text-text-primary overflow-x-auto"><MathMarkdown content={diff.new} /></div>
+                            ) : (
+                              <p className="text-xs text-text-primary whitespace-pre-wrap">{String(diff.new)}</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 

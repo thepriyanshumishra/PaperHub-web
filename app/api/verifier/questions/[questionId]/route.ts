@@ -77,28 +77,35 @@ async function handleWriteRequest(req: NextRequest, questionId: string) {
     // Check if edits are being made
     let isEdited = false;
     const editDetails: string[] = [];
+    const verifierChanges: any = {};
+    const oldText = question.questionText;
 
     if (questionText !== undefined && questionText !== question.questionText) {
+      verifierChanges.questionText = { old: question.questionText, new: questionText };
       question.questionText = questionText;
       isEdited = true;
       editDetails.push('questionText');
     }
     if (topic !== undefined && topic !== question.topic) {
+      verifierChanges.topic = { old: question.topic, new: topic };
       question.topic = topic;
       isEdited = true;
       editDetails.push('topic');
     }
     if (unit !== undefined && unit !== question.unit) {
+      verifierChanges.unit = { old: question.unit, new: unit };
       question.unit = unit;
       isEdited = true;
       editDetails.push('unit');
     }
     if (marks !== undefined && marks !== question.marks) {
+      verifierChanges.marks = { old: question.marks, new: marks };
       question.marks = marks;
       isEdited = true;
       editDetails.push('marks');
     }
     if (difficulty !== undefined && difficulty !== question.difficulty) {
+      verifierChanges.difficulty = { old: question.difficulty, new: difficulty };
       question.difficulty = difficulty;
       isEdited = true;
       editDetails.push('difficulty');
@@ -120,10 +127,12 @@ async function handleWriteRequest(req: NextRequest, questionId: string) {
     if (targetStatus === 'verified') {
       question.humanVerified = true;
       question.verifiedBy = user._id;
+      question.verifiedByName = user.displayName || user.name || user.email;
       question.verifiedAt = new Date();
     } else if (targetStatus === 'flagged') {
       question.humanVerified = false;
       question.flaggedBy = user._id;
+      question.flaggedByName = user.displayName || user.name || user.email;
       question.flaggedAt = new Date();
       if (previousStatus !== 'flagged') {
         question.flaggedCount = (question.flaggedCount || 0) + 1;
@@ -132,6 +141,10 @@ async function handleWriteRequest(req: NextRequest, questionId: string) {
 
     if (isEdited) {
       question.verificationCorrectionCount = (question.verificationCorrectionCount || 0) + 1;
+      if (!question.originalTextBeforeVerification) {
+        question.originalTextBeforeVerification = oldText;
+      }
+      question.verifierChanges = verifierChanges;
     }
 
     const oldVersion = question.version || 1;

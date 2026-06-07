@@ -41,10 +41,14 @@ export interface IQuestion extends Document {
   verificationStatus: 'pending' | 'verified' | 'flagged' | 'archived';
   verificationComment?: string;
   verifiedBy?: string;
+  verifiedByName?: string;
   verifiedAt?: Date;
   flaggedBy?: string;
+  flaggedByName?: string;
   flaggedAt?: Date;
   ocrConfidence?: number;
+  originalTextBeforeVerification?: string;
+  verifierChanges?: any;
   verificationCorrectionCount?: number;
   flaggedCount?: number;
   lastAppearedYear?: number;
@@ -123,10 +127,14 @@ const QuestionSchema = new Schema<IQuestion>(
     },
     verificationComment: { type: String, default: '' },
     verifiedBy: { type: String },
+    verifiedByName: { type: String },
     verifiedAt: { type: Date },
     flaggedBy: { type: String },
+    flaggedByName: { type: String },
     flaggedAt: { type: Date },
     ocrConfidence: { type: Number, default: 100 },
+    originalTextBeforeVerification: { type: String },
+    verifierChanges: { type: Schema.Types.Mixed },
     verificationCorrectionCount: { type: Number, default: 0 },
     flaggedCount: { type: Number, default: 0 },
     lastAppearedYear: { type: Number },

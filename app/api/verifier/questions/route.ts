@@ -25,6 +25,17 @@ export async function GET(req: NextRequest) {
     const examType = searchParams.get('examType');
     const status = searchParams.get('status');
 
+    await dbConnect();
+
+    // Support global query for flagged questions (Reported Questions by Verifier)
+    if (status === 'flagged' && !subjectId && !yearStr && !examType) {
+      const questions = await Question.find({ verificationStatus: 'flagged' })
+        .populate({ path: 'subjectId', select: 'name code' })
+        .sort({ flaggedAt: -1, updatedAt: -1 })
+        .limit(100);
+      return NextResponse.json({ questions });
+    }
+
     if (!subjectId || !yearStr || !examType) {
       return NextResponse.json({ error: 'Missing required parameters: subjectId, year, examType' }, { status: 400 });
     }
@@ -33,8 +44,6 @@ export async function GET(req: NextRequest) {
     if (isNaN(year)) {
       return NextResponse.json({ error: 'Invalid year format' }, { status: 400 });
     }
-
-    await dbConnect();
 
     // Query questions matching paper metadata
     const query: any = {
