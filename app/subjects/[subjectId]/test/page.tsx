@@ -154,7 +154,13 @@ const slideVariants = {
 export default function SubjectTestSetupPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, fbUser } = useAuth();
+  const { user, fbUser, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+    }
+  }, [fbUser, authLoading, router]);
   const subjectId = params.subjectId as string;
   
   const [sidebarOpen, setSidebarOpen] = useState(false);

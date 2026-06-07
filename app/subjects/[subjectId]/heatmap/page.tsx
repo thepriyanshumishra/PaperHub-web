@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/sidebar';
 import { Navbar } from '@/components/navbar';
+import { useAuth } from '@/components/auth-provider';
 import { 
   ArrowLeft, 
   BarChart3, 
@@ -33,12 +34,19 @@ export default function SubjectHeatmap() {
   const params = useParams();
   const router = useRouter();
   const subjectId = params.subjectId as string;
+  const { fbUser, loading: authLoading } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
   const [heatmap, setHeatmap] = useState<HeatmapItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [siblingSubjects, setSiblingSubjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+    }
+  }, [fbUser, authLoading, router]);
 
   useEffect(() => {
     const college = localStorage.getItem('selectedCollege') || 'MMMUT';

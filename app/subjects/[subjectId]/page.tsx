@@ -81,6 +81,13 @@ export default function SubjectPage() {
   const [loading, setLoading] = useState(true);
   const [solvedCount, setSolvedCount] = useState(0);
 
+  // Auth check redirect
+  useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+    }
+  }, [fbUser, authLoading, router]);
+
   const activeSemester = user?.profile?.semester || (typeof window !== 'undefined' ? Number(localStorage.getItem('selectedSemester') || 1) : 1);
 
 

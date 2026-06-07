@@ -114,6 +114,13 @@ export default function SubjectsPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Auth check redirect
+  useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+    }
+  }, [fbUser, authLoading, router]);
+
   // Fetch subjects
   useEffect(() => {
     if (authLoading) return;

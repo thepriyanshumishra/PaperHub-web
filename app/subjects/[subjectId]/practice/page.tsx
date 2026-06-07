@@ -23,7 +23,13 @@ export default function PracticeSelection() {
   const params = useParams();
   const router = useRouter();
   const subjectId = params.subjectId as string;
-  const { fbUser } = useAuth();
+  const { fbUser, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+    }
+  }, [fbUser, authLoading, router]);
 
   const [subject, setSubject] = useState<SubjectDetail | null>(null);
   const [loading, setLoading] = useState(true);

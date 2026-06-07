@@ -40,6 +40,11 @@ export default function AdminMonitoringPage() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+      return;
+    }
+
     // If auth is loaded and user is not admin, redirect or show error
     if (!authLoading && (!user || user.role !== 'admin')) {
       setErrorMsg('Access Denied: Admin role required.');

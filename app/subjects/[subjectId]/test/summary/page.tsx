@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
@@ -91,6 +91,7 @@ interface SessionData {
 
 function TestSummaryContent() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const subjectId = params.subjectId as string;
@@ -101,6 +102,12 @@ function TestSummaryContent() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [shared, setShared] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !fbUser) {
+      router.push('/login');
+    }
+  }, [fbUser, authLoading, router]);
 
   useEffect(() => {
     if (authLoading) return;
