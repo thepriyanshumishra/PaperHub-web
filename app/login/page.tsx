@@ -23,6 +23,7 @@ export default function Login() {
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   
@@ -58,8 +59,8 @@ export default function Login() {
       return;
     }
 
-    if (activeTab === 'register' && !name) {
-      setAuthError('Please enter your name.');
+    if (activeTab === 'register' && (!name || !username)) {
+      setAuthError('Please enter your name and a username.');
       return;
     }
 
@@ -68,9 +69,10 @@ export default function Login() {
       if (activeTab === 'login') {
         await loginWithEmail(email, password);
       } else {
-        await registerWithEmail(email, password, name);
+        await registerWithEmail(email, password, name, username);
         setAuthSuccess('Registration successful! A verification link has been sent to your email. Please verify your email to log in.');
         setEmail('');
+        setUsername('');
         setPassword('');
         setName('');
         setActiveTab('login');
@@ -212,29 +214,48 @@ export default function Login() {
             <form onSubmit={handleEmailAuth} className="space-y-4">
               
               {activeTab === 'register' && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Name</label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input
-                      type="text"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
-                      required
-                    />
+                <>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Name</label>
+                    <div className="relative">
+                      <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                      <input
+                        type="text"
+                        placeholder="Enter your name"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Username</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-xs font-bold">@</span>
+                      <input
+                        type="text"
+                        placeholder="unique_username"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Email Address</label>
+                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">
+                  {activeTab === 'login' ? 'Email or Username' : 'Email Address'}
+                </label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
-                    type="email"
-                    placeholder="name@university.edu"
+                    type={activeTab === 'login' ? 'text' : 'email'}
+                    placeholder={activeTab === 'login' ? 'Email or Username' : 'name@university.edu'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"

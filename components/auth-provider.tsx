@@ -80,8 +80,8 @@ interface AuthContextType {
   error: string | null;
   setError: (err: string | null) => void;
   loginWithGoogle: () => Promise<void>;
-  loginWithEmail: (email: string, password: string) => Promise<any>;
-  registerWithEmail: (email: string, password: string, name: string) => Promise<void>;
+  loginWithEmail: (emailOrUsername: string, password: string) => Promise<any>;
+  registerWithEmail: (email: string, password: string, name: string, username: string) => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -245,17 +245,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Determine if email or username was passed
       const isEmail = emailOrUsername.includes("@");
       
-      const payload: any = {
-        password,
-      };
-
+      let result;
       if (isEmail) {
-        payload.email = emailOrUsername;
+        result = await authClient.signIn.email({ email: emailOrUsername, password });
       } else {
-        payload.username = emailOrUsername;
+        result = await authClient.signIn.username({ username: emailOrUsername, password });
       }
-
-      const result = await authClient.signIn.email(payload);
       
       if (result.error) {
         throw new Error(result.error.message || "Invalid authentication credentials.");
@@ -286,14 +281,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const registerWithEmail = async (email: string, password: string, name: string) => {
+  const registerWithEmail = async (email: string, password: string, name: string, username: string) => {
     setLoading(true);
     try {
       const result = await authClient.signUp.email({
         email,
         password,
         name,
-        username: email.split("@")[0] + "_" + Math.floor(Math.random() * 1000), // Assign a unique default username
+        username,
       });
 
       if (result.error) {
