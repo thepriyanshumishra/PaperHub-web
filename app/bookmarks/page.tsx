@@ -247,7 +247,7 @@ export default function BookmarksPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        router.push(`/subjects/${selectedPlaylist.subjectId}/practice/solve?sessionId=${data.session._id}`);
+        router.push(`/subjects/${selectedPlaylist.subjectId}/practice/solve?sessionId=${data.session._id}&created=true`);
       } else {
         alert("Failed to start practice session.");
       }

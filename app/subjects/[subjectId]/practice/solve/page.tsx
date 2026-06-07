@@ -121,9 +121,10 @@ function PracticeSolveContent() {
 
   // App state
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
-  const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [isLoaderVisible, setIsLoaderVisible] = useState(true);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const created = searchParams.get('created') === 'true';
+  const [isLoaderVisible, setIsLoaderVisible] = useState(created);
   const [breadcrumbs, setBreadcrumbs] = useState<string[]>([]);
   
   // Solution states
@@ -985,7 +986,16 @@ function PracticeSolveContent() {
       <SessionLoader 
         type="practice"
         isDataReady={!loading}
-        onFinished={() => setIsLoaderVisible(false)}
+        onFinished={() => {
+          setIsLoaderVisible(false);
+          if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('created')) {
+              url.searchParams.delete('created');
+              window.history.replaceState({}, '', url.toString());
+            }
+          }
+        }}
       />
     );
   }

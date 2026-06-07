@@ -132,7 +132,7 @@ export default function CustomPracticeBuilder() {
         });
         const data = await res.json();
         if (data.session) {
-          router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}`);
+          router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}&created=true`);
         } else {
           const unitsQuery = selectedUnits.join(',');
           const topicsQuery = encodeURIComponent(selectedTopics.join(','));

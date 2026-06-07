@@ -91,7 +91,7 @@ export default function PracticeSelection() {
         });
         const data = await res.json();
         if (data.session) {
-          router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}`);
+          router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}&created=true`);
         } else {
           router.push(`/subjects/${subjectId}/practice/solve?type=syllabus&units=all`);
         }

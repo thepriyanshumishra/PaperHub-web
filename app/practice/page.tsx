@@ -194,7 +194,7 @@ export default function PracticePage() {
         });
         const data = await res.json();
         if (data.session) {
-          router.push(`/subjects/${subj._id}/practice/solve?sessionId=${data.session._id}`);
+          router.push(`/subjects/${subj._id}/practice/solve?sessionId=${data.session._id}&created=true`);
         } else {
           router.push(`/subjects/${subj._id}/practice/solve?type=syllabus&units=all`);
         }

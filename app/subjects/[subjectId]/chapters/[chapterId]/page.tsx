@@ -183,7 +183,7 @@ export default function ChapterPage() {
       });
       const data = await res.json();
       if (data.session) {
-        router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}`);
+        router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}&created=true`);
       } else {
         console.error('Failed to create session:', data.error);
         alert(data.error || 'Failed to start practice session');
@@ -219,7 +219,7 @@ export default function ChapterPage() {
       });
       const data = await res.json();
       if (data.session) {
-        router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}`);
+        router.push(`/subjects/${subjectId}/practice/solve?sessionId=${data.session._id}&created=true`);
       } else {
         console.error('Failed to create session:', data.error);
         alert(data.error || 'Failed to start practice session');
