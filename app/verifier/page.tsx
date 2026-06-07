@@ -2484,32 +2484,41 @@ function VerifierDashboardContent() {
                 <Flag className="w-5 h-5" />
                 <h3 className="font-display font-extrabold text-base">Flag Question for Review</h3>
               </div>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Provide a mandatory comment indicating what needs corrections (e.g. OCR typos, incorrect formula, wrong topic mapping).
-              </p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted mb-3">Select Issue Category</p>
+                <div className="grid grid-cols-1 gap-2.5">
+                  {[
+                    'OCR Error / Typo in Question Text',
+                    'Incorrect Marks Allotted',
+                    'Incorrect Topic / Unit Mapping',
+                    'Duplicate or Incomplete Question'
+                  ].map((reason) => (
+                    <button
+                      key={reason}
+                      onClick={() => {
+                        setFlagComment(reason);
+                        submitVerification(flagQId, 'flagged', reason);
+                      }}
+                      disabled={submittingVerification}
+                      className="w-full text-left p-3.5 rounded-xl border border-border-primary/50 bg-bg-primary hover:bg-red-500/10 hover:border-red-500/30 text-text-primary text-sm font-semibold transition-all flex items-center justify-between group disabled:opacity-50"
+                    >
+                      <span>{reason}</span>
+                      <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-red-400 transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <textarea
-                value={flagComment}
-                onChange={(e) => setFlagComment(e.target.value)}
-                placeholder="Verifier feedback notes..."
-                rows={3}
-                className="w-full p-3 rounded-xl border border-border-primary bg-bg-primary text-xs focus:border-accent focus:ring-1 focus:ring-accent"
-                required
-              />
-
-              <div className="flex items-center justify-end space-x-2 pt-2">
+              <div className="flex items-center justify-between pt-4 mt-2">
+                <span className="text-[10px] text-text-muted">
+                  {submittingVerification ? 'Submitting report...' : 'Select a category to report instantly.'}
+                </span>
                 <button
                   onClick={() => { setFlagQId(null); setFlagComment(''); }}
-                  className="px-4 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-semibold text-text-secondary transition-colors"
+                  disabled={submittingVerification}
+                  className="px-5 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold text-text-secondary transition-colors disabled:opacity-50"
                 >
                   Cancel
-                </button>
-                <button
-                  onClick={() => submitVerification(flagQId, 'flagged', flagComment)}
-                  disabled={submittingVerification || flagComment.trim().length === 0}
-                  className="px-4.5 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors disabled:opacity-50"
-                >
-                  {submittingVerification ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Confirm Flag'}
                 </button>
               </div>
             </motion.div>
