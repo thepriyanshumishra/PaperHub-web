@@ -616,13 +616,6 @@ function VerifierDashboardContent() {
     }
   };
 
-  // Apply AI Suggestion values instantly to form fields
-  const applyAISuggestions = (q: IQuestion) => {
-    if (!q.aiSuggestions) return;
-    if (q.aiSuggestions.topic) setEditTopic(q.aiSuggestions.topic);
-    if (q.aiSuggestions.unit) setEditUnit(q.aiSuggestions.unit);
-    if (q.aiSuggestions.difficulty) setEditDifficulty(q.aiSuggestions.difficulty);
-  };
 
   // Handle merging duplicate questions
   const executeMergeDuplicate = async () => {
@@ -1038,94 +1031,45 @@ function VerifierDashboardContent() {
               No Vision Image available for this question.
             </div>
           )}
-
-          {/* AI Suggestion quick action */}
-          {q.aiSuggestions && (
-            <div className="p-3.5 rounded-xl border border-accent/20 bg-accent/5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-wider font-extrabold text-accent flex items-center space-x-1">
-                  <Sparkles className="w-3 h-3 text-accent" />
-                  <span>AI Classification Hints ({q.aiSuggestions.confidence}% Conf)</span>
-                </span>
-                <button
-                  onClick={() => applyAISuggestions(q)}
-                  className="text-[8px] bg-accent text-white px-2 py-0.5 rounded font-bold hover:bg-accent-hover uppercase tracking-wider"
-                >
-                  Apply
-                </button>
-              </div>
-              <div className="text-[10px] text-text-secondary space-y-1 font-mono">
-                <div>Suggested Topic: <span className="text-text-primary font-bold">{q.aiSuggestions.topic || 'N/A'}</span></div>
-                <div className="flex justify-between">
-                  <span>Unit: <span className="text-text-primary font-bold">{q.aiSuggestions.unit || '1'}</span></span>
-                  <span>Difficulty: <span className="text-text-primary font-bold">{q.aiSuggestions.difficulty || 'medium'}</span></span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Right Column: Question Content Editing Form */}
+        {/* Right Column: Question Content Details */}
         <div className="lg:col-span-7 space-y-5">
           <div className="space-y-1.5">
             <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted">LaTeX / Math Preview</label>
-            <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/80 text-sm leading-relaxed overflow-x-auto min-h-24">
-              <MathMarkdown content={editText || 'Empty question body'} />
+            <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/80 text-sm leading-relaxed overflow-x-auto min-h-24 text-left">
+              <MathMarkdown content={q.questionText || 'Empty question body'} />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Topic Parameter</label>
-              <input
-                type="text"
-                value={editTopic}
-                onChange={(e) => setEditTopic(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs focus:border-accent"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Unit</label>
-                <input
-                  type="number"
-                  value={editUnit}
-                  onChange={(e) => setEditUnit(parseInt(e.target.value, 10) || 1)}
-                  className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs text-center focus:border-accent"
-                />
+          <div className="p-4 rounded-2xl border border-border-primary bg-bg-secondary/20 space-y-3.5 text-left">
+            <div className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Question Parameters</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 space-y-1">
+                <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Topic</span>
+                <span className="text-text-primary font-semibold block">{q.topic || 'N/A'}</span>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Marks</label>
-                <input
-                  type="number"
-                  value={editMarks}
-                  onChange={(e) => setEditMarks(parseInt(e.target.value, 10) || 10)}
-                  className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs text-center focus:border-accent"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Difficulty</label>
-                <select
-                  value={editDifficulty}
-                  onChange={(e) => setEditDifficulty(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs focus:border-accent"
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 text-center space-y-1">
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Unit</span>
+                  <span className="text-text-primary font-bold block">{q.unit}</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 text-center space-y-1">
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Marks</span>
+                  <span className="text-text-primary font-bold block">{q.marks}</span>
+                </div>
+                <div className="p-3.5 rounded-xl bg-bg-primary/50 border border-border-primary/40 text-center space-y-1">
+                  <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider block">Difficulty</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider block px-1.5 py-0.5 rounded ${
+                    q.difficulty === 'easy' ? 'text-emerald-500 bg-emerald-500/10' :
+                    q.difficulty === 'medium' ? 'text-yellow-500 bg-yellow-500/10' :
+                    'text-red-500 bg-red-500/10'
+                  }`}>
+                    {q.difficulty}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Edit Question Text (Supports LaTeX)</label>
-            <textarea
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              rows={4}
-              className="w-full p-3 rounded-xl border border-border-primary bg-bg-secondary font-mono text-xs focus:border-accent"
-            />
           </div>
         </div>
       </div>
@@ -1338,20 +1282,12 @@ function VerifierDashboardContent() {
                               <span>Report</span>
                             </button>
                           </div>
-                          <div className="flex items-center space-x-2">
+                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => handleSkipQuestion(q._id)}
                               className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary text-xs font-bold transition-colors"
                             >
                               Skip
-                            </button>
-                            <button
-                              onClick={() => submitVerification(q._id, 'pending')}
-                              disabled={submittingVerification}
-                              className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors flex items-center space-x-1.5"
-                            >
-                              <Save className="w-3.5 h-3.5 text-accent" />
-                              <span>Save Changes</span>
                             </button>
                           </div>
                         </div>
