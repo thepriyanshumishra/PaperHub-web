@@ -276,9 +276,11 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
                   {activeName || 'Account'}
                 </span>
                 <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
-                  {!mounted ? 'Student' : (activeBranch && activeSemester
-                    ? `${activeBranch} · ${ordinal(activeSemester)} Sem`
-                    : activeBranch || 'Student')}
+                  {!mounted ? 'Student' : (user && user.role !== 'student'
+                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                    : (activeBranch && activeSemester
+                      ? `${activeBranch} · ${ordinal(activeSemester)} Sem`
+                      : activeBranch || 'Student'))}
                 </span>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />
@@ -353,10 +355,14 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
               {/* Role badge */}
               {user && (user.role === 'verifier' || user.role === 'admin' || user.role === 'moderator') && (
                 <Link 
-                  href="/verifier" 
-                  className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-500 hover:bg-emerald-500/20 transition-all hidden sm:inline-block"
+                  href={user.role === 'admin' ? '/admin' : user.role === 'moderator' ? '/moderator' : '/verifier'} 
+                  className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded border transition-all hidden sm:inline-block ${
+                    user.role === 'admin' ? 'bg-purple-500/10 border-purple-500/25 text-purple-400 hover:bg-purple-500/20' :
+                    user.role === 'moderator' ? 'bg-red-500/10 border-red-500/25 text-red-500 hover:bg-red-500/20' :
+                    'bg-emerald-500/10 border-emerald-500/25 text-emerald-500 hover:bg-emerald-500/20'
+                  }`}
                 >
-                  Verifier
+                  {user.role}
                 </Link>
               )}
               

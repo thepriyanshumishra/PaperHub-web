@@ -10,6 +10,7 @@ import {
   Search, ChevronRight,
   BookOpen, CheckCircle2, XCircle, Clock, ArrowRight, Menu, X,
   Loader2, ArrowUpRight, Sparkles,
+  AlertTriangle, Flag, Upload, RefreshCw, Users, TrendingUp,
   // Subject icons — semantically matched
   Atom,           // Physics, Quantum
   Calculator,     // Mathematics
@@ -40,6 +41,528 @@ import {
   Monitor,        // General fallback
   Grid,           // General fallback
 } from 'lucide-react';
+
+function VerifierDashboardView({ fbUser }: { fbUser: any }) {
+  const router = useRouter();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = async () => {
+    if (!fbUser) return;
+    setLoading(true);
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch('/api/stats/verifier', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data.metrics);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, [fbUser]);
+
+  return (
+    <div className="space-y-6 text-left">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display font-black text-2xl text-text-primary">Verifier Dashboard</h1>
+          <p className="text-xs text-text-secondary">Process document uploads, verify questions, and audit AI evaluations.</p>
+        </div>
+        <button 
+          onClick={fetchStats}
+          className="p-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary transition-all"
+          title="Refresh Stats"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+          <p className="text-xs text-text-secondary font-medium">Fetching verification stats...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Pending Questions</span>
+                <Clock className="w-4 h-4 text-amber-500" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.pendingQuestions ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Awaiting verifier review</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Flagged Content</span>
+                <Flag className="w-4 h-4 text-red-500" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.flaggedQuestions ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Reported by users/moderators</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Pipeline Batches</span>
+                <Cpu className="w-4 h-4 text-purple-400" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.processingBatches ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Active document ingestion</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Pending Appeals</span>
+                <AlertTriangle className="w-4 h-4 text-emerald-400" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.pendingAppeals ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Disputed grading reviews</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5">
+            <div 
+              onClick={() => router.push('/verifier?tab=queue')}
+              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-accent/40 hover:shadow-lg transition-all group cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center text-accent mb-4 group-hover:scale-110 transition-transform">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-black text-sm text-text-primary">Start Question Verification</h3>
+              <p className="text-[11px] text-text-secondary mt-1">Review OCR-extracted questions, verify text, topic mappings, and difficulty levels.</p>
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-accent uppercase tracking-wider mt-4">
+                <span>Verification Queue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div 
+              onClick={() => router.push('/verifier?tab=pipeline')}
+              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-emerald-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
+                <Upload className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-black text-sm text-text-primary">Ingest New Exam Papers</h3>
+              <p className="text-[11px] text-text-secondary mt-1">Upload university question papers in PDF. Monitor batch progress of OCR extraction.</p>
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider mt-4">
+                <span>Ingestion Pipeline</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div 
+              onClick={() => router.push('/verifier?tab=review')}
+              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-purple-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:scale-110 transition-transform">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-black text-sm text-text-primary">Review Appeals & Escalations</h3>
+              <p className="text-[11px] text-text-secondary mt-1">Resolve grading escalations flagged by AI or dispute appeals submitted by students.</p>
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-purple-400 uppercase tracking-wider mt-4">
+                <span>Review Hub</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/30">
+            <h3 className="font-display font-bold text-sm text-text-primary mb-4">Ingestion System Overview</h3>
+            <div className="grid md:grid-cols-2 gap-4 text-xs font-semibold">
+              <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/40 space-y-2">
+                <div className="flex justify-between text-text-secondary">
+                  <span>Questions Verified</span>
+                  <span className="text-emerald-400">{stats?.verifiedQuestions ?? 0}</span>
+                </div>
+                <div className="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-500" 
+                    style={{ width: `${Math.min(100, Math.round(((stats?.verifiedQuestions ?? 0) / ((stats?.verifiedQuestions ?? 0) + (stats?.pendingQuestions ?? 0) + (stats?.flaggedQuestions ?? 0) || 1)) * 100))}%` }}
+                  />
+                </div>
+              </div>
+              <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/40 space-y-2">
+                <div className="flex justify-between text-text-secondary">
+                  <span>Total Batches Seeded</span>
+                  <span className="text-purple-400">{stats?.totalBatches ?? 0}</span>
+                </div>
+                <div className="flex justify-between text-[10px] text-text-muted">
+                  <span>Processing: {stats?.processingBatches ?? 0}</span>
+                  <span>Completed: {(stats?.totalBatches ?? 0) - (stats?.processingBatches ?? 0)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ModeratorDashboardView({ fbUser }: { fbUser: any }) {
+  const router = useRouter();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = async () => {
+    if (!fbUser) return;
+    setLoading(true);
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch('/api/stats/moderator', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data.metrics);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, [fbUser]);
+
+  return (
+    <div className="space-y-6 text-left">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display font-black text-2xl text-text-primary">Moderator Dashboard</h1>
+          <p className="text-xs text-text-secondary">Moderate reported question flags, review grading disputes, and audit feedback tickets.</p>
+        </div>
+        <button 
+          onClick={fetchStats}
+          className="p-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary transition-all"
+          title="Refresh Stats"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+          <p className="text-xs text-text-secondary font-medium">Fetching moderation stats...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Flagged Questions</span>
+                <Flag className="w-4 h-4 text-red-500" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.flaggedQuestions ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Awaiting moderation action</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Unresolved Appeals</span>
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.pendingAppeals ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Open student grading disputes</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Open Feedbacks</span>
+                <MessageSquare className="w-4 h-4 text-purple-400" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.openFeedback ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Bugs / UI queries pending</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Archived Content</span>
+                <XCircle className="w-4 h-4 text-slate-500" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.archivedQuestions ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Permanently deactivated</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-5">
+            <div 
+              onClick={() => router.push('/moderator?status=flagged')}
+              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-red-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4 group-hover:scale-110 transition-transform">
+                <Flag className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-black text-sm text-text-primary">Resolve Flagged Questions</h3>
+              <p className="text-[11px] text-text-secondary mt-1">Audit verification flags, approve correction updates, or archive duplicate questions.</p>
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-red-400 uppercase tracking-wider mt-4">
+                <span>Resolve Flags</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div 
+              onClick={() => router.push('/verifier?tab=review')}
+              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-amber-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-4 group-hover:scale-110 transition-transform">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-black text-sm text-text-primary">Grade Appeals Dashboard</h3>
+              <p className="text-[11px] text-text-secondary mt-1">Review student score disputes, override sessional grades, and add reviewer comments.</p>
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-amber-400 uppercase tracking-wider mt-4">
+                <span>Appeals Review</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+
+            <div 
+              onClick={() => router.push('/admin')}
+              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-purple-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:scale-110 transition-transform">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <h3 className="font-display font-black text-sm text-text-primary">User Support & Feedback</h3>
+              <p className="text-[11px] text-text-secondary mt-1">Review bug reports, answer UI/UX suggestions, and manage user platform tickets.</p>
+              <div className="flex items-center gap-1 text-[10px] font-extrabold text-purple-400 uppercase tracking-wider mt-4">
+                <span>Feedback Inbox</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/30">
+            <h3 className="font-display font-bold text-sm text-text-primary mb-4">Content Quality Metrics</h3>
+            <div className="grid md:grid-cols-2 gap-4 text-xs font-semibold">
+              <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/40 space-y-2">
+                <div className="flex justify-between text-text-secondary">
+                  <span>Questions Healthy</span>
+                  <span className="text-emerald-400">{stats?.verifiedQuestions ?? 0}</span>
+                </div>
+                <div className="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-emerald-500" 
+                    style={{ width: `${Math.min(100, Math.round(((stats?.verifiedQuestions ?? 0) / ((stats?.verifiedQuestions ?? 0) + (stats?.flaggedQuestions ?? 0) || 1)) * 100))}%` }}
+                  />
+                </div>
+              </div>
+              <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/40 space-y-2">
+                <div className="flex justify-between text-text-secondary">
+                  <span>Appeals Resolution Rate</span>
+                  <span className="text-purple-400">
+                    {Math.round(((stats?.resolvedAppeals ?? 0) / ((stats?.resolvedAppeals ?? 0) + (stats?.pendingAppeals ?? 0) || 1)) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500" 
+                    style={{ width: `${Math.round(((stats?.resolvedAppeals ?? 0) / ((stats?.resolvedAppeals ?? 0) + (stats?.pendingAppeals ?? 0) || 1)) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminDashboardView({ fbUser }: { fbUser: any }) {
+  const router = useRouter();
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = async () => {
+    if (!fbUser) return;
+    setLoading(true);
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch('/api/admin/platform-stats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+  }, [fbUser]);
+
+  return (
+    <div className="space-y-6 text-left">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display font-black text-2xl text-text-primary">Admin Control Center</h1>
+          <p className="text-xs text-text-secondary">Oversee platform health metrics, manage user roles, audit support logs, and monitor systems.</p>
+        </div>
+        <button 
+          onClick={fetchStats}
+          className="p-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary transition-all"
+          title="Refresh Stats"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+          <p className="text-xs text-text-secondary font-medium">Aggregating platform health stats...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Total Users</span>
+                <Users className="w-4 h-4 text-purple-400" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.users?.total ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Registered accounts</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Daily Active Users</span>
+                <Globe className="w-4 h-4 text-emerald-400" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.users?.dailyActiveUsers ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">Active within 24h</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Practice Sessions</span>
+                <BookOpen className="w-4 h-4 text-accent" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.sessions?.total ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">{stats?.sessions?.today ?? 0} started today</p>
+            </div>
+            <div className="p-5 rounded-2xl border border-border-primary bg-bg-secondary/40 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-text-muted">
+                <span className="text-[10px] font-black uppercase tracking-wider">Open Feedbacks</span>
+                <MessageSquare className="w-4 h-4 text-amber-500" />
+              </div>
+              <h3 className="font-display font-black text-3xl mt-2 text-text-primary">{stats?.feedback?.open ?? 0}</h3>
+              <p className="text-[9px] text-text-secondary mt-1">{stats?.feedback?.total ?? 0} tickets total</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div 
+              onClick={() => router.push('/admin?tab=users')}
+              className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:border-accent/40 transition-all cursor-pointer group text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent mb-3">
+                <Users className="w-4 h-4" />
+              </div>
+              <h4 className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors">User Curation</h4>
+              <p className="text-[10px] text-text-secondary mt-1">Manage user roles and ban lists.</p>
+            </div>
+            <div 
+              onClick={() => router.push('/admin?tab=monitoring')}
+              className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:border-emerald-500/30 transition-all cursor-pointer group text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-3">
+                <Activity className="w-4 h-4" />
+              </div>
+              <h4 className="text-xs font-bold text-text-primary group-hover:text-emerald-400 transition-colors">System Monitor</h4>
+              <p className="text-[10px] text-text-secondary mt-1">Check CPU, memory, and service health.</p>
+            </div>
+            <div 
+              onClick={() => router.push('/admin?tab=feedback')}
+              className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:border-amber-500/30 transition-all cursor-pointer group text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-3">
+                <MessageSquare className="w-4 h-4" />
+              </div>
+              <h4 className="text-xs font-bold text-text-primary group-hover:text-amber-500 transition-colors">Support Tickets</h4>
+              <p className="text-[10px] text-text-secondary mt-1">Manage feedback, issues, and bugs.</p>
+            </div>
+            <div 
+              onClick={() => router.push('/staff/audit')}
+              className="p-5 rounded-xl border border-border-primary bg-bg-secondary hover:border-purple-500/30 transition-all cursor-pointer group text-left"
+            >
+              <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 mb-3">
+                <Shield className="w-4 h-4" />
+              </div>
+              <h4 className="text-xs font-bold text-text-primary group-hover:text-purple-400 transition-colors">Audit Logs</h4>
+              <p className="text-[10px] text-text-secondary mt-1">Track verification and mod histories.</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/30 space-y-4">
+              <h4 className="font-display font-bold text-sm text-text-primary flex items-center gap-2">
+                <Database className="w-4 h-4 text-purple-400" /> Database & Operations
+              </h4>
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between font-semibold border-b border-border-primary/20 pb-2">
+                  <span className="text-text-secondary">MongoDB Database</span>
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Connected
+                  </span>
+                </div>
+                <div className="flex justify-between font-semibold border-b border-border-primary/20 pb-2">
+                  <span className="text-text-secondary">Redis Cache Store</span>
+                  <span className="text-emerald-400 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Connected
+                  </span>
+                </div>
+                <div className="flex justify-between font-semibold pb-1">
+                  <span className="text-text-secondary">Verification Throughput</span>
+                  <span className="text-text-primary">Active</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/30 space-y-4">
+              <h4 className="font-display font-bold text-sm text-text-primary flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-400" /> Plan Distribution
+              </h4>
+              <div className="space-y-3">
+                {stats?.users?.byPlan && Object.entries(stats.users.byPlan).map(([plan, count]) => {
+                  const total = stats.users.total || 1;
+                  const pct = Math.round(((count as number) / total) * 100);
+                  return (
+                    <div key={plan} className="space-y-1 text-xs">
+                      <div className="flex justify-between font-semibold">
+                        <span className="capitalize">{plan === 'beta_pro' ? 'Beta Pro' : plan}</span>
+                        <span className="text-text-secondary">{count as number} ({pct}%)</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-bg-primary rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-emerald-500" 
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function DashboardContent() {
   const router = useRouter();
@@ -120,8 +643,8 @@ function DashboardContent() {
   useEffect(() => {
     if (!authLoading) {
       if (!fbUser && !hasLocalParams) {
-        // No session at all — send to login
-        router.push('/login');
+        // No session at all — send directly to landing page
+        router.push('/');
       } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
         // Verified but onboarding not completed (student only)
         router.push('/onboarding');
@@ -447,212 +970,220 @@ function DashboardContent() {
 
         {/* Dashboard Main Scrollable Body */}
         <main className="flex-grow max-w-5xl w-full mx-auto px-6 sm:px-8 py-8 space-y-6">
-          
-          {/* Card 1: Your Daily Goal Card */}
-          <section className="p-6 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
-            <div className="space-y-4 flex-grow">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                  <Sparkles className="w-5 h-5 fill-purple-400/15" />
-                </div>
-                <h3 className="font-display font-black text-sm text-text-primary">Your Daily Goal</h3>
-              </div>
-              
-              <div className="space-y-1">
-                <h2 className="font-display font-black text-2xl text-text-primary">
-                  {dailySolved} <span className="text-text-muted">/ {dailyTarget} Questions</span>
-                </h2>
-                <p className="text-xs text-text-secondary font-semibold">
-                  {dailySolved >= dailyTarget ? "Great! You completed today's goal." : `Solve ${dailyTarget - dailySolved} more questions to finish.`}
-                </p>
-              </div>
+          {user?.role === 'admin' ? (
+            <AdminDashboardView fbUser={fbUser} />
+          ) : user?.role === 'verifier' ? (
+            <VerifierDashboardView fbUser={fbUser} />
+          ) : user?.role === 'moderator' ? (
+            <ModeratorDashboardView fbUser={fbUser} />
+          ) : (
+            <>
+              {/* Card 1: Your Daily Goal Card */}
+              <section className="p-6 rounded-2xl border border-border-primary bg-bg-secondary flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
+                <div className="space-y-4 flex-grow text-left">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                      <Sparkles className="w-5 h-5 fill-purple-400/15" />
+                    </div>
+                    <h3 className="font-display font-black text-sm text-text-primary">Your Daily Goal</h3>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <h2 className="font-display font-black text-2xl text-text-primary">
+                      {dailySolved} <span className="text-text-muted">/ {dailyTarget} Questions</span>
+                    </h2>
+                    <p className="text-xs text-text-secondary font-semibold">
+                      {dailySolved >= dailyTarget ? "Great! You completed today's goal." : `Solve ${dailyTarget - dailySolved} more questions to finish.`}
+                    </p>
+                  </div>
 
-              {/* Goal Mini Stats badges */}
-              <div className="flex items-center gap-2.5 flex-wrap pt-1">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 text-[10px] font-bold">
-                  <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>{dailySolved} Solved</span>
+                  {/* Goal Mini Stats badges */}
+                  <div className="flex items-center gap-2.5 flex-wrap pt-1">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 text-[10px] font-bold">
+                      <CheckCircle2 className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>{dailySolved} Solved</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/5 border border-red-500/10 text-red-400 text-[10px] font-bold">
+                      <XCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>{incorrectCount} Incorrect</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-purple-400 text-[10px] font-bold">
+                      <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>{estimatedTimeSpent} min Time Spent</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/5 border border-red-500/10 text-red-400 text-[10px] font-bold">
-                  <XCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>{incorrectCount} Incorrect</span>
+
+                {/* Goal Progress bar side */}
+                <div className="flex flex-col items-end gap-5 shrink-0 w-full md:w-auto">
+                  <div className="flex items-center gap-4 w-full md:w-64">
+                    <div className="flex-grow h-2 bg-bg-tertiary border border-border-primary/50 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-purple-500 transition-all duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <span className="font-display font-black text-xs text-purple-500 shrink-0">{progressPercent}%</span>
+                  </div>
+                  
+                  <Link 
+                    href="/tests"
+                    className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md"
+                  >
+                    <span>Start Practice</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-purple-400 text-[10px] font-bold">
-                  <Clock className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>{estimatedTimeSpent} min Time Spent</span>
+              </section>
+
+              {/* Section 2: Select Your Subject grid */}
+              <section id="subjects" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary space-y-5">
+                <div className="flex items-start gap-3 text-left">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mt-0.5">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h3 className="font-display font-black text-sm text-text-primary">Select Your Subject</h3>
+                    <p className="text-[10px] text-text-secondary font-semibold">Choose a subject to continue your preparation</p>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Goal Progress bar side */}
-            <div className="flex flex-col items-end gap-5 shrink-0 w-full md:w-auto">
-              <div className="flex items-center gap-4 w-full md:w-64">
-                <div className="flex-grow h-2 bg-bg-tertiary border border-border-primary/50 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-purple-500 transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <span className="font-display font-black text-xs text-purple-500 shrink-0">{progressPercent}%</span>
-              </div>
-              
-              <Link 
-                href="/tests"
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-bold transition-all shadow-md"
-              >
-                <span>Start Practice</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </section>
+                {/* Dynamic Subjects Grid */}
+                {loadingSubjects ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    {[1, 2, 3, 4, 5, 6].map(n => (
+                      <div key={n} className="animate-pulse h-36 bg-bg-tertiary border border-border-primary/50 rounded-2xl" />
+                    ))}
+                  </div>
+                ) : subjects.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                    {subjects.slice(0, 5).map((sub, idx) => {
+                      const styles = getSubjectCardStyles(sub.name, sub.code);
+                      const IconComponent = styles.icon;
+                      const chaptersCount = getSubjectTopicsCount(sub);
 
-          {/* Section 2: Select Your Subject grid */}
-          <section id="subjects" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary space-y-5">
-            <div className="flex items-start gap-3 text-left">
-              <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mt-0.5">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div className="space-y-0.5">
-                <h3 className="font-display font-black text-sm text-text-primary">Select Your Subject</h3>
-                <p className="text-[10px] text-text-secondary font-semibold">Choose a subject to continue your preparation</p>
-              </div>
-            </div>
+                      return (
+                        <div 
+                          key={sub._id}
+                          className="p-4 rounded-2xl bg-bg-secondary border border-border-primary hover:border-accent/30 flex flex-col justify-between items-start h-36 group transition-all cursor-pointer"
+                          onClick={() => router.push(`/subjects/${sub._id}`)}
+                        >
+                          <div className={`p-2 rounded-lg ${styles.colorClass} flex items-center justify-center shrink-0`}>
+                            <IconComponent className="w-4 h-4" />
+                          </div>
+                          
+                          <div className="space-y-0.5 text-left w-full">
+                            <h4 className="text-xs font-black text-text-primary leading-tight truncate group-hover:text-accent transition-colors">
+                              {sub.name}
+                            </h4>
+                            <p className="text-[9px] text-text-muted font-bold leading-none">
+                              {chaptersCount} {chaptersCount === 1 ? 'Unit' : 'Units'}
+                            </p>
+                          </div>
 
-            {/* Dynamic Subjects Grid */}
-            {loadingSubjects ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                {[1, 2, 3, 4, 5, 6].map(n => (
-                  <div key={n} className="animate-pulse h-36 bg-bg-tertiary border border-border-primary/50 rounded-2xl" />
-                ))}
-              </div>
-            ) : subjects.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                {subjects.slice(0, 5).map((sub, idx) => {
-                  const styles = getSubjectCardStyles(sub.name, sub.code);
-                  const IconComponent = styles.icon;
-                  const chaptersCount = getSubjectTopicsCount(sub);
+                          {/* Circular arrow button */}
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${styles.arrowColor}`}>
+                            <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+                          </div>
+                        </div>
+                      );
+                    })}
 
-                  return (
+                    {/* View All Card */}
                     <div 
-                      key={sub._id}
                       className="p-4 rounded-2xl bg-bg-secondary border border-border-primary hover:border-accent/30 flex flex-col justify-between items-start h-36 group transition-all cursor-pointer"
-                      onClick={() => router.push(`/subjects/${sub._id}`)}
+                      onClick={() => router.push('/tests')}
                     >
-                      <div className={`p-2 rounded-lg ${styles.colorClass} flex items-center justify-center shrink-0`}>
-                        <IconComponent className="w-4 h-4" />
+                      <div className="p-2 rounded-lg bg-neutral-500/10 border border-neutral-500/20 text-neutral-400 flex items-center justify-center shrink-0">
+                        <BookOpen className="w-4 h-4" />
                       </div>
                       
                       <div className="space-y-0.5 text-left w-full">
-                        <h4 className="text-xs font-black text-text-primary leading-tight truncate group-hover:text-accent transition-colors">
-                          {sub.name}
+                        <h4 className="text-xs font-black text-text-primary leading-tight truncate">
+                          View All
                         </h4>
                         <p className="text-[9px] text-text-muted font-bold leading-none">
-                          {chaptersCount} {chaptersCount === 1 ? 'Unit' : 'Units'}
+                          All Subjects
                         </p>
                       </div>
 
                       {/* Circular arrow button */}
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${styles.arrowColor}`}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center border border-text-muted/30 text-text-muted hover:border-accent/40 hover:text-accent transition-all">
                         <ArrowRight className="w-3 h-3 stroke-[2.5]" />
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                ) : (
+                  <div className="py-16 text-center border border-dashed border-border-primary rounded-2xl bg-bg-secondary/50 text-text-muted text-xs">
+                    No active subjects found for this semester. Redo sessional onboarding setup.
+                  </div>
+                )}
+              </section>
 
-                {/* View All Card */}
-                <div 
-                  className="p-4 rounded-2xl bg-bg-secondary border border-border-primary hover:border-accent/30 flex flex-col justify-between items-start h-36 group transition-all cursor-pointer"
-                  onClick={() => router.push('/tests')}
-                >
-                  <div className="p-2 rounded-lg bg-neutral-500/10 border border-neutral-500/20 text-neutral-400 flex items-center justify-center shrink-0">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  
-                  <div className="space-y-0.5 text-left w-full">
-                    <h4 className="text-xs font-black text-text-primary leading-tight truncate">
-                      View All
-                    </h4>
-                    <p className="text-[9px] text-text-muted font-bold leading-none">
-                      All Subjects
-                    </p>
-                  </div>
-
-                  {/* Circular arrow button */}
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center border border-text-muted/30 text-text-muted hover:border-accent/40 hover:text-accent transition-all">
-                    <ArrowRight className="w-3 h-3 stroke-[2.5]" />
-                  </div>
+              {/* Section 3: Continue Your Chapters */}
+              <section id="practice" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-black text-sm text-text-primary">Continue Your Chapters</h3>
+                  <Link href="/tests" className="text-[10px] font-black text-accent hover:opacity-75 uppercase tracking-wider transition-opacity">
+                    View All
+                  </Link>
                 </div>
-              </div>
-            ) : (
-              <div className="py-16 text-center border border-dashed border-border-primary rounded-2xl bg-bg-secondary/50 text-text-muted text-xs">
-                No active subjects found for this semester. Redo sessional onboarding setup.
-              </div>
-            )}
-          </section>
 
-          {/* Section 3: Continue Your Chapters */}
-          <section id="practice" className="p-6 rounded-2xl border border-border-primary bg-bg-secondary space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-display font-black text-sm text-text-primary">Continue Your Chapters</h3>
-              <Link href="/tests" className="text-[10px] font-black text-accent hover:opacity-75 uppercase tracking-wider transition-opacity">
-                View All
-              </Link>
-            </div>
+                {/* List Rows */}
+                <div className="divide-y divide-border-primary/30">
+                  {getContinueRows().map((row: any, idx: number) => (
+                    <div 
+                      key={idx}
+                      onClick={() => router.push(row.subjectId !== '#' ? `/subjects/${row.subjectId}` : '/dashboard')}
+                      className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-bg-tertiary px-2 rounded-xl transition-all"
+                    >
+                      {/* Left: Icon + Titles */}
+                      <div className="flex items-center gap-3.5 text-left min-w-0 max-w-[40%]">
+                        <div className={`w-8 h-8 rounded-lg ${row.colorClass} flex items-center justify-center shrink-0`}>
+                          <FileText className="w-4.5 h-4.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors leading-snug truncate">
+                            {row.subjectName}
+                          </h4>
+                          <p className="text-[10px] text-text-muted truncate mt-0.5">
+                            {row.chapterTitle}
+                          </p>
+                        </div>
+                      </div>
 
-            {/* List Rows */}
-            <div className="divide-y divide-border-primary/30">
-              {getContinueRows().map((row: any, idx: number) => (
-                <div 
-                  key={idx}
-                  onClick={() => router.push(row.subjectId !== '#' ? `/subjects/${row.subjectId}` : '/dashboard')}
-                  className="py-3.5 flex items-center justify-between gap-4 group cursor-pointer hover:bg-bg-tertiary px-2 rounded-xl transition-all"
-                >
-                  {/* Left: Icon + Titles */}
-                  <div className="flex items-center gap-3.5 text-left min-w-0 max-w-[40%]">
-                    <div className={`w-8 h-8 rounded-lg ${row.colorClass} flex items-center justify-center shrink-0`}>
-                      <FileText className="w-4.5 h-4.5" />
+                      {/* Middle: Progress line bar */}
+                      <div className="flex-grow max-w-md hidden sm:block">
+                        <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden border border-border-primary/30">
+                          <div 
+                            className={`h-full ${row.progressBarColor} transition-all duration-300`} 
+                            style={{ width: `${row.progress}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Right: Progress text stats */}
+                      <div className="flex items-center gap-5 shrink-0">
+                        <span className="font-display font-black text-xs text-text-primary">
+                          {row.progress}%
+                        </span>
+                        <span className="text-[10px] text-text-secondary font-bold hidden md:inline">
+                          {row.questions}
+                        </span>
+                        <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-text-primary group-hover:text-accent transition-colors leading-snug truncate">
-                        {row.subjectName}
-                      </h4>
-                      <p className="text-[10px] text-text-muted truncate mt-0.5">
-                        {row.chapterTitle}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Middle: Progress line bar */}
-                  <div className="flex-grow max-w-md hidden sm:block">
-                    <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden border border-border-primary/30">
-                      <div 
-                        className={`h-full ${row.progressBarColor} transition-all duration-300`} 
-                        style={{ width: `${row.progress}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right: Progress text stats */}
-                  <div className="flex items-center gap-5 shrink-0">
-                    <span className="font-display font-black text-xs text-text-primary">
-                      {row.progress}%
-                    </span>
-                    <span className="text-[10px] text-text-secondary font-bold hidden md:inline">
-                      {row.questions}
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-text-primary transition-colors" />
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
+              </section>
 
-          {/* Footer Text */}
-          <div className="py-6 text-center text-text-muted text-[10px] font-bold flex items-center justify-center gap-1.5 select-none">
-            <span>Keep learning, keep growing!</span>
-            <span>🚀</span>
-          </div>
-
+              {/* Footer Text */}
+              <div className="py-6 text-center text-text-muted text-[10px] font-bold flex items-center justify-center gap-1.5 select-none">
+                <span>Keep learning, keep growing!</span>
+                <span>🚀</span>
+              </div>
+            </>
+          )}
         </main>
 
         {/* Dynamic Search Modal Overlay */}

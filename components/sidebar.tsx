@@ -61,17 +61,21 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
     ? streakDays
     : ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(label => ({ label, active: false }));
 
-  const menuItems = [
-    { name: 'Home', icon: Home, path: '/dashboard' },
-    { name: 'Subjects', icon: BookOpen, path: '/subjects' },
-    { name: 'Practice', icon: Edit3, path: '/practice' },
-    { name: 'Tests', icon: FileText, path: '/tests' },
-    { name: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
-    { name: 'My Progress', icon: Activity, path: '/analytics' },
-    { name: 'AI Assistant', icon: Sparkles, path: '/dashboard#ai-assistant', badge: 'Beta' },
-    { name: 'Settings', icon: Settings, path: '/settings' },
-    { name: 'Profile', icon: User, path: '/profile' },
-  ];
+  const isStaff = user && ['verifier', 'moderator', 'admin'].includes(user.role);
+
+  const menuItems = isStaff
+    ? [
+        { name: 'Home', icon: Home, path: '/dashboard' },
+      ]
+    : [
+        { name: 'Home', icon: Home, path: '/dashboard' },
+        { name: 'Subjects', icon: BookOpen, path: '/subjects' },
+        { name: 'Practice', icon: Edit3, path: '/practice' },
+        { name: 'Tests', icon: FileText, path: '/tests' },
+        { name: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
+        { name: 'My Progress', icon: Activity, path: '/analytics' },
+        { name: 'AI Assistant', icon: Sparkles, path: '/dashboard#ai-assistant', badge: 'Beta' },
+      ];
 
   if (user && ['verifier', 'moderator', 'admin'].includes(user.role)) {
     menuItems.push({ name: 'Verifier Workspace', icon: FileText, path: '/verifier' });
@@ -83,6 +87,12 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
     menuItems.push({ name: 'User Curation', icon: FileText, path: '/admin' });
     menuItems.push({ name: 'Monitoring Dashboard', icon: Activity, path: '/admin/monitoring' });
   }
+
+  // Common items at the end
+  menuItems.push(
+    { name: 'Settings', icon: Settings, path: '/settings' },
+    { name: 'Profile', icon: User, path: '/profile' }
+  );
 
   return (
     <>
@@ -156,59 +166,61 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
 
         {/* Pinned footer */}
         <div className="shrink-0 space-y-3 pt-3">
-
-          {/* Streak Card */}
-          <div className="streak-card p-3.5 rounded-2xl border space-y-2
-            bg-bg-primary border-border-primary
-            dark:bg-[#0e0d22] dark:border-border-primary/40">
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-orange-500" />
-              <span className="text-xs font-bold text-text-primary">Streak</span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <div>
-                <h4 className="font-display font-black text-lg text-text-primary leading-none">
-                  {streakCount > 0 ? `${streakCount} Days` : '—'}
-                </h4>
-              </div>
-              <p className="text-[9px] text-text-muted">
-                {streakCount > 0 ? 'Keep it up!' : 'Start today!'}
-              </p>
-            </div>
-            {/* Day indicators */}
-            <div className="flex items-center justify-between">
-              {days.map((day, idx) => (
-                <div key={idx} className="flex flex-col items-center gap-0.5">
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all
-                    ${day.active
-                      ? 'bg-emerald-500 border-transparent text-white'
-                      : 'bg-bg-tertiary border-border-primary text-text-muted'
-                    }`}
-                  >
-                    {day.active && <Check className="w-2 h-2 stroke-[3px]" />}
-                  </div>
-                  <span className="text-[8px] font-bold text-text-muted">{day.label}</span>
+          {!isStaff && (
+            <>
+              {/* Streak Card */}
+              <div className="streak-card p-3.5 rounded-2xl border space-y-2
+                bg-bg-primary border-border-primary
+                dark:bg-[#0e0d22] dark:border-border-primary/40">
+                <div className="flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  <span className="text-xs font-bold text-text-primary">Streak</span>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <h4 className="font-display font-black text-lg text-text-primary leading-none">
+                      {streakCount > 0 ? `${streakCount} Days` : '—'}
+                    </h4>
+                  </div>
+                  <p className="text-[9px] text-text-muted">
+                    {streakCount > 0 ? 'Keep it up!' : 'Start today!'}
+                  </p>
+                </div>
+                {/* Day indicators */}
+                <div className="flex items-center justify-between">
+                  {days.map((day, idx) => (
+                    <div key={idx} className="flex flex-col items-center gap-0.5">
+                      <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all
+                        ${day.active
+                          ? 'bg-emerald-500 border-transparent text-white'
+                          : 'bg-bg-tertiary border-border-primary text-text-muted'
+                        }`}
+                      >
+                        {day.active && <Check className="w-2 h-2 stroke-[3px]" />}
+                      </div>
+                      <span className="text-[8px] font-bold text-text-muted">{day.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-          {/* Upgrade Card */}
-          <div className="upgrade-card p-3 rounded-xl border flex items-center justify-between gap-3
-            bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20
-            dark:from-[#1b1935] dark:to-[#121022] dark:border-purple-500/15">
-            <div className="flex items-center gap-2 min-w-0">
-              <Crown className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
-              <span className="text-[11px] font-bold text-text-primary truncate">Premium Plan</span>
-            </div>
-            <Link 
-              href="/#pricing" 
-              className="py-1 px-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-[10px] font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
-            >
-              Upgrade &gt;
-            </Link>
-          </div>
-
+              {/* Upgrade Card */}
+              <div className="upgrade-card p-3 rounded-xl border flex items-center justify-between gap-3
+                bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20
+                dark:from-[#1b1935] dark:to-[#121022] dark:border-purple-500/15">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Crown className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+                  <span className="text-[11px] font-bold text-text-primary truncate">Premium Plan</span>
+                </div>
+                <Link 
+                  href="/#pricing" 
+                  className="py-1 px-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-[10px] font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
+                >
+                  Upgrade &gt;
+                </Link>
+              </div>
+            </>
+          )}
         </div>
 
       </aside>
