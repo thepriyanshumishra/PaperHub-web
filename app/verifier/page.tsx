@@ -169,24 +169,7 @@ function VerifierDashboardContent() {
   const [submittingVerification, setSubmittingVerification] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Ingestion Pipeline States
-  const [batches, setBatches] = useState<IBatch[]>([]);
-  const [loadingBatches, setLoadingBatches] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState<IBatch | null>(null);
-  const [batchDocs, setBatchDocs] = useState<IDocument[]>([]);
-  const [loadingBatchDocs, setLoadingBatchDocs] = useState(false);
 
-  // Upload state
-  const [allSubjects, setAllSubjects] = useState<any[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [uploadYear, setUploadYear] = useState(new Date().getFullYear());
-  const [uploadExamType, setUploadExamType] = useState('Major');
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Master Hierarchy States
   const [hierarchy, setHierarchy] = useState<any[]>([]);
@@ -409,96 +392,25 @@ function VerifierDashboardContent() {
     }
   };
 
-  // Load subjects list for dropdown selection
-  const loadSubjects = async () => {
-    if (!fbUser) return;
-    try {
-      const token = await fbUser.getIdToken();
-      const res = await fetch('/api/verifier/subjects', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAllSubjects(data.subjects || []);
-        if (data.subjects?.length > 0) {
-          setSelectedSubjectId(data.subjects[0]._id);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load subjects:', err);
-    }
-  };
-
-  // Load batches list for ingestion panel
-  const loadBatches = async () => {
-    if (!fbUser) return;
-    setLoadingBatches(true);
-    try {
-      const token = await fbUser.getIdToken();
-      const res = await fetch('/api/verifier/batches', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBatches(data.batches || []);
-      }
-    } catch (err) {
-      console.error('Failed to load batches:', err);
-    } finally {
-      setLoadingBatches(false);
-    }
-  };
-
   useEffect(() => {
     if (fbUser && user && (user.role === 'verifier' || user.role === 'admin' || user.role === 'moderator')) {
       loadHierarchy();
-      loadSubjects();
-      loadBatches();
     }
   }, [fbUser, user]);
 
   useEffect(() => {
     if (activeTab === 'review' && fbUser) {
-      loadEscalations();
-      loadAppeals();
-      loadReviewMetrics();
-    }
-  }, [activeTab, fbUser]);
-
-  // Periodic poll of batch statuses to show progress updates
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (batches.some(b => b.status === 'processing' || b.status === 'pending')) {
-      interval = setInterval(() => {
-        loadBatches();
-        if (selectedBatch) {
-          loadBatchDetails(selectedBatch._id);
-        }
-      }, 5000);
-    }
-    return () => clearInterval(interval);
-  }, [batches, selectedBatch]);
-
-  // Load batch documents details
-  const loadBatchDetails = async (batchId: string) => {
-    if (!fbUser) return;
-    setLoadingBatchDocs(true);
-    try {
-      const token = await fbUser.getIdToken();
-      const res = await fetch(`/api/verifier/batches?batchId=${batchId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setBatchDocs(data.documents || []);
-        setSelectedBatch(data.batch);
+      if (user && user.role !== 'verifier') {
+        loadEscalations();
+        loadAppeals();
+        loadReviewMetrics();
+      } else {
+        setActiveTab('queue');
       }
-    } catch (err) {
-      console.error('Failed to load batch docs:', err);
-    } finally {
-      setLoadingBatchDocs(false);
     }
-  };
+  }, [activeTab, fbUser, user]);
+
+
 
   // Load questions for selected paper
   const loadQuestionsForPaper = async (paper: IPaper, statusFilter: 'all' | 'pending' | 'verified' | 'flagged' = filterStatus) => {
@@ -633,78 +545,7 @@ function VerifierDashboardContent() {
     }
   };
 
-  // Handle file drop/upload in Ingestion
-  const handleUploadSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!fbUser || !uploadFile) return;
 
-    setUploading(true);
-    setUploadError(null);
-    setUploadSuccess(false);
-
-    try {
-      const token = await fbUser.getIdToken();
-      const formData = new FormData();
-      formData.append('file', uploadFile);
-      if (selectedSubjectId) formData.append('subjectId', selectedSubjectId);
-      formData.append('year', String(uploadYear));
-      formData.append('examType', uploadExamType);
-
-      const res = await fetch('/api/verifier/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to upload document.');
-      }
-
-      const data = await res.json();
-      setUploadSuccess(true);
-      setUploadFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-
-      // Trigger asynchronous process automatically
-      fetch('/api/verifier/process', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ batchId: data.batch._id })
-      });
-
-      // Reload batches list
-      loadBatches();
-
-    } catch (err: any) {
-      setUploadError(err.message || 'Upload failed');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const triggerRetryBatch = async (batchId: string) => {
-    if (!fbUser) return;
-    try {
-      const token = await fbUser.getIdToken();
-      await fetch('/api/verifier/process', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ batchId })
-      });
-      loadBatches();
-    } catch (err) {
-      console.error('Failed to retry batch:', err);
-    }
-  };
 
   const handleFilterChange = (status: 'all' | 'pending' | 'verified' | 'flagged') => {
     setFilterStatus(status);
@@ -1547,15 +1388,17 @@ function VerifierDashboardContent() {
             >
               Question Queue
             </button>
-            <button
-              onClick={() => {
-                setActiveTab('review');
-                setSelectedReviewItem(null);
-              }}
-              className={`px-4 py-1.5 rounded-lg font-bold transition-all ${activeTab === 'review' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
-            >
-              Review Queue
-            </button>
+            {user && user.role !== 'verifier' && (
+              <button
+                onClick={() => {
+                  setActiveTab('review');
+                  setSelectedReviewItem(null);
+                }}
+                className={`px-4 py-1.5 rounded-lg font-bold transition-all ${activeTab === 'review' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                Review Queue
+              </button>
+            )}
           </div>
 
           <div className="flex items-center space-x-4">
@@ -2044,7 +1887,7 @@ function VerifierDashboardContent() {
               </>
             )}
           </div>
-        ) : (
+        ) : user && (user.role === 'admin' || user.role === 'moderator') ? (
           /* Review Queue Tab (AI Escalations & Student Appeals) */
           <div className="space-y-6 animate-premium-reveal">
             {/* 1. Quality Analytics Dashboard (Staff-Only) */}
@@ -2461,6 +2304,10 @@ function VerifierDashboardContent() {
                 )}
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="p-8 text-center text-text-secondary border border-border-primary/60 bg-bg-secondary/20 rounded-2xl">
+            You do not have permission to view the Review Queue.
           </div>
         )}
       </main>

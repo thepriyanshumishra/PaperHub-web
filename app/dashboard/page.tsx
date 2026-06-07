@@ -44,6 +44,7 @@ import {
 
 function VerifierDashboardView({ fbUser }: { fbUser: any }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -128,7 +129,7 @@ function VerifierDashboardView({ fbUser }: { fbUser: any }) {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div 
               onClick={() => router.push('/verifier?tab=queue')}
               className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-accent/40 hover:shadow-lg transition-all group cursor-pointer text-left"
@@ -144,35 +145,39 @@ function VerifierDashboardView({ fbUser }: { fbUser: any }) {
               </div>
             </div>
 
-            <div 
-              onClick={() => router.push('/verifier?tab=pipeline')}
-              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-emerald-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
-            >
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
-                <Upload className="w-5 h-5" />
+            {(user?.role === 'admin' || user?.role === 'moderator') && (
+              <div 
+                onClick={() => router.push('/verifier?tab=pipeline')}
+                className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-emerald-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
+                  <Upload className="w-5 h-5" />
+                </div>
+                <h3 className="font-display font-black text-sm text-text-primary">Ingest New Exam Papers</h3>
+                <p className="text-[11px] text-text-secondary mt-1">Upload university question papers in PDF. Monitor batch progress of OCR extraction.</p>
+                <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider mt-4">
+                  <span>Ingestion Pipeline</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
               </div>
-              <h3 className="font-display font-black text-sm text-text-primary">Ingest New Exam Papers</h3>
-              <p className="text-[11px] text-text-secondary mt-1">Upload university question papers in PDF. Monitor batch progress of OCR extraction.</p>
-              <div className="flex items-center gap-1 text-[10px] font-extrabold text-emerald-400 uppercase tracking-wider mt-4">
-                <span>Ingestion Pipeline</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
+            )}
 
-            <div 
-              onClick={() => router.push('/verifier?tab=review')}
-              className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-purple-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
-            >
-              <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:scale-110 transition-transform">
-                <AlertTriangle className="w-5 h-5" />
+            {(user?.role === 'admin' || user?.role === 'moderator') && (
+              <div 
+                onClick={() => router.push('/verifier?tab=review')}
+                className="p-6 rounded-2xl border border-border-primary bg-gradient-to-br from-bg-secondary to-bg-secondary/60 hover:border-purple-500/30 hover:shadow-lg transition-all group cursor-pointer text-left"
+              >
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 mb-4 group-hover:scale-110 transition-transform">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <h3 className="font-display font-black text-sm text-text-primary">Review Appeals & Escalations</h3>
+                <p className="text-[11px] text-text-secondary mt-1">Resolve grading escalations flagged by AI or sessional disputes.</p>
+                <div className="flex items-center gap-1 text-[10px] font-extrabold text-purple-400 uppercase tracking-wider mt-4">
+                  <span>Review Hub</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </div>
               </div>
-              <h3 className="font-display font-black text-sm text-text-primary">Review Appeals & Escalations</h3>
-              <p className="text-[11px] text-text-secondary mt-1">Resolve grading escalations flagged by AI or dispute appeals submitted by students.</p>
-              <div className="flex items-center gap-1 text-[10px] font-extrabold text-purple-400 uppercase tracking-wider mt-4">
-                <span>Review Hub</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="p-6 rounded-2xl border border-border-primary bg-bg-secondary/30">

@@ -1052,13 +1052,7 @@ function OnboardingContent() {
                               key={c._id}
                               onClick={() => { 
                                 setSelectedCourse(c._id); 
-                                setDirection(1);
-                                if (c.isBranchRequired) {
-                                  setStep(5); 
-                                } else {
-                                  setSelectedBranch(null);
-                                  setStep(6);
-                                }
+                                setSelectedBranch(null);
                               }}
                               className={`p-5 rounded-2xl border text-left flex flex-col justify-between h-32 transition-all duration-300 relative overflow-hidden group ${
                                 selectedCourse === c._id
