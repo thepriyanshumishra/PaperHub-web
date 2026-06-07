@@ -1,5 +1,5 @@
 // Plan types
-export type PlanId = 'free' | 'pro' | 'institution' | 'beta_pro';
+export type PlanId = 'free' | 'plus' | 'pro' | 'institution' | 'beta_pro';
 
 export interface PlanFeatures {
   dailyAiChats: number;       // -1 = unlimited
@@ -29,7 +29,7 @@ export const PLANS: Record<PlanId, Plan> = {
     price: 0,
     features: {
       dailyAiChats: 5,
-      dailyEvaluations: 3,
+      dailyEvaluations: 0,
       mockTestsPerMonth: 2,
       questionBankAccess: 'limited',
       studyRecommendations: false,
@@ -54,6 +54,22 @@ export const PLANS: Record<PlanId, Plan> = {
     },
     badge: '⚡',
     highlighted: true,
+  },
+  plus: {
+    id: 'plus',
+    name: 'Plus',
+    description: 'Enhanced limits and basic AI evaluation for your handwritten papers',
+    price: 49,
+    features: {
+      dailyAiChats: 20,
+      dailyEvaluations: 5,
+      mockTestsPerMonth: 10,
+      questionBankAccess: 'full',
+      studyRecommendations: true,
+      exportReports: false,
+      prioritySupport: false,
+    },
+    badge: '📈',
   },
   institution: {
     id: 'institution',
@@ -89,7 +105,7 @@ export const PLANS: Record<PlanId, Plan> = {
   },
 };
 
-export const PLAN_ORDER: PlanId[] = ['free', 'pro', 'institution'];
+export const PLAN_ORDER: PlanId[] = ['free', 'plus', 'pro', 'institution'];
 
 export function getPlan(planId: PlanId): Plan {
   return PLANS[planId] || PLANS.beta_pro;
