@@ -14,12 +14,20 @@ import {
   User as UserIcon,
   CheckCircle2, 
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  BookOpen,
+  Bot,
+  LineChart,
+  Bookmark,
+  ShieldCheck,
+  Zap,
+  Cloud,
+  GraduationCap
 } from 'lucide-react';
 
 export default function Login() {
   const router = useRouter();
-  const { user, fbUser, loading, error: globalError, loginWithEmail, registerWithEmail } = useAuth();
+  const { user, fbUser, loading, error: globalError, loginWithEmail, registerWithEmail, loginWithGoogle } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -84,226 +92,352 @@ export default function Login() {
     }
   };
 
+  const handleGoogleAuth = async () => {
+    try {
+      setAuthError(null);
+      await loginWithGoogle();
+    } catch (err: any) {
+      setAuthError(err.message || 'Google authentication disabled.');
+    }
+  };
+
   if (loading || (fbUser && user)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
+      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f] text-white">
         <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
-          <p className="text-xs text-text-secondary">Securing connection...</p>
+          <Loader2 className="w-8 h-8 text-[#8B5CF6] animate-spin mx-auto" />
+          <p className="text-sm text-gray-400 font-medium">Securing connection...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-between relative overflow-hidden bg-bg-primary text-text-primary">
-      {/* Background ambient space glows */}
-      <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-accent/5 rounded-full blur-[140px] pointer-events-none dark:block hidden" />
-      <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-[600px] h-[600px] bg-[#7c66ff]/4 rounded-full blur-[140px] pointer-events-none dark:block hidden" />
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden bg-[#0a0a0f] text-white font-sans selection:bg-[#8B5CF6]/30">
+      {/* Background ambient glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-[#8B5CF6]/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-[#6D28D9]/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Header */}
-      <header className="border-b border-border-primary/50 bg-bg-primary/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-accent/20 group-hover:scale-105 transition-transform duration-200">
-              P
-            </div>
-            <span className="font-display font-bold text-xl tracking-tight group-hover:text-accent transition-colors duration-200">PaperHub</span>
-          </Link>
-          <ThemeToggle />
-        </div>
+      <header className="absolute top-0 inset-x-0 z-50 flex items-center justify-between px-6 lg:px-12 py-6">
+        <Link href="/" className="flex items-center space-x-3 group">
+          <div className="w-9 h-9 rounded-xl bg-[#8B5CF6] flex items-center justify-center text-white font-bold text-lg shadow-[0_0_20px_rgba(139,92,246,0.4)] group-hover:scale-105 transition-transform duration-300">
+            P
+          </div>
+          <span className="font-bold text-xl tracking-tight text-white/90 group-hover:text-white transition-colors duration-200">PaperHub</span>
+        </Link>
+        <ThemeToggle />
       </header>
 
-      {/* Main Authentication Grid */}
-      <main className="flex-grow flex items-center justify-center px-6 py-12 relative z-10">
-        <div className="max-w-4xl w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+      {/* Main Content */}
+      <main className="flex-grow flex flex-col lg:flex-row items-center justify-center w-full max-w-[1400px] mx-auto px-6 lg:px-12 pt-24 pb-12 lg:py-0 gap-12 lg:gap-24 relative z-10">
+        
+        {/* Left Panel: Branding & Features */}
+        <div className="flex-1 w-full flex flex-col justify-center space-y-10 lg:pl-8 relative z-20 hidden md:flex">
           
-          {/* Left Panel: Value Affirmations & Visual Orbits */}
-          <div className="md:col-span-5 space-y-8 text-center md:text-left">
-            <div className="space-y-4">
-              <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded badge-premium text-accent bg-accent/10 border border-accent/20">
-                Premium Study Suite
-              </span>
-              <h1 className="font-display text-3xl md:text-4xl font-extrabold tracking-tight text-text-primary leading-tight">
-                Welcome to the new way to prep & learn
-              </h1>
-              <p className="text-xs text-text-secondary leading-relaxed">
-                Unlock topic-wise past year questions, verified step-by-step solutions, and automatic AI handwritten paper checking.
-              </p>
+          <div className="space-y-6">
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 text-[#A78BFA] text-[10px] font-bold tracking-[0.2em] uppercase">
+              Premium Study Suite
             </div>
-
-            {/* University Orbits Visualization mockup */}
-            <div className="relative w-48 h-48 mx-auto md:mx-0 flex items-center justify-center border border-dashed border-border-primary/60 rounded-full bg-bg-secondary/20 shadow-inner">
-              <div className="absolute w-24 h-24 rounded-full bg-accent/5 border border-accent/20 flex items-center justify-center text-accent">
-                <Sparkles className="w-8 h-8 animate-pulse" />
-              </div>
-              {/* College seals tags orbited */}
-              <span className="absolute -top-1.5 px-2.5 py-0.5 rounded-full border border-border-primary bg-bg-secondary text-[8px] font-extrabold tracking-wide uppercase shadow-sm">MMMUT</span>
-              <span className="absolute -bottom-1.5 px-2.5 py-0.5 rounded-full border border-border-primary bg-bg-secondary text-[8px] font-extrabold tracking-wide uppercase shadow-sm">AKTU</span>
-              <span className="absolute -left-3 px-2.5 py-0.5 rounded-full border border-border-primary bg-bg-secondary text-[8px] font-extrabold tracking-wide uppercase shadow-sm">HBTU</span>
-            </div>
-
-            <ul className="space-y-3 text-xs text-text-secondary text-left max-w-xs mx-auto md:mx-0">
-              <li className="flex items-center space-x-2.5">
-                <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0" />
-                <span>Save all your practice progress</span>
-              </li>
-              <li className="flex items-center space-x-2.5">
-                <CheckCircle2 className="w-4 h-4 text-accent flex-shrink-0" />
-                <span>Complete university-syllabus mappings</span>
-              </li>
-            </ul>
+            
+            <h1 className="text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.1]">
+              Study Smarter.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A78BFA] to-[#8B5CF6]">Score Higher.</span>
+            </h1>
+            
+            <p className="text-lg text-gray-400 max-w-lg leading-relaxed">
+              Access your personalized study space and continue your journey towards academic excellence.
+            </p>
           </div>
 
-          {/* Right Panel: Authentication Form Card */}
-          <div className="md:col-span-7 max-w-md w-full mx-auto bg-bg-secondary/60 backdrop-blur-md border border-border-primary/80 rounded-2xl shadow-xl p-6 md:p-8 space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+                <BookOpen className="w-5 h-5 text-[#A78BFA]" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white/90 text-sm">Smart Practice</h3>
+                <p className="text-gray-500 text-xs mt-1 leading-relaxed">Topic-wise questions and PYQs</p>
+              </div>
+            </div>
             
-            {/* Form Tabs */}
-            <div className="flex border-b border-border-primary/60 pb-1">
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+                <Bot className="w-5 h-5 text-[#A78BFA]" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white/90 text-sm">AI Assistant</h3>
+                <p className="text-gray-500 text-xs mt-1 leading-relaxed">Get step-by-step explanations</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+                <LineChart className="w-5 h-5 text-[#A78BFA]" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white/90 text-sm">Track Progress</h3>
+                <p className="text-gray-500 text-xs mt-1 leading-relaxed">Analyze and improve your performance</p>
+              </div>
+            </div>
+
+            <div className="flex items-start space-x-4">
+              <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+                <Bookmark className="w-5 h-5 text-[#A78BFA]" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-white/90 text-sm">Save & Organize</h3>
+                <p className="text-gray-500 text-xs mt-1 leading-relaxed">Bookmarks, notes and quick revision</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Trusted Badge */}
+          <div className="inline-flex items-center space-x-4 bg-white/[0.03] border border-white/10 rounded-2xl p-4 w-max backdrop-blur-md">
+            <div>
+              <p className="text-sm font-semibold text-white">Trusted by 10K+ students</p>
+              <p className="text-xs text-gray-500 mt-0.5">from top universities across India</p>
+            </div>
+            <div className="flex items-center -space-x-2">
+              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=1" alt="Student" /></div>
+              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=2" alt="Student" /></div>
+              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=3" alt="Student" /></div>
+              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-[#8B5CF6] flex items-center justify-center text-[10px] font-bold">+10K</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Center Graphic Absolute Positioned */}
+        <div className="absolute left-[45%] top-[55%] -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] pointer-events-none hidden lg:block opacity-[0.35] z-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.15)_0%,transparent_50%)]" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-white/10 rounded-full border-dashed animate-[spin_60s_linear_infinite]" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-[#8B5CF6]/20 rounded-full border-dashed animate-[spin_90s_linear_infinite_reverse]" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 bg-gradient-to-br from-[#A78BFA] to-[#6D28D9] rounded-[2rem] rotate-12 flex items-center justify-center shadow-[0_0_80px_rgba(139,92,246,0.8)] border border-white/20">
+             <span className="text-white text-6xl font-black -rotate-12 drop-shadow-md">P</span>
+          </div>
+        </div>
+
+        {/* Right Panel: Auth Form */}
+        <div className="w-full max-w-[440px] shrink-0 z-30">
+          <div className="bg-[#12121A]/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            
+            {/* Form Glow Line */}
+            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#8B5CF6]/50 to-transparent" />
+
+            <div className="text-center space-y-2 mb-8">
+              <h2 className="text-2xl font-bold text-white">Welcome back!</h2>
+              <p className="text-sm text-gray-400">Sign in to continue your learning journey</p>
+            </div>
+
+            {/* Toggle Pill */}
+            <div className="flex bg-black/40 rounded-xl p-1 mb-8 border border-white/5 relative">
               <button
                 onClick={() => { setActiveTab('login'); setAuthError(null); }}
-                className={`flex-1 text-center pb-2 text-xs font-bold uppercase tracking-wider transition-colors relative ${
-                  activeTab === 'login' ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-                }`}
+                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all z-10 ${activeTab === 'login' ? 'text-white' : 'text-gray-500 hover:text-white/70'}`}
               >
                 Sign In
-                {activeTab === 'login' && (
-                  <motion.div layoutId="auth-tab-line" className="absolute bottom-0 inset-x-0 h-0.5 bg-accent" />
-                )}
               </button>
               <button
                 onClick={() => { setActiveTab('register'); setAuthError(null); }}
-                className={`flex-1 text-center pb-2 text-xs font-bold uppercase tracking-wider transition-colors relative ${
-                  activeTab === 'register' ? 'text-accent' : 'text-text-secondary hover:text-text-primary'
-                }`}
+                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all z-10 ${activeTab === 'register' ? 'text-white' : 'text-gray-500 hover:text-white/70'}`}
               >
                 Create Account
-                {activeTab === 'register' && (
-                  <motion.div layoutId="auth-tab-line" className="absolute bottom-0 inset-x-0 h-0.5 bg-accent" />
-                )}
               </button>
+              
+              <motion.div 
+                className="absolute inset-y-1 w-[calc(50%-4px)] bg-[#8B5CF6]/80 backdrop-blur-md rounded-lg shadow-lg border border-white/10"
+                initial={false}
+                animate={{ left: activeTab === 'login' ? '4px' : 'calc(50%)' }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              />
             </div>
 
-            {/* Response notifications */}
+            <button 
+              onClick={handleGoogleAuth}
+              className="w-full flex items-center justify-center space-x-3 py-3 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 text-white text-sm font-medium transition-colors mb-6"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              <span>Continue with Google</span>
+            </button>
+
+            <div className="flex items-center space-x-4 mb-6">
+              <div className="flex-1 h-[1px] bg-white/10" />
+              <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">OR</span>
+              <div className="flex-1 h-[1px] bg-white/10" />
+            </div>
+
             <AnimatePresence mode="wait">
               {authError && (
                 <motion.div 
-                  initial={{ opacity: 0, y: -5 }} 
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3.5 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs flex items-start space-x-2.5"
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6 overflow-hidden"
                 >
-                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p className="leading-relaxed">{authError}</p>
+                  <div className="p-3 rounded-lg border border-red-500/20 bg-red-500/10 text-red-400 text-xs flex items-start space-x-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">{authError}</p>
+                  </div>
                 </motion.div>
               )}
 
               {authSuccess && (
                 <motion.div 
-                  initial={{ opacity: 0, y: -5 }} 
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="p-3.5 rounded-xl border border-green-500/20 bg-green-500/5 text-green-500 text-xs flex items-start space-x-2.5"
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-6 overflow-hidden"
                 >
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                  <p className="leading-relaxed">{authSuccess}</p>
+                  <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs flex items-start space-x-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">{authSuccess}</p>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
-            {/* Credentials Form */}
+
             <form onSubmit={handleEmailAuth} className="space-y-4">
               
               {activeTab === 'register' && (
-                <>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Name</label>
+                    <label className="text-xs font-semibold text-gray-400">Name</label>
                     <div className="relative">
-                      <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                      <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                       <input
                         type="text"
                         placeholder="Enter your name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-white placeholder:text-gray-600 transition-all"
                         required
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Username</label>
+                    <label className="text-xs font-semibold text-gray-400">Username</label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted text-xs font-bold">@</span>
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">@</span>
                       <input
                         type="text"
                         placeholder="unique_username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
+                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-white/10 bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-white placeholder:text-gray-600 transition-all"
                         required
                       />
                     </div>
                   </div>
-                </>
+                </motion.div>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">
-                  {activeTab === 'login' ? 'Email or Username' : 'Email Address'}
+                <label className="text-xs font-semibold text-gray-400">
+                  {activeTab === 'login' ? 'Email Address or Username' : 'Email Address'}
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     type={activeTab === 'login' ? 'text' : 'email'}
-                    placeholder={activeTab === 'login' ? 'Email or Username' : 'name@university.edu'}
+                    placeholder={activeTab === 'login' ? 'name@university.edu' : 'name@university.edu'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-white placeholder:text-gray-600 transition-all"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Password</label>
+                <label className="text-xs font-semibold text-gray-400">Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                   <input
                     type="password"
                     placeholder="Min 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 focus:border-accent text-xs transition-colors"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-white/10 bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-white placeholder:text-gray-600 transition-all"
                     minLength={6}
                     required
                   />
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {activeTab === 'login' && (
+                <div className="flex items-center justify-between pt-1">
+                  <label className="flex items-center space-x-2 cursor-pointer group">
+                    <div className="w-4 h-4 rounded border border-white/20 bg-black/20 group-hover:border-[#8B5CF6] flex items-center justify-center transition-colors">
+                      <div className="w-2 h-2 rounded-sm bg-[#8B5CF6] opacity-0 group-has-[:checked]:opacity-100 transition-opacity" />
+                    </div>
+                    <span className="text-xs text-gray-400 group-hover:text-gray-300">Remember me</span>
+                  </label>
+                  <Link href="#" className="text-xs font-semibold text-[#A78BFA] hover:text-[#8B5CF6] transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 px-4 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-bold transition-all flex items-center justify-center space-x-2 hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-50"
+                className="w-full py-3.5 mt-4 rounded-xl bg-[#8B5CF6] hover:bg-[#7C3AED] text-white text-sm font-bold transition-all shadow-lg shadow-[#8B5CF6]/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:hover:bg-[#8B5CF6] group"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
                     <span>{activeTab === 'login' ? 'Sign In' : 'Create Account'}</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </button>
             </form>
-          </div>
 
+            <div className="mt-8 text-center">
+              <p className="text-xs text-gray-500">
+                {activeTab === 'login' ? "New here? " : "Already have an account? "}
+                <button 
+                  type="button"
+                  onClick={() => { setActiveTab(activeTab === 'login' ? 'register' : 'login'); setAuthError(null); }}
+                  className="font-bold text-[#A78BFA] hover:text-[#8B5CF6] transition-colors"
+                >
+                  {activeTab === 'login' ? "Create your account" : "Sign In instead"}
+                </button>
+              </p>
+            </div>
+            
+          </div>
         </div>
+
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border-primary/50 bg-bg-secondary/20 py-4 text-center text-[10px] text-text-secondary">
-        <p>PaperHub SSL Shielded Access • Google OAuth credentials encrypted.</p>
+      {/* Bottom Features Footer - Hidden on very small screens */}
+      <footer className="w-full bg-[#0a0a0f] border-t border-white/5 py-4 hidden md:block z-20">
+        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between text-xs text-gray-400">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-4 h-4 text-[#8B5CF6]" />
+            <div><span className="text-white font-medium">Secure & Private</span> <span className="opacity-60 ml-1">Your data is 100% safe</span></div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Zap className="w-4 h-4 text-[#8B5CF6]" />
+            <div><span className="text-white font-medium">Lightning Fast</span> <span className="opacity-60 ml-1">Optimized for speed</span></div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Cloud className="w-4 h-4 text-[#8B5CF6]" />
+            <div><span className="text-white font-medium">Access Anywhere</span> <span className="opacity-60 ml-1">Study on any device</span></div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <GraduationCap className="w-4 h-4 text-[#8B5CF6]" />
+            <div><span className="text-white font-medium">Built for Students</span> <span className="opacity-60 ml-1">University exam focused</span></div>
+          </div>
+        </div>
       </footer>
     </div>
   );
