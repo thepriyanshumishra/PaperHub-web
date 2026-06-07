@@ -67,52 +67,6 @@ export default function ChapterPage() {
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Fetch notifications
-  useEffect(() => {
-    if (!fbUser) return;
-    const fetchNotifications = async () => {
-      try {
-        const idToken = await fbUser.getIdToken();
-        const res = await fetch('/api/notifications', {
-          headers: { Authorization: `Bearer ${idToken}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.notifications?.filter((n: any) => !n.isRead).length || 0);
-        }
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-      }
-    };
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
-  }, [fbUser]);
-
-  const handleMarkAllRead = async () => {
-    if (!fbUser || notifications.length === 0) return;
-    try {
-      const idToken = await fbUser.getIdToken();
-      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
-      if (unreadIds.length === 0) return;
-      
-      const res = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ ids: unreadIds })
-      });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
-      }
-    } catch (err) {
-      console.error('Failed to mark notifications as read:', err);
-    }
-  };
 
   // Subject / unit meta
   const [subjectName, setSubjectName] = useState('');

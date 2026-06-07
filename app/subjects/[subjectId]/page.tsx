@@ -73,9 +73,6 @@ export default function SubjectPage() {
   const params = useParams();
   const router = useRouter();
   const { user, fbUser, loading: authLoading, logout } = useAuth();
-  const { theme, setTheme, systemTheme } = useTheme();
-  const currentTheme = theme === 'system' ? systemTheme : theme;
-  const toggleTheme = () => setTheme(currentTheme === 'light' ? 'dark' : 'light');
   const subjectId = params.subjectId as string;
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -84,76 +81,8 @@ export default function SubjectPage() {
   const [loading, setLoading] = useState(true);
   const [solvedCount, setSolvedCount] = useState(0);
 
-  // Header state
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Fetch notifications
-  useEffect(() => {
-    if (!fbUser) return;
-    const fetchNotifications = async () => {
-      try {
-        const idToken = await fbUser.getIdToken();
-        const res = await fetch('/api/notifications', {
-          headers: { Authorization: `Bearer ${idToken}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.notifications?.filter((n: any) => !n.isRead).length || 0);
-        }
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-      }
-    };
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
-  }, [fbUser]);
-
-  const handleMarkAllRead = async () => {
-    if (!fbUser || notifications.length === 0) return;
-    try {
-      const idToken = await fbUser.getIdToken();
-      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
-      if (unreadIds.length === 0) return;
-      
-      const res = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ ids: unreadIds })
-      });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
-      }
-    } catch (err) {
-      console.error('Failed to mark notifications as read:', err);
-    }
-  };
-
-  // User info
-  const activeName     = user?.profile?.name || user?.displayName || '';
-  const activeBranch   = user?.profile?.branch || (typeof window !== 'undefined' ? localStorage.getItem('selectedBranch') : '') || '';
   const activeSemester = user?.profile?.semester || (typeof window !== 'undefined' ? Number(localStorage.getItem('selectedSemester') || 1) : 1);
-  const userInitials   = activeName ? activeName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : '?';
 
-  const handleLogout = async () => {
-    try {
-      if (logout) await logout();
-      router.push('/login');
-    } catch { router.push('/login'); }
-  };
 
   useEffect(() => {
     setLoading(true);
