@@ -50,11 +50,26 @@ export async function GET(req: NextRequest) {
       },
       { $unwind: "$subject" },
       {
+        $lookup: {
+          from: "branches",
+          localField: "subject.branchIds",
+          foreignField: "_id",
+          as: "branch"
+        }
+      },
+      { $unwind: { path: "$branch", preserveNullAndEmptyArrays: true } },
+      {
         $project: {
           _id: 0,
           subjectId: "$_id.subjectId",
           subjectName: "$subject.name",
-          subjectCode: "$subject.code",
+          subjectCode: {
+            $cond: [
+              { $ifNull: ["$branch.code", false] },
+              { $concat: ["$subject.code", " (", "$branch.code", ")"] },
+              "$subject.code"
+            ]
+          },
           year: "$_id.year",
           examType: "$_id.examType",
           questionsCount: 1,

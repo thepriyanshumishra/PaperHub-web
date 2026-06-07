@@ -338,3 +338,56 @@ export async function POST(req: NextRequest, { params }: { params: { questionId:
   }
 }
 
+export async function DELETE(req: NextRequest, { params }: { params: { questionId: string } }) {
+  try {
+    const user = await getAuthenticatedUser(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: User profile mismatch' }, { status: 401 });
+    }
+
+    if (!hasPermission(user.role, ROLES.VERIFIER)) {
+      return NextResponse.json({ error: 'Forbidden: Insufficient privileges' }, { status: 403 });
+    }
+
+    await dbConnect();
+    const { questionId } = params;
+
+    const question = await Question.findById(questionId);
+    if (!question) {
+      return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+    }
+
+    const previousStatus = question.verificationStatus;
+
+    // Delete the question
+    await Question.findByIdAndDelete(questionId);
+
+    // Invalidate Redis caches
+    try {
+      const { invalidateCachePattern } = await import('@/lib/redis');
+      await invalidateCachePattern(`paperhub:v1:solutions:question:${questionId}:*`);
+      await invalidateCachePattern(`paperhub:v1:explanations:step:${questionId}:*`);
+      await invalidateCachePattern('paperhub:v1:papers:*');
+    } catch (cacheErr) {
+      console.warn('[Cache] Redis purge failed on verifier delete:', cacheErr);
+    }
+
+    // Write audit log
+    await AuditLog.create({
+      userId: user._id,
+      action: 'delete',
+      targetType: 'question',
+      targetId: questionId,
+      previousState: previousStatus,
+      newState: 'deleted',
+      details: `Deleted question ID ${question.questionId}`,
+      timestamp: new Date()
+    });
+
+    return NextResponse.json({ success: true, message: 'Question deleted successfully' });
+  } catch (error) {
+    console.error(`API Error in DELETE /api/verifier/questions/${params.questionId}:`, error);
+    return NextResponse.json({ error: safeErrorResponse(error) }, { status: 500 });
+  }
+}
+

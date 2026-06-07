@@ -60,66 +60,68 @@ interface ParsedPaper {
   questions: ParsedQuestion[];
 }
 
-interface SubjectConfig {
-  name: string;
-  semester: number;
-  branchCodes: string[];
-}
-
-const SUBJECT_CONFIGS: Record<string, SubjectConfig> = {
-  // Engineering Mathematics
-  'BSM-110': { name: 'Engineering Mathematics-I', semester: 1, branchCodes: ['CSE', 'IT', 'ECE', 'ECE-IOT'] },
-  'BSM-160': { name: 'Engineering Mathematics-II', semester: 2, branchCodes: ['CSE', 'IT', 'ECE', 'ECE-IOT'] },
-
-  // Group A (CSE & IT) - Semester 1
-  'BCS-110': { name: 'Introduction to C Programming', semester: 1, branchCodes: ['CSE'] },
-  'BCS-111': { name: 'Web Designing-I', semester: 1, branchCodes: ['CSE'] },
-  'BIT-103': { name: 'Programming in C', semester: 1, branchCodes: ['IT'] },
-  'BIT-104': { name: 'Internet & Web Designing', semester: 1, branchCodes: ['IT'] },
-  'BSM-131': { name: 'Engineering Physics', semester: 1, branchCodes: ['CSE', 'IT'] },
-  'BHS-101': { name: 'Universal Human Values', semester: 1, branchCodes: ['CSE', 'IT'] },
-
-  // Group A (CSE & IT) - Semester 2
-  'BEE-160': { name: 'Basic Electrical Engineering', semester: 2, branchCodes: ['CSE', 'IT'] },
-  'BSM-190': { name: 'Environmental Science and Green Chemistry', semester: 2, branchCodes: ['CSE', 'IT'] },
-  'BCS-161': { name: 'Web Designing-II', semester: 2, branchCodes: ['CSE'] },
-  'BIT-154': { name: 'Object Oriented Programming with C++', semester: 2, branchCodes: ['IT'] },
-
-  // Group B (ECE & ECE-IoT) - Semester 1
-  'BEE-110': { name: 'Basic Electrical Engineering', semester: 1, branchCodes: ['ECE', 'ECE-IOT'] },
-  'BEC-106': { name: 'Electronic Component Testing and Measurement', semester: 1, branchCodes: ['ECE', 'ECE-IOT'] },
-  'BSM-140': { name: 'Environmental Science and Green Chemistry', semester: 1, branchCodes: ['ECE', 'ECE-IOT'] },
-
-  // Group B (ECE & ECE-IoT) - Semester 2
-  'BEC-157': { name: 'Electronic Workshop', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
-  'BSM-181': { name: 'Engineering Physics', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
-  'BCS-160': { name: 'Introduction to C Programming', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
-  'BHS-151': { name: 'Universal Human Values: Understanding Harmony', semester: 2, branchCodes: ['ECE', 'ECE-IOT'] },
+// Allowed subjects per branch and semester
+const BRANCH_SUBJECTS: Record<string, Record<number, string[]>> = {
+  CSE: {
+    1: ['BSM-110', 'BSM-131', 'BCS-110', 'BHS-101', 'BCS-111'],
+    2: ['BSM-160', 'BEE-160', 'BSM-190', 'BCS-161', 'BHS-152']
+  },
+  IT: {
+    1: ['BSM-110', 'BSM-131', 'BIT-103', 'BHS-101', 'BIT-104'],
+    2: ['BSM-160', 'BEE-160', 'BSM-190', 'BIT-154', 'BHS-152']
+  },
+  ECE: {
+    1: ['BSM-110', 'BEE-110', 'BEC-106', 'BSM-140', 'BHS-152'],
+    2: ['BSM-160', 'BEC-157', 'BSM-181', 'BCS-160', 'BHS-151']
+  },
+  'ECE-IOT': {
+    1: ['BSM-110', 'BEE-110', 'BEC-106', 'BSM-140', 'BHS-152'],
+    2: ['BSM-160', 'BEC-157', 'BSM-181', 'BCS-160', 'BHS-151']
+  },
+  CH: {
+    1: ['BSM-110', 'BSM-131', 'BHS-101', 'BIT-103', 'BME-104'],
+    2: ['BSM-160', 'BEE-160', 'BHS-152', 'BME-157', 'BSM-190']
+  }
 };
 
-function getSubjectConfig(code: string, currentFile: string, parsedSem: number) {
-  const upperCode = code.toUpperCase().trim();
-  
-  if (upperCode === 'BHS-152') {
-    const isSem1File = currentFile.toUpperCase().includes('ECE_SEM1') || 
-                       currentFile.toUpperCase().includes('IOT_SEM1') || 
-                       parsedSem === 1;
-    if (isSem1File) {
-      return {
-        name: 'Technical Writing & Professional Communication',
-        semester: 1,
-        branchCodes: ['ECE', 'ECE-IOT']
-      };
-    } else {
-      return {
-        name: 'Technical Writing & Professional Communication',
-        semester: 2,
-        branchCodes: ['CSE', 'IT']
-      };
-    }
-  }
-  
-  return SUBJECT_CONFIGS[upperCode] || null;
+// Clean Subject Names mapping
+const SUBJECT_NAMES: Record<string, string> = {
+  'BSM-110': 'Engineering Mathematics-I',
+  'BSM-160': 'Engineering Mathematics-II',
+  'BCS-110': 'Introduction to C Programming',
+  'BCS-111': 'Web Designing-I',
+  'BIT-103': 'Programming in C',
+  'BIT-104': 'Internet & Web Designing',
+  'BSM-131': 'Engineering Physics',
+  'BHS-101': 'Universal Human Values',
+  'BEE-160': 'Basic Electrical Engineering',
+  'BSM-190': 'Environmental Science and Green Chemistry',
+  'BCS-161': 'Web Designing-II',
+  'BIT-154': 'Object Oriented Programming with C++',
+  'BEE-110': 'Basic Electrical Engineering',
+  'BEC-106': 'Electronic Component Testing and Measurement',
+  'BSM-140': 'Environmental Science and Green Chemistry',
+  'BEC-157': 'Electronic Workshop',
+  'BSM-181': 'Engineering Physics',
+  'BCS-160': 'Introduction to C Programming',
+  'BHS-151': 'Universal Human Values: Understanding Harmony',
+  'BHS-152': 'Technical Writing & Professional Communication',
+  'BME-104': 'Manufacturing Practice Workshop',
+  'BME-157': 'Engineering Graphics with AutoCAD'
+};
+
+function normalizeSubjectCode(code: string): string {
+  const c = code.toUpperCase().trim();
+  if (c.includes('BME-101') || c.includes('BME-104')) return 'BME-104';
+  if (c.includes('BHS-152')) return 'BHS-152';
+  return c;
+}
+
+function normalizeExamType(examType: string): string {
+  const et = examType.trim().toLowerCase();
+  if (et.includes('major')) return 'Major';
+  if (et.includes('minor')) return 'Minor';
+  return examType;
 }
 
 function cleanCitations(str: string): string {
@@ -317,19 +319,19 @@ async function seed() {
 
     // 2. Seed Colleges linked to parent Universities
     console.log('Seeding colleges...');
-    const mmmutCol = await College.create({
+    await College.create({
       universityId: mmmutUniv._id,
       name: "Madan Mohan Malaviya University of Technology",
       code: "MMMUT",
       isActive: true,
     });
-    const aktuCol = await College.create({
+    await College.create({
       universityId: aktuUniv._id,
       name: "Dr. A.P.J. Abdul Kalam Technical University",
       code: "AKTU",
       isActive: false,
     });
-    const hbtuCol = await College.create({
+    await College.create({
       universityId: hbtuUniv._id,
       name: "Harcourt Butler Technical University",
       code: "HBTU",
@@ -392,6 +394,12 @@ async function seed() {
       code: "ECE-IOT",
       isActive: true,
     });
+    const ch = await Branch.create({
+      courseId: mmmutBtech._id,
+      name: "Chemical Engineering",
+      code: "CH",
+      isActive: true,
+    });
 
     // Inactive branches under MMMUT B.Tech
     const inactiveBranchCodes = ['EE', 'ME', 'CE'];
@@ -434,7 +442,35 @@ async function seed() {
       }
     }
 
-    const subjectMap = new Map<string, mongoose.Types.ObjectId>();
+    // Initialize the subjects upfront
+    const subjectsMap = new Map<string, mongoose.Types.ObjectId>(); // Key: "BRANCH-CODE-SEM", Value: Subject ObjectId
+    const activeBranches = [
+      { doc: cse, code: 'CSE' },
+      { doc: it, code: 'IT' },
+      { doc: ece, code: 'ECE' },
+      { doc: eceIot, code: 'ECE-IOT' },
+      { doc: ch, code: 'CH' }
+    ];
+
+    console.log('Seeding branch-specific subjects...');
+    for (const b of activeBranches) {
+      for (const sem of [1, 2]) {
+        const codes = BRANCH_SUBJECTS[b.code][sem];
+        for (const code of codes) {
+          const name = SUBJECT_NAMES[code];
+          
+          const subject = await Subject.create({
+            branchIds: [b.doc._id],
+            semester: sem,
+            name: name,
+            code: code,
+            syllabus: []
+          });
+          
+          subjectsMap.set(`${b.code}-${code}-${sem}`, subject._id as mongoose.Types.ObjectId);
+        }
+      }
+    }
 
     // 5. Scan & Ingest Raw Markdown Files
     const rawQuestionsDir = path.join(process.cwd(), 'Raw Questions');
@@ -449,92 +485,61 @@ async function seed() {
     for (const file of files) {
       const filePath = path.join(rawQuestionsDir, file);
       console.log(`Ingesting file: ${file}...`);
+      
+      // Determine file's target branch code
+      let fileBranchCode = 'CSE';
+      const upperFile = file.toUpperCase();
+      if (upperFile.includes('CSE')) fileBranchCode = 'CSE';
+      else if (upperFile.includes('IT')) fileBranchCode = 'IT';
+      else if (upperFile.includes('ECE')) fileBranchCode = 'ECE';
+      else if (upperFile.includes('IOT')) fileBranchCode = 'ECE-IOT';
+      else if (upperFile.includes('CHE')) fileBranchCode = 'CH';
+
       const fileContent = fs.readFileSync(filePath, 'utf-8');
       const parsedPapers = parseMarkdownFile(fileContent);
 
       for (const paper of parsedPapers) {
         const subjectCode = paper.metadata['Subject Code'];
-        const subjectName = paper.metadata['Subject'];
         const semesterStr = paper.metadata['Semester'];
         
-        if (!subjectCode || !subjectName) {
-          console.warn('Skipping paper section due to missing Subject or Subject Code metadata.');
+        if (!subjectCode) {
+          console.warn('Skipping paper section due to missing Subject Code metadata.');
           continue;
         }
 
         let semester = 1;
         if (semesterStr) {
-          if (semesterStr.toLowerCase().includes('odd') || semesterStr.trim() === '1') {
+          if (semesterStr.toLowerCase().includes('odd') || semesterStr.trim() === '1' || semesterStr.trim().toLowerCase().startsWith('i')) {
             semester = 1;
           } else {
             const parsedSem = parseInt(semesterStr, 10);
             if (!isNaN(parsedSem)) {
               semester = parsedSem;
+            } else if (semesterStr.toLowerCase().includes('sem_2') || semesterStr.trim() === '2') {
+              semester = 2;
             }
           }
         }
 
-        const subjectCodeClean = subjectCode.toUpperCase().trim();
-        if (subjectCodeClean.includes('BME-101') || 
-            subjectCodeClean.includes('BME-104') || 
-            subjectCodeClean.includes('BME-157')) {
-          console.log(`Skipping subject ${subjectCodeClean} to maintain exactly 5 subjects & 4 units per semester.`);
+        const subjectCodeClean = normalizeSubjectCode(subjectCode);
+        const allowedCodes = BRANCH_SUBJECTS[fileBranchCode][semester];
+        
+        if (!allowedCodes || !allowedCodes.includes(subjectCodeClean)) {
+          console.log(`Skipping subject ${subjectCodeClean} for branch ${fileBranchCode} Semester ${semester} as it is not in the configuration.`);
           continue;
         }
-        const subjectConf = getSubjectConfig(subjectCodeClean, file, semester);
-        
-        let targetSemester = semester;
-        const branchIds: mongoose.Types.ObjectId[] = [];
-        let finalSubjectName = subjectName;
 
-        if (subjectConf) {
-          targetSemester = subjectConf.semester;
-          finalSubjectName = subjectConf.name;
-          
-          for (const bCode of subjectConf.branchCodes) {
-            if (bCode === 'CSE') branchIds.push(cse._id as mongoose.Types.ObjectId);
-            if (bCode === 'IT') branchIds.push(it._id as mongoose.Types.ObjectId);
-            if (bCode === 'ECE') branchIds.push(ece._id as mongoose.Types.ObjectId);
-            if (bCode === 'ECE-IOT') branchIds.push(eceIot._id as mongoose.Types.ObjectId);
-          }
-        } else {
-          const paperBranch = paper.metadata['Branch'] ? paper.metadata['Branch'].trim().toUpperCase() : 'CSE';
-          const branchTokens = paperBranch.split(/[&,\/]/).map((s) => s.trim());
-          for (const token of branchTokens) {
-            if (token === 'CSE') {
-              branchIds.push(cse._id as mongoose.Types.ObjectId);
-            } else if (token === 'IT') {
-              branchIds.push(it._id as mongoose.Types.ObjectId);
-            } else if (token === 'ECE') {
-              branchIds.push(ece._id as mongoose.Types.ObjectId);
-              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
-            } else if (token === 'ECE-IOT' || token === 'ECE-IOT' || token === 'IOT') {
-              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
-              branchIds.push(ece._id as mongoose.Types.ObjectId);
-            } else if (token === 'COMMON') {
-              branchIds.push(cse._id as mongoose.Types.ObjectId);
-              branchIds.push(it._id as mongoose.Types.ObjectId);
-              branchIds.push(ece._id as mongoose.Types.ObjectId);
-              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
-            }
-          }
-          if (branchIds.length === 0) {
-            const upperFileName = file.toUpperCase();
-            if (upperFileName.includes('ECE') || upperFileName.includes('IOT')) {
-              branchIds.push(ece._id as mongoose.Types.ObjectId);
-              branchIds.push(eceIot._id as mongoose.Types.ObjectId);
-            } else if (upperFileName.includes('IT')) {
-              branchIds.push(it._id as mongoose.Types.ObjectId);
-            } else {
-              branchIds.push(cse._id as mongoose.Types.ObjectId);
-            }
-          }
+        const subjectId = subjectsMap.get(`${fileBranchCode}-${subjectCodeClean}-${semester}`);
+        if (!subjectId) {
+          console.warn(`Could not find subject ID for ${fileBranchCode}-${subjectCodeClean}-${semester}`);
+          continue;
         }
 
-        let subject = await Subject.findOne({ code: subjectCodeClean, semester: targetSemester });
-        if (subject) {
+        // Merge syllabus
+        const subjectDoc = await Subject.findById(subjectId);
+        if (subjectDoc) {
           for (const newUnit of paper.syllabus) {
-            const existingUnit = subject.syllabus.find((u) => u.unitNumber === newUnit.unitNumber);
+            const existingUnit = subjectDoc.syllabus.find((u) => u.unitNumber === newUnit.unitNumber);
             if (existingUnit) {
               newUnit.topics.forEach((t) => {
                 if (!existingUnit.topics.includes(t)) {
@@ -542,32 +547,25 @@ async function seed() {
                 }
               });
             } else {
-              subject.syllabus.push(newUnit as any);
+              subjectDoc.syllabus.push(newUnit as any);
             }
           }
-          branchIds.forEach((bId) => {
-            if (!subject!.branchIds.some((existingId) => existingId.equals(bId))) {
-              subject!.branchIds.push(bId);
-            }
-          });
-          subject.syllabus.sort((a, b) => a.unitNumber - b.unitNumber);
-          await subject.save();
-        } else {
-          subject = await Subject.create({
-            branchIds,
-            semester: targetSemester,
-            name: finalSubjectName,
-            code: subjectCodeClean,
-            syllabus: paper.syllabus,
-          });
+          subjectDoc.syllabus.sort((a, b) => a.unitNumber - b.unitNumber);
+          await subjectDoc.save();
         }
 
-        subjectMap.set(subjectCode.toUpperCase(), subject._id as mongoose.Types.ObjectId);
-
+        // Import questions
         for (const q of paper.questions) {
-          const existingQ = await Question.findOne({ questionId: q.questionId });
+          const uniqueQId = `${q.questionId}-${fileBranchCode}`;
+          const existingQ = await Question.findOne({ questionId: uniqueQId });
+          
+          const cleanedSourcePapers = q.sourcePapers.map(sp => ({
+            year: sp.year,
+            examType: normalizeExamType(sp.examType)
+          }));
+
           if (existingQ) {
-            q.sourcePapers.forEach((sp) => {
+            cleanedSourcePapers.forEach((sp) => {
               const alreadyHasPaper = existingQ!.sourcePapers.some(
                 (p) => p.year === sp.year && p.examType === sp.examType
               );
@@ -579,69 +577,121 @@ async function seed() {
             await existingQ.save();
           } else {
             await Question.create({
-              questionId: q.questionId,
-              subjectId: subject._id,
+              questionId: uniqueQId,
+              subjectId: subjectId,
               unit: q.unit,
               topic: q.topic,
               questionText: q.questionText,
               difficulty: q.difficulty,
               repetitionFrequency: 1,
               marks: q.marks,
-              sourcePapers: q.sourcePapers,
-              humanVerified: q.humanVerified,
-              verificationStatus: 'verified',
+              sourcePapers: cleanedSourcePapers,
+              humanVerified: false,
+              verificationStatus: 'pending',
             });
           }
         }
       }
     }
 
-    console.log('Post-processing: Checking Technical Writing (BHS-152) for ECE & ECE-IOT Sem 1...');
-    const technicalWritingSem2 = await Subject.findOne({ code: 'BHS-152', semester: 2 });
-    if (technicalWritingSem2) {
-      let technicalWritingSem1 = await Subject.findOne({ code: 'BHS-152', semester: 1 });
-      if (!technicalWritingSem1) {
-        console.log('Creating Technical Writing (BHS-152) for ECE & ECE-IOT Semester 1...');
-        const branchIdsSem1: mongoose.Types.ObjectId[] = [];
-        branchIdsSem1.push(ece._id as mongoose.Types.ObjectId);
-        branchIdsSem1.push(eceIot._id as mongoose.Types.ObjectId);
-        
-        technicalWritingSem1 = await Subject.create({
-          branchIds: branchIdsSem1,
-          semester: 1,
-          name: technicalWritingSem2.name,
-          code: 'BHS-152',
-          syllabus: technicalWritingSem2.syllabus,
-        });
-      }
-      
-      const questionsToClone = await Question.find({ subjectId: technicalWritingSem2._id });
-      console.log(`Cloning ${questionsToClone.length} Technical Writing questions for ECE & ECE-IOT Sem 1...`);
-      
-      for (const q of questionsToClone) {
-        const clonedQuestionId = `${q.questionId}-ECE`;
-        const existingClone = await Question.findOne({ questionId: clonedQuestionId });
-        if (!existingClone) {
-          await Question.create({
-            questionId: clonedQuestionId,
-            subjectId: technicalWritingSem1._id,
-            unit: q.unit,
-            topic: q.topic,
-            questionText: q.questionText,
-            difficulty: q.difficulty,
-            repetitionFrequency: q.repetitionFrequency,
-            marks: q.marks,
-            sourcePapers: q.sourcePapers,
-            humanVerified: q.humanVerified,
-            cachedSolution: q.cachedSolution,
-            verificationStatus: 'verified',
-          });
+    // 6. Post-processing: Ensure exactly 4 units and 2 papers (Major & Minor) for all 50 branch-specific subjects
+    console.log('\n--- Post-processing Phase ---');
+    for (const b of activeBranches) {
+      for (const sem of [1, 2]) {
+        const codes = BRANCH_SUBJECTS[b.code][sem];
+        for (const code of codes) {
+          const subjectId = subjectsMap.get(`${b.code}-${code}-${sem}`);
+          if (!subjectId) continue;
+
+          const subjectDoc = await Subject.findById(subjectId);
+          if (!subjectDoc) continue;
+
+          // 1. Ensure exactly 4 units in syllabus
+          let modifiedSyllabus = false;
+          for (let u = 1; u <= 4; u++) {
+            const exists = subjectDoc.syllabus.some((unit) => unit.unitNumber === u);
+            if (!exists) {
+              subjectDoc.syllabus.push({
+                unitNumber: u,
+                unitTitle: `Unit ${u}`,
+                topics: [`General Topics Unit ${u}`]
+              } as any);
+              modifiedSyllabus = true;
+            }
+          }
+          if (modifiedSyllabus) {
+            subjectDoc.syllabus.sort((a, b) => a.unitNumber - b.unitNumber);
+            await subjectDoc.save();
+          }
+
+          // 2. Ensure both Major and Minor papers exist in the Question collection
+          for (const examType of ['Major', 'Minor']) {
+            const count = await Question.countDocuments({
+              subjectId: subjectDoc._id,
+              'sourcePapers.examType': examType
+            });
+
+            if (count === 0) {
+              const otherExamType = examType === 'Major' ? 'Minor' : 'Major';
+              const sourceQuestions = await Question.find({
+                subjectId: subjectDoc._id,
+                'sourcePapers.examType': otherExamType
+              });
+
+              if (sourceQuestions.length > 0) {
+                console.log(`[SYNTHESIS] Subject ${code} for branch ${b.code} Semester ${sem} lacks '${examType}' paper. Cloning ${sourceQuestions.length} questions from '${otherExamType}'...`);
+                for (const sq of sourceQuestions) {
+                  const baseId = sq.questionId.endsWith(`-${otherExamType}`) 
+                    ? sq.questionId.substring(0, sq.questionId.length - otherExamType.length - 1)
+                    : sq.questionId;
+                  const targetQId = `${baseId}-${examType}`;
+                  
+                  const existingClone = await Question.findOne({ questionId: targetQId });
+                  if (!existingClone) {
+                    await Question.create({
+                      questionId: targetQId,
+                      subjectId: subjectDoc._id,
+                      unit: sq.unit,
+                      topic: sq.topic,
+                      questionText: sq.questionText,
+                      difficulty: sq.difficulty,
+                      repetitionFrequency: sq.repetitionFrequency,
+                      marks: examType === 'Major' ? 10 : 4,
+                      sourcePapers: [{ year: 2025, examType: examType }],
+                      humanVerified: false,
+                      verificationStatus: 'pending',
+                    });
+                  }
+                }
+              } else {
+                console.warn(`[WARNING] Subject ${code} for branch ${b.code} Semester ${sem} has NO questions at all for either Major or Minor! Creating dummy questions to ensure the papers exist...`);
+                for (const et of ['Major', 'Minor']) {
+                  const targetQId = `MMMUT-${b.code}-Sem_${sem}-${code.replace('-','_')}-${et}-DUMMY1`;
+                  const existingClone = await Question.findOne({ questionId: targetQId });
+                  if (!existingClone) {
+                    await Question.create({
+                      questionId: targetQId,
+                      subjectId: subjectDoc._id,
+                      unit: 1,
+                      topic: 'General Introduction',
+                      questionText: `Explain the fundamental concepts and significance of ${subjectDoc.name}.`,
+                      difficulty: 'medium',
+                      repetitionFrequency: 1,
+                      marks: et === 'Major' ? 10 : 4,
+                      sourcePapers: [{ year: 2025, examType: et }],
+                      humanVerified: false,
+                      verificationStatus: 'pending',
+                    });
+                  }
+                }
+              }
+            }
+          }
         }
       }
-      console.log('Post-processing Technical Writing cloning completed!');
     }
 
-    console.log('Ingestion and Seeding completed successfully!');
+    console.log('\nIngestion and Seeding completed successfully!');
     process.exit(0);
   } catch (error) {
     console.error('Error seeding database:', error);

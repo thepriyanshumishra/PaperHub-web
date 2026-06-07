@@ -206,6 +206,34 @@ async function seed() {
           { $set: { verificationStatus: 'archived' } }
         );
       }
+
+      // Setup mock duplicates between questions[1] and questions[2] for UI testing
+      if (questions.length > 3) {
+        const q1 = questions[1];
+        const q2 = questions[2];
+        await questionsCol.updateOne(
+          { _id: q1._id },
+          { 
+            $set: { 
+              similarQuestionIds: [q2.questionId],
+              duplicateScore: 0.95,
+              verificationStatus: 'pending'
+            } 
+          }
+        );
+        await questionsCol.updateOne(
+          { _id: q2._id },
+          { 
+            $set: { 
+              similarQuestionIds: [q1.questionId],
+              duplicateScore: 0.95,
+              verificationStatus: 'pending'
+            } 
+          }
+        );
+        console.log(`Mock duplicate group set between: ${q1.questionId} and ${q2.questionId}`);
+      }
+
       console.log('Sample questions updated.');
     } else {
       console.log('No questions found in database.');

@@ -51,6 +51,8 @@ interface IPaper {
   questionsCount: number;
   verifiedCount: number;
   flaggedCount: number;
+  pendingCount?: number;
+  totalCount?: number;
 }
 
 interface IQuestion {
@@ -180,6 +182,22 @@ function VerifierDashboardContent() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Master Hierarchy States
+  const [hierarchy, setHierarchy] = useState<any[]>([]);
+  const [loadingHierarchy, setLoadingHierarchy] = useState(false);
+  const [workspaceMode, setWorkspaceMode] = useState<'pending' | 'completed'>('pending');
+
+  // Navigation Breadcrumb selection states
+  const [selectedCollege, setSelectedCollege] = useState<any | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<any | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<any | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<number | null>(null);
+  const [activeLevel, setActiveLevel] = useState<'college' | 'course' | 'branch' | 'semester' | 'paper' | 'questions'>('college');
+
+  // Review modes
+  const [reviewMode, setReviewMode] = useState<'standard' | 'gamified'>('standard');
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0);
 
   // Load Review Queue items
   const loadEscalations = async () => {
@@ -321,23 +339,67 @@ function VerifierDashboardContent() {
     }
   }, [user, fbUser, loading, router]);
 
-  // Load unique papers
-  const loadPapers = async () => {
+  // Load unique hierarchical verification data
+  const loadHierarchy = async () => {
     if (!fbUser) return;
-    setLoadingPapers(true);
+    setLoadingHierarchy(true);
     try {
       const token = await fbUser.getIdToken();
-      const res = await fetch('/api/verifier/papers', {
+      const res = await fetch('/api/verifier/hierarchy', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setPapers(data.papers || []);
+        setHierarchy(data.hierarchy || []);
+        
+        // Sync selected nodes
+        if (selectedCollege) {
+          const updatedCol = data.hierarchy.find((c: any) => c.collegeId === selectedCollege.collegeId);
+          setSelectedCollege(updatedCol || null);
+          if (updatedCol && selectedCourse) {
+            const updatedCrs = updatedCol.courses.find((cr: any) => cr.courseId === selectedCourse.courseId);
+            setSelectedCourse(updatedCrs || null);
+            if (updatedCrs && selectedBranch) {
+              const updatedBrn = updatedCrs.branches.find((b: any) => b.branchId === selectedBranch.branchId);
+              setSelectedBranch(updatedBrn || null);
+            }
+          }
+        }
       }
     } catch (err) {
-      console.error('Failed to load papers:', err);
+      console.error('Failed to load hierarchy:', err);
     } finally {
-      setLoadingPapers(false);
+      setLoadingHierarchy(false);
+    }
+  };
+
+  const executeDeleteQuestion = async (qId: string) => {
+    if (!fbUser) return;
+    setSubmittingVerification(true);
+    setErrorMsg(null);
+    try {
+      const token = await fbUser.getIdToken();
+      const res = await fetch(`/api/verifier/questions/${qId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete duplicate question.');
+      }
+
+      // Reload hierarchy & questions queue
+      loadHierarchy();
+      if (selectedPaper) {
+        await loadQuestionsForPaper(selectedPaper, filterStatus);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error deleting question.');
+    } finally {
+      setSubmittingVerification(false);
     }
   };
 
@@ -383,7 +445,7 @@ function VerifierDashboardContent() {
 
   useEffect(() => {
     if (fbUser && user && (user.role === 'verifier' || user.role === 'admin' || user.role === 'moderator')) {
-      loadPapers();
+      loadHierarchy();
       loadSubjects();
       loadBatches();
     }
@@ -513,7 +575,7 @@ function VerifierDashboardContent() {
       setFlagComment('');
       
       // Reload papers list to refresh progress stats
-      loadPapers();
+      loadHierarchy();
       if (selectedPaper) {
         loadQuestionsForPaper(selectedPaper, filterStatus);
       }
@@ -561,7 +623,7 @@ function VerifierDashboardContent() {
       setExpandedQId(null);
 
       // Reload papers list & questions queue
-      loadPapers();
+      loadHierarchy();
       if (selectedPaper) {
         loadQuestionsForPaper(selectedPaper, filterStatus);
       }
@@ -662,6 +724,855 @@ function VerifierDashboardContent() {
     }
   };
 
+  // Helper to group questions by marks and duplicates (>=90% similarity)
+  const getMarksGroupsWithDuplicateGroups = (list: IQuestion[]) => {
+    const byMarks: Record<number, IQuestion[]> = {};
+    list.forEach(q => {
+      const m = q.marks || 0;
+      if (!byMarks[m]) byMarks[m] = [];
+      byMarks[m].push(q);
+    });
+
+    return Object.keys(byMarks)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map(marks => {
+        const subList = byMarks[marks];
+        const duplicateGroups: any[] = [];
+        const groupedIds = new Set<string>();
+
+        subList.forEach(q => {
+          if (groupedIds.has(q._id)) return;
+
+          const matches: IQuestion[] = [];
+          if (q.duplicateScore && q.duplicateScore >= 0.90 && q.similarQuestionIds && q.similarQuestionIds.length > 0) {
+            subList.forEach(other => {
+              if (other._id === q._id) return;
+              if (groupedIds.has(other._id)) return;
+              const isMatch = q.similarQuestionIds?.includes(other.questionId) || 
+                              other.similarQuestionIds?.includes(q.questionId);
+              if (isMatch) {
+                matches.push(other);
+              }
+            });
+          }
+
+          if (matches.length > 0) {
+            groupedIds.add(q._id);
+            matches.forEach(m => groupedIds.add(m._id));
+            
+            const allGroup = [q, ...matches];
+            allGroup.sort((a, b) => {
+              if (a.verificationStatus === 'verified' && b.verificationStatus !== 'verified') return -1;
+              if (b.verificationStatus === 'verified' && a.verificationStatus !== 'verified') return 1;
+              return (b.ocrConfidence || 0) - (a.ocrConfidence || 0);
+            });
+            duplicateGroups.push({
+              primary: allGroup[0],
+              duplicates: allGroup.slice(1),
+              isDuplicateGroup: true
+            });
+          } else {
+            groupedIds.add(q._id);
+            duplicateGroups.push({
+              primary: q,
+              duplicates: [],
+              isDuplicateGroup: false
+            });
+          }
+        });
+
+        return {
+          marks,
+          groups: duplicateGroups
+        };
+      });
+  };
+
+  // Keyboard Shortcuts Hook for Gamified Mode
+  useEffect(() => {
+    // Generate flattened groups for keyboard hook
+    const flattenedGroups: any[] = [];
+    // Helper function duplicate grouping
+    const byMarks: Record<number, IQuestion[]> = {};
+    questions.forEach(q => {
+      const m = q.marks || 0;
+      if (!byMarks[m]) byMarks[m] = [];
+      byMarks[m].push(q);
+    });
+
+    const marksSorted = Object.keys(byMarks).map(Number).sort((a, b) => a - b);
+    marksSorted.forEach(marks => {
+      const list = byMarks[marks];
+      const groupedIds = new Set<string>();
+      
+      list.forEach(q => {
+        if (groupedIds.has(q._id)) return;
+        const matches: IQuestion[] = [];
+        if (q.duplicateScore && q.duplicateScore >= 0.90 && q.similarQuestionIds && q.similarQuestionIds.length > 0) {
+          list.forEach(other => {
+            if (other._id === q._id) return;
+            if (groupedIds.has(other._id)) return;
+            const isMatch = q.similarQuestionIds?.includes(other.questionId) || 
+                            other.similarQuestionIds?.includes(q.questionId);
+            if (isMatch) matches.push(other);
+          });
+        }
+        if (matches.length > 0) {
+          groupedIds.add(q._id);
+          matches.forEach(m => groupedIds.add(m._id));
+          const allGroup = [q, ...matches];
+          allGroup.sort((a, b) => {
+            if (a.verificationStatus === 'verified' && b.verificationStatus !== 'verified') return -1;
+            if (b.verificationStatus === 'verified' && a.verificationStatus !== 'verified') return 1;
+            return (b.ocrConfidence || 0) - (a.ocrConfidence || 0);
+          });
+          flattenedGroups.push({ primary: allGroup[0], duplicates: allGroup.slice(1), isDuplicateGroup: true, marks });
+        } else {
+          groupedIds.add(q._id);
+          flattenedGroups.push({ primary: q, duplicates: [], isDuplicateGroup: false, marks });
+        }
+      });
+    });
+
+    if (activeLevel !== 'questions' || reviewMode !== 'gamified') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Bypass if typing in input/textarea
+      const isInputActive = document.activeElement && (
+        document.activeElement.tagName === 'INPUT' ||
+        document.activeElement.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement).isContentEditable
+      );
+      if (isInputActive) return;
+
+      const key = e.key.toLowerCase();
+      const currentGroup = flattenedGroups[activeGroupIndex];
+      if (!currentGroup) return;
+
+      if (key === 'a') {
+        submitVerification(currentGroup.primary._id, 'verified');
+        if (activeGroupIndex < flattenedGroups.length - 1) {
+          setActiveGroupIndex(prev => prev + 1);
+        }
+      } else if (key === 's') {
+        if (activeGroupIndex < flattenedGroups.length - 1) {
+          setActiveGroupIndex(prev => prev + 1);
+        } else {
+          setActiveGroupIndex(0);
+        }
+      } else if (key === 'r') {
+        setFlagQId(currentGroup.primary._id);
+      } else if (key === 'd' && currentGroup.isDuplicateGroup && currentGroup.duplicates.length > 0) {
+        const dup = currentGroup.duplicates[0];
+        if (confirm(`Are you sure you want to delete duplicate question ${dup.questionId}?`)) {
+          executeDeleteQuestion(dup._id);
+        }
+      } else if (e.key === 'ArrowRight') {
+        if (activeGroupIndex < flattenedGroups.length - 1) {
+          setActiveGroupIndex(prev => prev + 1);
+        }
+      } else if (e.key === 'ArrowLeft') {
+        if (activeGroupIndex > 0) {
+          setActiveGroupIndex(prev => prev - 1);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeLevel, reviewMode, activeGroupIndex, questions]);
+
+  // Sync edit form fields in gamified mode when active card changes
+  useEffect(() => {
+    // Generate flattened groups
+    const flattenedGroups: any[] = [];
+    const byMarks: Record<number, IQuestion[]> = {};
+    questions.forEach(q => {
+      const m = q.marks || 0;
+      if (!byMarks[m]) byMarks[m] = [];
+      byMarks[m].push(q);
+    });
+
+    const marksSorted = Object.keys(byMarks).map(Number).sort((a, b) => a - b);
+    marksSorted.forEach(marks => {
+      const list = byMarks[marks];
+      const groupedIds = new Set<string>();
+      
+      list.forEach(q => {
+        if (groupedIds.has(q._id)) return;
+        const matches: IQuestion[] = [];
+        if (q.duplicateScore && q.duplicateScore >= 0.90 && q.similarQuestionIds && q.similarQuestionIds.length > 0) {
+          list.forEach(other => {
+            if (other._id === q._id) return;
+            if (groupedIds.has(other._id)) return;
+            const isMatch = q.similarQuestionIds?.includes(other.questionId) || 
+                            other.similarQuestionIds?.includes(q.questionId);
+            if (isMatch) matches.push(other);
+          });
+        }
+        if (matches.length > 0) {
+          groupedIds.add(q._id);
+          matches.forEach(m => groupedIds.add(m._id));
+          const allGroup = [q, ...matches];
+          allGroup.sort((a, b) => {
+            if (a.verificationStatus === 'verified' && b.verificationStatus !== 'verified') return -1;
+            if (b.verificationStatus === 'verified' && a.verificationStatus !== 'verified') return 1;
+            return (b.ocrConfidence || 0) - (a.ocrConfidence || 0);
+          });
+          flattenedGroups.push({ primary: allGroup[0], duplicates: allGroup.slice(1), isDuplicateGroup: true, marks });
+        } else {
+          groupedIds.add(q._id);
+          flattenedGroups.push({ primary: q, duplicates: [], isDuplicateGroup: false, marks });
+        }
+      });
+    });
+
+    if (activeLevel === 'questions' && reviewMode === 'gamified' && flattenedGroups[activeGroupIndex]) {
+      const q = flattenedGroups[activeGroupIndex].primary;
+      setEditText(q.questionText);
+      setEditTopic(q.topic);
+      setEditUnit(q.unit);
+      setEditMarks(q.marks);
+      setEditDifficulty(q.difficulty);
+      setErrorMsg(null);
+    }
+  }, [activeLevel, reviewMode, activeGroupIndex, questions]);
+
+  const renderWorkspaceToggle = () => {
+    return (
+      <div className="flex items-center space-x-1.5 border border-border-primary/60 bg-bg-secondary/40 rounded-xl p-1 text-xs">
+        <button
+          onClick={() => {
+            setWorkspaceMode('pending');
+            setActiveLevel('college');
+            setSelectedCollege(null);
+            setSelectedCourse(null);
+            setSelectedBranch(null);
+            setSelectedSemester(null);
+            setSelectedPaper(null);
+          }}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all ${workspaceMode === 'pending' ? 'bg-amber-500 text-black shadow-sm font-black' : 'text-text-secondary hover:text-text-primary'}`}
+        >
+          Pending Queue
+        </button>
+        <button
+          onClick={() => {
+            setWorkspaceMode('completed');
+            setActiveLevel('college');
+            setSelectedCollege(null);
+            setSelectedCourse(null);
+            setSelectedBranch(null);
+            setSelectedSemester(null);
+            setSelectedPaper(null);
+          }}
+          className={`px-3 py-1.5 rounded-lg font-bold transition-all ${workspaceMode === 'completed' ? 'bg-emerald-500 text-white shadow-sm font-black' : 'text-text-secondary hover:text-text-primary'}`}
+        >
+          Completed Bank
+        </button>
+      </div>
+    );
+  };
+
+  const renderEditForm = (q: IQuestion) => {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-premium-reveal">
+        {/* Left Column: Vision Original Crop Preview */}
+        <div className="lg:col-span-5 space-y-2">
+          <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted flex items-center space-x-1">
+            <Eye className="w-3.5 h-3.5 text-accent" />
+            <span>Original Question Crop</span>
+          </label>
+          
+          {q.croppedQuestionImage ? (
+            <div className="relative rounded-xl border border-border-primary overflow-hidden bg-black/5 flex flex-col justify-between group shadow-inner">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src={q.croppedQuestionImage} 
+                alt="Original Crop" 
+                className="w-full h-auto object-contain max-h-60"
+              />
+              {q.sourcePageImage && (
+                <a 
+                  href={q.sourcePageImage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-2 right-2 text-[8px] bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded font-bold hover:bg-black/80 flex items-center space-x-1 border border-white/10 uppercase tracking-widest"
+                >
+                  <Layers className="w-3 h-3" />
+                  <span>Full Page {q.sourcePageNumber && `(${q.sourcePageNumber})`}</span>
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="p-8 border border-dashed border-border-primary rounded-xl text-center text-text-muted text-[10px]">
+              No Vision Image available for this question.
+            </div>
+          )}
+
+          {/* AI Suggestion quick action */}
+          {q.aiSuggestions && (
+            <div className="p-3.5 rounded-xl border border-accent/20 bg-accent/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] uppercase tracking-wider font-extrabold text-accent flex items-center space-x-1">
+                  <Sparkles className="w-3 h-3 text-accent" />
+                  <span>AI Classification Hints ({q.aiSuggestions.confidence}% Conf)</span>
+                </span>
+                <button
+                  onClick={() => applyAISuggestions(q)}
+                  className="text-[8px] bg-accent text-white px-2 py-0.5 rounded font-bold hover:bg-accent-hover uppercase tracking-wider"
+                >
+                  Apply
+                </button>
+              </div>
+              <div className="text-[10px] text-text-secondary space-y-1 font-mono">
+                <div>Suggested Topic: <span className="text-text-primary font-bold">{q.aiSuggestions.topic || 'N/A'}</span></div>
+                <div className="flex justify-between">
+                  <span>Unit: <span className="text-text-primary font-bold">{q.aiSuggestions.unit || '1'}</span></span>
+                  <span>Difficulty: <span className="text-text-primary font-bold">{q.aiSuggestions.difficulty || 'medium'}</span></span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Question Content Editing Form */}
+        <div className="lg:col-span-7 space-y-5">
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted">LaTeX / Math Preview</label>
+            <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/80 text-sm leading-relaxed overflow-x-auto min-h-24">
+              <MathMarkdown content={editText || 'Empty question body'} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Topic Parameter</label>
+              <input
+                type="text"
+                value={editTopic}
+                onChange={(e) => setEditTopic(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs focus:border-accent"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Unit</label>
+                <input
+                  type="number"
+                  value={editUnit}
+                  onChange={(e) => setEditUnit(parseInt(e.target.value, 10) || 1)}
+                  className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs text-center focus:border-accent"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Marks</label>
+                <input
+                  type="number"
+                  value={editMarks}
+                  onChange={(e) => setEditMarks(parseInt(e.target.value, 10) || 10)}
+                  className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs text-center focus:border-accent"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Difficulty</label>
+                <select
+                  value={editDifficulty}
+                  onChange={(e) => setEditDifficulty(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs focus:border-accent"
+                >
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Edit Question Text (Supports LaTeX)</label>
+            <textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              rows={4}
+              className="w-full p-3 rounded-xl border border-border-primary bg-bg-secondary font-mono text-xs focus:border-accent"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStandardReviewMode = () => {
+    const marksGroups = getMarksGroupsWithDuplicateGroups(questions);
+    
+    return (
+      <div className="space-y-8 animate-premium-reveal">
+        {marksGroups.map((mg) => (
+          <div key={mg.marks} className="space-y-4">
+            <h3 className="text-sm font-display font-black uppercase tracking-wider text-text-secondary border-b border-border-primary/40 pb-2 flex items-center space-x-2">
+              <span>{mg.marks} Marks Questions</span>
+            </h3>
+            
+            <div className="space-y-4">
+              {mg.groups.map((group, groupIdx) => {
+                const q = group.primary;
+                const isExpanded = expandedQId === q._id;
+                
+                if (group.isDuplicateGroup) {
+                  return (
+                    <div
+                      key={q._id}
+                      className="p-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/5 shadow-sm space-y-4 animate-premium-reveal"
+                    >
+                      <div className="flex items-center justify-between border-b border-yellow-500/20 pb-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-yellow-500 text-black font-extrabold uppercase tracking-wider animate-pulse">
+                            Duplicate Candidate
+                          </span>
+                          <span className="text-[10px] text-yellow-500 font-bold font-mono">
+                            {group.duplicates.length + 1} Questions Stacked
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-text-secondary">
+                          Similarity Score: {Math.round((q.duplicateScore || 0) * 100)}%
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-text-primary uppercase tracking-wide">Primary Question</h4>
+                          <button
+                            onClick={() => handleExpandQuestion(q)}
+                            className="text-xs text-accent hover:underline font-bold"
+                          >
+                            {isExpanded ? 'Hide Details / Edit' : 'Edit / Classify'}
+                          </button>
+                        </div>
+                        <div className="text-sm text-text-primary font-medium leading-relaxed bg-bg-primary/40 p-4 rounded-xl border border-border-primary/40">
+                          <MathMarkdown content={q.questionText} />
+                        </div>
+                        
+                        {isExpanded && renderEditForm(q)}
+                      </div>
+                      
+                      <div className="space-y-2 pl-4 border-l-2 border-yellow-500/30">
+                        <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Duplicate Candidates</h4>
+                        <div className="space-y-3">
+                          {group.duplicates.map((dup: IQuestion) => (
+                            <div
+                              key={dup._id}
+                              className="p-4 rounded-xl border border-border-primary/40 bg-bg-secondary/30 flex items-start justify-between gap-4 animate-premium-reveal"
+                            >
+                              <div className="flex-grow space-y-1">
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-mono">
+                                    ID: {dup.questionId}
+                                  </span>
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-bold">
+                                    {dup.ocrConfidence}% OCR
+                                  </span>
+                                </div>
+                                <div className="text-xs text-text-secondary leading-relaxed">
+                                  <MathMarkdown content={dup.questionText} />
+                                </div>
+                              </div>
+                              
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete duplicate question ${dup.questionId}?`)) {
+                                    executeDeleteQuestion(dup._id);
+                                  }
+                                }}
+                                disabled={submittingVerification}
+                                className="p-2 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors flex-shrink-0"
+                                title="Delete Duplicate"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center justify-between border-t border-border-primary/40 pt-4 gap-2">
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => submitVerification(q._id, 'verified')}
+                            disabled={submittingVerification}
+                            className="px-4.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center space-x-1.5"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Accept Primary Question</span>
+                          </button>
+                          <button
+                            onClick={() => setFlagQId(q._id)}
+                            disabled={submittingVerification}
+                            className="px-4.5 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors flex items-center space-x-1.5"
+                          >
+                            <Flag className="w-3.5 h-3.5" />
+                            <span>Report Entire Group</span>
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => handleSkipQuestion(q._id)}
+                          className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary text-xs font-bold transition-colors"
+                        >
+                          Skip Group
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                
+                const statusClass = 
+                  q.verificationStatus === 'verified' ? 'border-emerald-500/30 bg-emerald-500/5' :
+                  q.verificationStatus === 'flagged' ? 'border-red-500/30 bg-red-500/5' : 'border-border-primary bg-bg-secondary/40';
+                
+                return (
+                  <div
+                    key={q._id}
+                    className={`rounded-2xl border transition-all duration-200 shadow-sm ${statusClass}`}
+                  >
+                    <div
+                      onClick={() => handleExpandQuestion(q)}
+                      className="p-5 flex items-start justify-between cursor-pointer select-none"
+                    >
+                      <div className="flex-grow space-y-2 pr-4">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <span className="text-[9px] px-2 py-0.5 rounded bg-accent/10 border border-accent/25 text-accent font-bold uppercase tracking-wider">
+                            Unit {q.unit}
+                          </span>
+                          <span className="text-[9px] px-2 py-0.5 rounded bg-border-primary text-text-secondary font-semibold uppercase tracking-wider">
+                            {q.marks} Marks
+                          </span>
+                          {q.ocrConfidence !== undefined && (
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
+                              q.ocrConfidence >= 90 ? 'bg-green-500/10 text-green-400 border border-green-500/25' :
+                              q.ocrConfidence >= 70 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/25' :
+                              'bg-red-500/10 text-red-400 border border-red-500/25'
+                            }`}>
+                              {q.ocrConfidence}% Confidence
+                            </span>
+                          )}
+                          <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${
+                            q.verificationStatus === 'verified' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500' :
+                            q.verificationStatus === 'flagged' ? 'bg-red-500/15 border-red-500/30 text-red-500' :
+                            'bg-yellow-500/15 border-yellow-500/30 text-yellow-500'
+                          }`}>
+                            {q.verificationStatus}
+                          </span>
+                        </div>
+                        
+                        <div className="text-xs text-text-primary leading-relaxed font-semibold">
+                          Q{groupIdx + 1}. <span className="font-normal text-text-secondary">{q.topic}</span>
+                        </div>
+                        
+                        <div className="text-sm text-text-primary/90 leading-relaxed font-normal bg-bg-primary/20 p-3 rounded-lg border border-border-primary/20 mt-1">
+                          <MathMarkdown content={q.questionText} />
+                        </div>
+                        
+                        {q.verificationStatus === 'flagged' && q.verificationComment && (
+                          <div className="text-[10px] text-red-500 flex items-start space-x-1 font-semibold leading-relaxed bg-red-500/5 p-2 rounded-lg border border-red-500/10">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span>Flagged Comment: {q.verificationComment}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="mt-1">
+                        {isExpanded ? <ChevronDown className="w-4 h-4 text-text-secondary" /> : <ChevronRight className="w-4 h-4 text-text-secondary" />}
+                      </div>
+                    </div>
+                    
+                    {isExpanded && (
+                      <div className="p-5 border-t border-border-primary/50 bg-bg-secondary/20 space-y-6">
+                        {renderEditForm(q)}
+                        
+                        {/* Actions panel */}
+                        <div className="flex flex-wrap items-center justify-between border-t border-border-primary/50 pt-4 gap-2">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => submitVerification(q._id, 'verified')}
+                              disabled={submittingVerification}
+                              className="px-4.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center space-x-1.5"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Accept</span>
+                            </button>
+                            <button
+                              onClick={() => setFlagQId(q._id)}
+                              disabled={submittingVerification}
+                              className="px-4.5 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors flex items-center space-x-1.5"
+                            >
+                              <Flag className="w-3.5 h-3.5" />
+                              <span>Report</span>
+                            </button>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleSkipQuestion(q._id)}
+                              className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary text-xs font-bold transition-colors"
+                            >
+                              Skip
+                            </button>
+                            <button
+                              onClick={() => submitVerification(q._id, 'pending')}
+                              disabled={submittingVerification}
+                              className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors flex items-center space-x-1.5"
+                            >
+                              <Save className="w-3.5 h-3.5 text-accent" />
+                              <span>Save Changes</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderGamifiedReviewMode = () => {
+    const flattenedGroups: any[] = [];
+    const marksGroups = getMarksGroupsWithDuplicateGroups(questions);
+    marksGroups.forEach(mg => {
+      mg.groups.forEach(g => {
+        flattenedGroups.push({ ...g, marks: mg.marks });
+      });
+    });
+
+    const group = flattenedGroups[activeGroupIndex];
+
+    if (!group) {
+      return (
+        <div className="py-20 text-center border border-dashed border-border-primary/60 rounded-3xl bg-bg-secondary/10">
+          <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3 opacity-60" />
+          <h3 className="font-display font-bold text-text-primary text-sm">Review Completed!</h3>
+          <p className="text-xs text-text-secondary max-w-xs mx-auto mt-1">You have reached the end of the question list in this paper.</p>
+          <button
+            onClick={() => {
+              setSelectedPaper(null);
+              setActiveLevel('paper');
+            }}
+            className="mt-4 px-4 py-2 rounded-xl bg-accent text-white text-xs font-bold"
+          >
+            Return to Papers List
+          </button>
+        </div>
+      );
+    }
+
+    const q = group.primary;
+
+    return (
+      <div className="space-y-6 animate-premium-reveal max-w-4xl mx-auto">
+        {/* Keyboard Shortcuts Hint Panel */}
+        <div className="p-3.5 rounded-2xl border border-border-primary/60 bg-bg-secondary/20 flex items-center justify-between text-xs text-text-secondary">
+          <span className="font-semibold text-[10px] uppercase tracking-wider text-text-muted">Keyboard Shortcuts Enabled</span>
+          <div className="flex flex-wrap gap-2.5">
+            <span className="px-2 py-1 rounded bg-bg-primary border border-border-primary font-mono text-[10px] font-bold text-text-primary">
+              A = Accept
+            </span>
+            <span className="px-2 py-1 rounded bg-bg-primary border border-border-primary font-mono text-[10px] font-bold text-text-primary">
+              S = Skip
+            </span>
+            <span className="px-2 py-1 rounded bg-bg-primary border border-border-primary font-mono text-[10px] font-bold text-text-primary">
+              R = Report
+            </span>
+            {group.isDuplicateGroup && (
+              <span className="px-2 py-1 rounded bg-bg-primary border border-border-primary font-mono text-[10px] font-bold text-text-primary animate-pulse">
+                D = Delete Duplicate
+              </span>
+            )}
+            <span className="px-2 py-1 rounded bg-bg-primary border border-border-primary font-mono text-[10px] font-bold text-text-primary">
+              ← / → = Navigate
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-text-secondary font-mono px-1">
+          <span>Question Group {activeGroupIndex + 1} of {flattenedGroups.length}</span>
+          <span>{group.marks} Marks Questions</span>
+        </div>
+
+        {/* Preload next question's image crop if present */}
+        {activeGroupIndex < flattenedGroups.length - 1 && flattenedGroups[activeGroupIndex + 1].primary.croppedQuestionImage && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={flattenedGroups[activeGroupIndex + 1].primary.croppedQuestionImage}
+            className="hidden"
+            alt="preload-next"
+          />
+        )}
+
+        {/* Slide transition area */}
+        <div className="relative overflow-hidden w-full min-h-[500px]">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeGroupIndex}
+              initial={{ opacity: 0, x: 80 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -80 }}
+              transition={{ duration: 0.12, ease: 'easeInOut' }}
+              className="w-full bg-bg-secondary border border-border-primary rounded-3xl shadow-xl p-6 md:p-8 space-y-6"
+            >
+              {group.isDuplicateGroup && (
+                <div className="flex items-center justify-between border-b border-yellow-500/20 pb-3 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-yellow-500 text-black font-extrabold uppercase tracking-wider animate-pulse">
+                      Duplicate Candidate
+                    </span>
+                    <span className="text-[10px] text-yellow-500 font-bold font-mono">
+                      {group.duplicates.length + 1} Questions Stacked
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-text-secondary">
+                    Similarity Score: {Math.round((q.duplicateScore || 0) * 100)}%
+                  </span>
+                </div>
+              )}
+
+              {/* Question primary details */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-accent/10 border border-accent/25 text-accent font-bold uppercase tracking-wider">
+                    Unit {q.unit}
+                  </span>
+                  {q.ocrConfidence !== undefined && (
+                    <span className="text-text-secondary">OCR Confidence: {q.ocrConfidence}%</span>
+                  )}
+                </div>
+
+                {/* Math / LaTeX content preview */}
+                <div className="text-base text-text-primary leading-relaxed bg-bg-primary/30 p-5 rounded-2xl border border-border-primary/50">
+                  <MathMarkdown content={q.questionText} />
+                </div>
+
+                {/* Edit inputs directly nested in the card */}
+                <div className="pt-4 border-t border-border-primary/30">
+                  {renderEditForm(q)}
+                </div>
+
+                {/* Stacked duplicate candidates inside this card block */}
+                {group.isDuplicateGroup && (
+                  <div className="space-y-3 pt-6 border-t border-border-primary/30">
+                    <h4 className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Duplicate Candidates</h4>
+                    <div className="space-y-3">
+                      {group.duplicates.map((dup: IQuestion) => (
+                        <div
+                          key={dup._id}
+                          className="p-4 rounded-xl border border-border-primary/40 bg-bg-secondary/30 flex items-start justify-between gap-4 animate-premium-reveal"
+                        >
+                          <div className="flex-grow space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-border-primary text-text-secondary font-mono">
+                                ID: {dup.questionId}
+                              </span>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-400 font-bold">
+                                {dup.ocrConfidence}% OCR
+                              </span>
+                            </div>
+                            <div className="text-xs text-text-secondary leading-relaxed">
+                              <MathMarkdown content={dup.questionText} />
+                            </div>
+                          </div>
+                          
+                          <button
+                            onClick={() => {
+                              if (confirm(`Are you sure you want to delete duplicate question ${dup.questionId}?`)) {
+                                executeDeleteQuestion(dup._id);
+                              }
+                            }}
+                            disabled={submittingVerification}
+                            className="p-2 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors flex-shrink-0"
+                            title="Delete Duplicate"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Highly visible actions */}
+              <div className="flex items-center justify-between border-t border-border-primary/40 pt-6 mt-6">
+                <button
+                  onClick={() => {
+                    if (activeGroupIndex > 0) {
+                      setActiveGroupIndex(prev => prev - 1);
+                    }
+                  }}
+                  disabled={activeGroupIndex === 0}
+                  className="px-4 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors disabled:opacity-30"
+                >
+                  Previous Card
+                </button>
+
+                <div className="flex items-center space-x-3.5">
+                  <button
+                    onClick={() => {
+                      submitVerification(q._id, 'verified');
+                      if (activeGroupIndex < flattenedGroups.length - 1) {
+                        setActiveGroupIndex(prev => prev + 1);
+                      }
+                    }}
+                    disabled={submittingVerification}
+                    className="px-6 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-extrabold shadow-lg shadow-emerald-500/15 transition-all flex items-center space-x-2"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{group.isDuplicateGroup ? 'Accept Primary (A)' : 'Accept (A)'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setFlagQId(q._id)}
+                    disabled={submittingVerification}
+                    className="px-6 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white text-sm font-extrabold shadow-lg shadow-red-500/15 transition-all flex items-center space-x-2"
+                  >
+                    <Flag className="w-4 h-4" />
+                    <span>{group.isDuplicateGroup ? 'Report Group (R)' : 'Report (R)'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (activeGroupIndex < flattenedGroups.length - 1) {
+                        setActiveGroupIndex(prev => prev + 1);
+                      } else {
+                        setActiveGroupIndex(0);
+                      }
+                    }}
+                    className="px-5 py-3 rounded-2xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-sm font-bold text-text-secondary transition-colors"
+                  >
+                    Skip (S)
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (activeGroupIndex < flattenedGroups.length - 1) {
+                      setActiveGroupIndex(prev => prev + 1);
+                    }
+                  }}
+                  disabled={activeGroupIndex === flattenedGroups.length - 1}
+                  className="px-4 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors disabled:opacity-30"
+                >
+                  Next Card
+                </button>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+    );
+  };
+
   if (loading || !fbUser || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
@@ -735,418 +1646,469 @@ function VerifierDashboardContent() {
       <main className="flex-grow max-w-7xl w-full mx-auto px-6 py-8 relative z-10">
         
         {activeTab === 'queue' ? (
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-            {/* Left Side: Exam Papers Index */}
-            <div className="md:col-span-4 space-y-4">
-              <h2 className="font-display font-extrabold text-sm uppercase tracking-wider text-text-secondary flex items-center space-x-2">
-                <BookOpen className="w-4 h-4 text-accent" />
-                <span>Select Paper to Verify</span>
-              </h2>
+          <div className="space-y-6">
+            {/* Breadcrumbs path at the top for easy backtracking */}
+            <div className="flex flex-wrap items-center gap-2 mb-6 p-4 rounded-2xl border border-border-primary/60 bg-bg-secondary/20 backdrop-blur-md">
+              <button
+                onClick={() => {
+                  setSelectedCollege(null);
+                  setSelectedCourse(null);
+                  setSelectedBranch(null);
+                  setSelectedSemester(null);
+                  setSelectedPaper(null);
+                  setActiveLevel('college');
+                }}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${activeLevel === 'college' ? 'bg-accent/15 border-accent text-accent' : 'border-border-primary bg-bg-secondary/40 text-text-secondary hover:text-text-primary'}`}
+              >
+                Colleges
+              </button>
+              {selectedCollege && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+                  <button
+                    onClick={() => {
+                      setSelectedCourse(null);
+                      setSelectedBranch(null);
+                      setSelectedSemester(null);
+                      setSelectedPaper(null);
+                      setActiveLevel('course');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${activeLevel === 'course' ? 'bg-accent/15 border-accent text-accent' : 'border-border-primary bg-bg-secondary/40 text-text-secondary hover:text-text-primary'}`}
+                  >
+                    {selectedCollege.collegeCode} ({workspaceMode === 'pending' ? selectedCollege.pendingCount : selectedCollege.verifiedCount} remaining)
+                  </button>
+                </>
+              )}
+              {selectedCourse && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+                  <button
+                    onClick={() => {
+                      setSelectedBranch(null);
+                      setSelectedSemester(null);
+                      setSelectedPaper(null);
+                      setActiveLevel('branch');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${activeLevel === 'branch' ? 'bg-accent/15 border-accent text-accent' : 'border-border-primary bg-bg-secondary/40 text-text-secondary hover:text-text-primary'}`}
+                  >
+                    {selectedCourse.courseCode} ({workspaceMode === 'pending' ? selectedCourse.pendingCount : selectedCourse.verifiedCount} remaining)
+                  </button>
+                </>
+              )}
+              {selectedBranch && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+                  <button
+                    onClick={() => {
+                      setSelectedSemester(null);
+                      setSelectedPaper(null);
+                      setActiveLevel('semester');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${activeLevel === 'semester' ? 'bg-accent/15 border-accent text-accent' : 'border-border-primary bg-bg-secondary/40 text-text-secondary hover:text-text-primary'}`}
+                  >
+                    {selectedBranch.branchCode} ({workspaceMode === 'pending' ? selectedBranch.pendingCount : selectedBranch.verifiedCount} remaining)
+                  </button>
+                </>
+              )}
+              {selectedSemester !== null && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+                  <button
+                    onClick={() => {
+                      setSelectedPaper(null);
+                      setActiveLevel('paper');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${activeLevel === 'paper' ? 'bg-accent/15 border-accent text-accent' : 'border-border-primary bg-bg-secondary/40 text-text-secondary hover:text-text-primary'}`}
+                  >
+                    Sem {selectedSemester} ({workspaceMode === 'pending' ? selectedBranch.semesters.find((s: any) => s.semester === selectedSemester)?.pendingCount : selectedBranch.semesters.find((s: any) => s.semester === selectedSemester)?.verifiedCount} remaining)
+                  </button>
+                </>
+              )}
+              {selectedPaper && (
+                <>
+                  <ChevronRight className="w-3.5 h-3.5 text-text-muted" />
+                  <span className="px-3 py-1.5 rounded-lg border border-accent/30 bg-accent/5 text-accent text-xs font-bold">
+                    {selectedPaper.subjectName}
+                  </span>
+                </>
+              )}
+            </div>
 
-              {loadingPapers ? (
-                <div className="py-12 text-center space-y-2.5">
-                  <Loader2 className="w-6 h-6 text-accent animate-spin mx-auto" />
-                  <p className="text-xs text-text-secondary">Retrieving course papers...</p>
-                </div>
-              ) : papers.length > 0 ? (
-                <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                  {papers.map((p, idx) => {
-                    const isSelected = selectedPaper && selectedPaper.subjectId === p.subjectId && selectedPaper.year === p.year && selectedPaper.examType === p.examType;
-                    const completedRatio = p.questionsCount > 0 ? (p.verifiedCount / p.questionsCount) * 100 : 0;
+            {loadingHierarchy ? (
+              <div className="py-20 text-center space-y-3">
+                <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+                <p className="text-xs text-text-secondary">Loading verification tree...</p>
+              </div>
+            ) : (
+              <>
+                {activeLevel === 'college' && (
+                  <div className="space-y-6 animate-premium-reveal">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-display font-bold">Select College to Verify</h2>
+                      {renderWorkspaceToggle()}
+                    </div>
                     
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => loadQuestionsForPaper(p)}
-                        className={`w-full p-4 rounded-xl border text-left flex flex-col justify-between group transition-all duration-200 relative overflow-hidden ${
-                          isSelected
-                            ? 'border-accent bg-accent/5 ring-2 ring-accent/10 shadow-sm'
-                            : 'border-border-primary bg-bg-secondary/40 hover:border-accent/40 hover:bg-bg-secondary'
-                        }`}
-                      >
-                        <div className="w-full">
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[9px] px-2 py-0.5 rounded bg-border-primary text-text-secondary font-bold uppercase tracking-wide">
-                              {p.subjectCode}
-                            </span>
-                            <span className="text-[10px] text-text-secondary font-mono">
-                              {p.year} • {p.examType}
-                            </span>
-                          </div>
-                          <h3 className="font-display font-bold text-text-primary text-xs leading-snug group-hover:text-accent transition-colors">
-                            {p.subjectName}
-                          </h3>
-                        </div>
-
-                        {/* Progress tracking line */}
-                        <div className="w-full mt-3 space-y-1.5">
-                          <div className="h-1.5 w-full rounded-full bg-border-primary/50 overflow-hidden">
-                            <div 
-                              className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
-                              style={{ width: `${completedRatio}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-between items-center text-[8px] uppercase tracking-wider font-extrabold font-mono text-text-muted">
-                            <span>{p.verifiedCount}/{p.questionsCount} Verified</span>
-                            {p.flaggedCount > 0 && (
-                              <span className="text-red-500">{p.flaggedCount} Flagged</span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-6 text-center border border-dashed border-border-primary rounded-xl text-text-secondary text-xs">
-                  No papers found matching indexing parameters.
-                </div>
-              )}
-            </div>
-
-            {/* Right Side: Questions Queue in Selected Paper */}
-            <div className="md:col-span-8 space-y-6">
-              {selectedPaper ? (
-                <div className="space-y-4">
-                  {/* Paper header info */}
-                  <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/20 flex justify-between items-center">
-                    <div>
-                      <h2 className="font-display font-extrabold text-base text-text-primary">{selectedPaper.subjectName}</h2>
-                      <p className="text-[10px] text-text-secondary uppercase tracking-wider font-bold mt-0.5">
-                        {selectedPaper.subjectCode} • {selectedPaper.year} • {selectedPaper.examType} • {questions.length} questions
-                      </p>
-                    </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold uppercase tracking-wider">
-                      Active
-                    </span>
-                  </div>
-
-                  {/* Status filtering tabs */}
-                  <div className="flex items-center gap-2 border-b border-border-primary/45 pb-3">
-                    {[
-                      { id: 'all', label: 'All Questions' },
-                      { id: 'pending', label: 'Pending Queue' },
-                      { id: 'verified', label: 'Verified' },
-                      { id: 'flagged', label: 'Flagged' }
-                    ].map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => handleFilterChange(tab.id as any)}
-                        className={`
-                          px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border
-                          ${filterStatus === tab.id 
-                            ? 'bg-accent/10 border-accent/25 text-accent' 
-                            : 'border-transparent text-text-secondary hover:text-text-primary hover:bg-bg-tertiary/40'
-                          }
-                        `}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {errorMsg && (
-                    <div className="p-3.5 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs flex items-center space-x-2">
-                      <AlertTriangle className="w-4 h-4 shrink-0" />
-                      <span>{errorMsg}</span>
-                    </div>
-                  )}
-
-                  {loadingQuestions ? (
-                    <div className="py-20 text-center space-y-3">
-                      <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
-                      <p className="text-xs text-text-secondary">Retrieving questions list...</p>
-                    </div>
-                  ) : questions.length > 0 ? (
-                    <div className="space-y-4">
-                      {questions.map((q, qIdx) => {
-                        const isExpanded = expandedQId === q._id;
-                        const statusClass = 
-                          q.verificationStatus === 'verified' ? 'border-emerald-500/30 bg-emerald-500/5' :
-                          q.verificationStatus === 'flagged' ? 'border-red-500/30 bg-red-500/5' : 'border-border-primary bg-bg-secondary/40';
-
-                        return (
-                          <div 
-                            key={q._id} 
-                            className={`rounded-2xl border transition-all duration-200 shadow-sm ${statusClass}`}
-                          >
-                            {/* Collapsed Header trigger */}
-                            <div 
-                              onClick={() => handleExpandQuestion(q)}
-                              className="p-5 flex items-start justify-between cursor-pointer select-none animate-premium-reveal"
-                            >
-                              <div className="flex-grow space-y-2 pr-4">
-                                <div className="flex flex-wrap gap-2 items-center">
-                                  <span className="text-[9px] px-2 py-0.5 rounded bg-accent/10 border border-accent/25 text-accent font-bold uppercase tracking-wider">
-                                    Unit {q.unit}
+                    {hierarchy.filter((col: any) => (workspaceMode === 'pending' ? col.pendingCount : col.verifiedCount) > 0).length === 0 ? (
+                      <div className="py-20 text-center border border-dashed border-border-primary/60 rounded-2xl bg-bg-secondary/10">
+                        <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3 opacity-60" />
+                        <p className="text-sm text-text-secondary">No colleges found with {workspaceMode} work.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                        {hierarchy
+                          .filter((col: any) => (workspaceMode === 'pending' ? col.pendingCount : col.verifiedCount) > 0)
+                          .map((col: any) => {
+                            const count = workspaceMode === 'pending' ? col.pendingCount : col.verifiedCount;
+                            const completedRatio = col.totalCount > 0 ? (col.verifiedCount / col.totalCount) * 100 : 0;
+                            return (
+                              <motion.div
+                                whileHover={{ y: -4, scale: 1.01 }}
+                                key={col.collegeId}
+                                onClick={() => {
+                                  setSelectedCollege(col);
+                                  setActiveLevel('course');
+                                }}
+                                className="p-6 rounded-2xl border border-border-primary/60 bg-bg-secondary/40 backdrop-blur-md hover:bg-bg-secondary hover:border-accent/50 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                              >
+                                <div>
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 border border-accent/25 text-accent font-extrabold uppercase tracking-wider">
+                                    {col.collegeCode}
                                   </span>
-                                  <span className="text-[9px] px-2 py-0.5 rounded bg-border-primary text-text-secondary font-semibold uppercase tracking-wider">
-                                    {q.marks} Marks
-                                  </span>
-                                  {q.ocrConfidence !== undefined && (
-                                    <span className={`text-[9px] px-2 py-0.5 rounded font-mono font-bold uppercase tracking-wider ${
-                                      q.ocrConfidence >= 90 ? 'bg-green-500/10 text-green-400 border border-green-500/25' :
-                                      q.ocrConfidence >= 70 ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/25' :
-                                      'bg-red-500/10 text-red-400 border border-red-500/25'
-                                    }`}>
-                                      {q.ocrConfidence}% Confidence
-                                    </span>
-                                  )}
-                                  {q.duplicateScore !== undefined && q.duplicateScore >= 0.3 && (
-                                    <span className="text-[9px] px-2 py-0.5 rounded bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 font-bold uppercase flex items-center space-x-1 animate-pulse">
-                                      <AlertTriangle className="w-3 h-3 shrink-0" />
-                                      <span>Sim: {Math.round(q.duplicateScore * 100)}%</span>
-                                    </span>
-                                  )}
-                                  <span className={`text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider border ${
-                                    q.verificationStatus === 'verified' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500' :
-                                    q.verificationStatus === 'flagged' ? 'bg-red-500/15 border-red-500/30 text-red-500' :
-                                    'bg-yellow-500/15 border-yellow-500/30 text-yellow-500'
-                                  }`}>
-                                    {q.verificationStatus}
-                                  </span>
+                                  <h3 className="font-display font-black text-text-primary text-base leading-snug mt-3 mb-1">
+                                    {col.collegeName}
+                                  </h3>
+                                  <p className="text-xs font-semibold text-text-secondary mt-1 font-mono uppercase tracking-wider">
+                                    {count} {workspaceMode === 'pending' ? 'Pending' : 'Completed'}
+                                  </p>
                                 </div>
-                                <div className="text-xs text-text-primary leading-relaxed font-semibold">
-                                  Q{qIdx + 1}. <span className="font-normal text-text-secondary">{q.topic}</span>
-                                </div>
-                                {q.verificationStatus === 'flagged' && q.verificationComment && (
-                                  <div className="text-[10px] text-red-500 flex items-start space-x-1 font-semibold leading-relaxed bg-red-500/5 p-2 rounded-lg border border-red-500/10">
-                                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                    <span>Flagged Comment: {q.verificationComment}</span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="mt-1">
-                                {isExpanded ? <ChevronDown className="w-4 h-4 text-text-secondary" /> : <ChevronRight className="w-4 h-4 text-text-secondary" />}
-                              </div>
-                            </div>
-
-                            {/* Expanded details cards with Side-by-Side vision view */}
-                            {isExpanded && (
-                              <div className="p-5 border-t border-border-primary/50 bg-bg-secondary/20 space-y-6">
                                 
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                  
-                                  {/* Left Column: Vision Original Crop Preview */}
-                                  <div className="lg:col-span-5 space-y-2">
-                                    <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted flex items-center space-x-1">
-                                      <Eye className="w-3.5 h-3.5 text-accent" />
-                                      <span>Original Question Crop</span>
-                                    </label>
-                                    
-                                    {q.croppedQuestionImage ? (
-                                      <div className="relative rounded-xl border border-border-primary overflow-hidden bg-black/5 flex flex-col justify-between group shadow-inner">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img 
-                                          src={q.croppedQuestionImage} 
-                                          alt="Original Crop" 
-                                          className="w-full h-auto object-contain max-h-60"
-                                        />
-                                        {q.sourcePageImage && (
-                                          <a 
-                                            href={q.sourcePageImage}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="absolute bottom-2 right-2 text-[8px] bg-black/60 backdrop-blur text-white px-2.5 py-1 rounded font-bold hover:bg-black/80 flex items-center space-x-1 border border-white/10 uppercase tracking-widest"
-                                          >
-                                            <Layers className="w-3 h-3" />
-                                            <span>Full Page {q.sourcePageNumber && `(${q.sourcePageNumber})`}</span>
-                                          </a>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <div className="p-8 border border-dashed border-border-primary rounded-xl text-center text-text-muted text-[10px]">
-                                        No Vision Image available for this question.
-                                      </div>
-                                    )}
-
-                                    {/* AI Suggestion quick action */}
-                                    {q.aiSuggestions && (
-                                      <div className="p-3.5 rounded-xl border border-accent/20 bg-accent/5 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <span className="text-[9px] uppercase tracking-wider font-extrabold text-accent flex items-center space-x-1">
-                                            <Sparkles className="w-3 h-3 text-accent" />
-                                            <span>AI Classification Hints ({q.aiSuggestions.confidence}% Conf)</span>
-                                          </span>
-                                          <button
-                                            onClick={() => applyAISuggestions(q)}
-                                            className="text-[8px] bg-accent text-white px-2 py-0.5 rounded font-bold hover:bg-accent-hover uppercase tracking-wider"
-                                          >
-                                            Apply
-                                          </button>
-                                        </div>
-                                        <div className="text-[10px] text-text-secondary space-y-1 font-mono">
-                                          <div>Suggested Topic: <span className="text-text-primary font-bold">{q.aiSuggestions.topic || 'N/A'}</span></div>
-                                          <div className="flex justify-between">
-                                            <span>Unit: <span className="text-text-primary font-bold">{q.aiSuggestions.unit || '1'}</span></span>
-                                            <span>Difficulty: <span className="text-text-primary font-bold">{q.aiSuggestions.difficulty || 'medium'}</span></span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* Duplicate question warning alerts */}
-                                    {q.duplicateScore !== undefined && q.duplicateScore >= 0.3 && (
-                                      <div className="p-3.5 rounded-xl border border-yellow-500/20 bg-yellow-500/5 space-y-2">
-                                        <span className="text-[9px] uppercase tracking-wider font-extrabold text-yellow-500 flex items-center space-x-1 animate-pulse">
-                                          <AlertTriangle className="w-3.5 h-3.5" />
-                                          <span>Near-Duplicate Detected ({Math.round(q.duplicateScore * 100)}%)</span>
-                                        </span>
-                                        <p className="text-[9px] text-text-secondary leading-relaxed">
-                                          A matching question was flagged with high similarity. You can inspect and merge this record to prevent database duplicates.
-                                        </p>
-                                        {q.similarQuestionIds && q.similarQuestionIds.length > 0 && (
-                                          <div className="flex flex-col gap-1.5 pt-1">
-                                            {q.similarQuestionIds.map((simId, simIdx) => (
-                                              <button
-                                                key={simIdx}
-                                                onClick={() => {
-                                                  setMergeSourceQ(q);
-                                                  setMergeTargetId(simId);
-                                                }}
-                                                className="text-left w-full p-2 rounded bg-bg-secondary hover:bg-bg-tertiary border border-border-primary/40 text-[9px] text-text-primary font-bold flex justify-between items-center"
-                                              >
-                                                <span>Merge with: {simId}</span>
-                                                <ChevronRight className="w-3 h-3 text-accent" />
-                                              </button>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    )}
+                                <div className="w-full mt-6 space-y-2">
+                                  <div className="h-1.5 w-full rounded-full bg-border-primary/50 overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                      style={{ width: `${completedRatio}%` }}
+                                    />
                                   </div>
-
-                                  {/* Right Column: Question Content Editing Form */}
-                                  <div className="lg:col-span-7 space-y-5">
-                                    <div className="space-y-1.5">
-                                      <label className="text-[10px] uppercase font-bold tracking-wider text-text-muted">LaTeX / Math Preview</label>
-                                      <div className="p-4 rounded-xl border border-border-primary bg-bg-secondary/80 text-sm leading-relaxed overflow-x-auto min-h-24">
-                                        <MathMarkdown content={editText || 'Empty question body'} />
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="space-y-1.5">
-                                        <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Topic Parameter</label>
-                                        <input
-                                          type="text"
-                                          value={editTopic}
-                                          onChange={(e) => setEditTopic(e.target.value)}
-                                          className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs focus:border-accent"
-                                        />
-                                      </div>
-                                      <div className="grid grid-cols-3 gap-2">
-                                        <div className="space-y-1.5">
-                                          <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Unit</label>
-                                          <input
-                                            type="number"
-                                            value={editUnit}
-                                            onChange={(e) => setEditUnit(parseInt(e.target.value, 10) || 1)}
-                                            className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs text-center focus:border-accent"
-                                          />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                          <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Marks</label>
-                                          <input
-                                            type="number"
-                                            value={editMarks}
-                                            onChange={(e) => setEditMarks(parseInt(e.target.value, 10) || 10)}
-                                            className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs text-center focus:border-accent"
-                                          />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                          <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Difficulty</label>
-                                          <select
-                                            value={editDifficulty}
-                                            onChange={(e) => setEditDifficulty(e.target.value as any)}
-                                            className="w-full px-3 py-2 rounded-xl border border-border-primary bg-bg-secondary text-xs focus:border-accent"
-                                          >
-                                            <option value="easy">Easy</option>
-                                            <option value="medium">Medium</option>
-                                            <option value="hard">Hard</option>
-                                          </select>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                      <label className="text-[10px] uppercase font-bold tracking-wider text-text-secondary">Edit Question Text (Supports Markdown/LaTeX)</label>
-                                      <textarea
-                                        value={editText}
-                                        onChange={(e) => setEditText(e.target.value)}
-                                        rows={4}
-                                        className="w-full p-3 rounded-xl border border-border-primary bg-bg-secondary font-mono text-xs focus:border-accent"
-                                      />
-                                    </div>
+                                  <div className="flex justify-between items-center text-[9px] uppercase tracking-wider font-extrabold font-mono text-text-muted">
+                                    <span>{col.verifiedCount} / {col.totalCount} Verified</span>
+                                    <span>{Math.round(completedRatio)}%</span>
                                   </div>
                                 </div>
+                              </motion.div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                                {/* Actions panel */}
-                                <div className="flex flex-wrap items-center justify-between border-t border-border-primary/50 pt-4 gap-2">
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() => submitVerification(q._id, 'verified')}
-                                      disabled={submittingVerification}
-                                      className="px-4.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-colors flex items-center space-x-1.5"
-                                    >
-                                      <Check className="w-3.5 h-3.5" />
-                                      <span>Verify</span>
-                                    </button>
-                                    <button
-                                      onClick={() => setFlagQId(q._id)}
-                                      disabled={submittingVerification}
-                                      className="px-4.5 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-bold transition-colors flex items-center space-x-1.5"
-                                    >
-                                      <Flag className="w-3.5 h-3.5" />
-                                      <span>Flag</span>
-                                    </button>
-                                    <button
-                                      onClick={() => submitVerification(q._id, 'archived')}
-                                      disabled={submittingVerification}
-                                      className="px-4.5 py-2 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 text-xs font-bold transition-colors"
-                                    >
-                                      Reject Candidate
-                                    </button>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() => handleSkipQuestion(q._id)}
-                                      className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary text-xs font-bold transition-colors"
-                                    >
-                                      Skip
-                                    </button>
-                                    <button
-                                      onClick={() => submitVerification(q._id, 'pending')}
-                                      disabled={submittingVerification}
-                                      className="px-4.5 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors flex items-center space-x-1.5"
-                                    >
-                                      <Save className="w-3.5 h-3.5 text-accent" />
-                                      <span>Save Changes</span>
-                                    </button>
-                                  </div>
+                {activeLevel === 'course' && selectedCollege && (
+                  <div className="space-y-6 animate-premium-reveal">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-display font-bold">Select Course</h2>
+                      {renderWorkspaceToggle()}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                      {selectedCollege.courses
+                        .filter((crs: any) => (workspaceMode === 'pending' ? crs.pendingCount : crs.verifiedCount) > 0)
+                        .map((crs: any) => {
+                          const count = workspaceMode === 'pending' ? crs.pendingCount : crs.verifiedCount;
+                          const completedRatio = crs.totalCount > 0 ? (crs.verifiedCount / crs.totalCount) * 100 : 0;
+                          return (
+                            <motion.div
+                              whileHover={{ y: -4, scale: 1.01 }}
+                              key={crs.courseId}
+                              onClick={() => {
+                                setSelectedCourse(crs);
+                                setActiveLevel('branch');
+                              }}
+                              className="p-6 rounded-2xl border border-border-primary/60 bg-bg-secondary/40 backdrop-blur-md hover:bg-bg-secondary hover:border-accent/50 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                            >
+                              <div>
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 border border-accent/25 text-accent font-extrabold uppercase tracking-wider">
+                                  {crs.courseCode}
+                                </span>
+                                <h3 className="font-display font-black text-text-primary text-base leading-snug mt-3 mb-1">
+                                  {crs.courseName}
+                                </h3>
+                                <p className="text-xs font-semibold text-text-secondary mt-1 font-mono uppercase tracking-wider">
+                                  {count} {workspaceMode === 'pending' ? 'Pending' : 'Completed'}
+                                </p>
+                              </div>
+                              
+                              <div className="w-full mt-6 space-y-2">
+                                <div className="h-1.5 w-full rounded-full bg-border-primary/50 overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                    style={{ width: `${completedRatio}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between items-center text-[9px] uppercase tracking-wider font-extrabold font-mono text-text-muted">
+                                  <span>{crs.verifiedCount} / {crs.totalCount} Verified</span>
+                                  <span>{Math.round(completedRatio)}%</span>
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                            </motion.div>
+                          );
+                        })}
                     </div>
-                  ) : (
-                    <div className="p-8 text-center border border-dashed border-border-primary rounded-2xl text-text-secondary text-xs">
-                      All questions in this paper are clear.
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="h-96 flex items-center justify-center border border-dashed border-border-primary/60 rounded-2xl bg-bg-secondary/10">
-                  <div className="text-center space-y-2">
-                    <BookOpen className="w-8 h-8 text-text-muted mx-auto animate-pulse" />
-                    <h3 className="font-display font-bold text-text-primary text-sm">No Paper Selected</h3>
-                    <p className="text-xs text-text-secondary max-w-xs mx-auto">Select a course blueprint from the left panel index to load verification cards.</p>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+
+                {activeLevel === 'branch' && selectedCourse && (
+                  <div className="space-y-6 animate-premium-reveal">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-display font-bold">Select Branch</h2>
+                      {renderWorkspaceToggle()}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+                      {selectedCourse.branches
+                        .filter((b: any) => (workspaceMode === 'pending' ? b.pendingCount : b.verifiedCount) > 0)
+                        .map((b: any) => {
+                          const count = workspaceMode === 'pending' ? b.pendingCount : b.verifiedCount;
+                          const completedRatio = b.totalCount > 0 ? (b.verifiedCount / b.totalCount) * 100 : 0;
+                          return (
+                            <motion.div
+                              whileHover={{ y: -4, scale: 1.01 }}
+                              key={b.branchId}
+                              onClick={() => {
+                                setSelectedBranch(b);
+                                setActiveLevel('semester');
+                              }}
+                              className="p-6 rounded-2xl border border-border-primary/60 bg-bg-secondary/40 backdrop-blur-md hover:bg-bg-secondary hover:border-accent/50 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                            >
+                              <div>
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 border border-accent/25 text-accent font-extrabold uppercase tracking-wider">
+                                  {b.branchCode}
+                                </span>
+                                <h3 className="font-display font-black text-text-primary text-base leading-snug mt-3 mb-1">
+                                  {b.branchName}
+                                </h3>
+                                <p className="text-xs font-semibold text-text-secondary mt-1 font-mono uppercase tracking-wider">
+                                  {count} {workspaceMode === 'pending' ? 'Pending' : 'Completed'}
+                                </p>
+                              </div>
+                              
+                              <div className="w-full mt-6 space-y-2">
+                                <div className="h-1.5 w-full rounded-full bg-border-primary/50 overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                    style={{ width: `${completedRatio}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between items-center text-[9px] uppercase tracking-wider font-extrabold font-mono text-text-muted">
+                                  <span>{b.verifiedCount} / {b.totalCount} Verified</span>
+                                  <span>{Math.round(completedRatio)}%</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {activeLevel === 'semester' && selectedBranch && (
+                  <div className="space-y-6 animate-premium-reveal">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-display font-bold">Select Semester</h2>
+                      {renderWorkspaceToggle()}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                      {selectedBranch.semesters
+                        .filter((sem: any) => (workspaceMode === 'pending' ? sem.pendingCount : sem.verifiedCount) > 0)
+                        .map((sem: any) => {
+                          const count = workspaceMode === 'pending' ? sem.pendingCount : sem.verifiedCount;
+                          const completedRatio = sem.totalCount > 0 ? (sem.verifiedCount / sem.totalCount) * 100 : 0;
+                          return (
+                            <motion.div
+                              whileHover={{ y: -4, scale: 1.01 }}
+                              key={sem.semester}
+                              onClick={() => {
+                                setSelectedSemester(sem.semester);
+                                setActiveLevel('paper');
+                              }}
+                              className="p-6 rounded-2xl border border-border-primary/60 bg-bg-secondary/40 backdrop-blur-md hover:bg-bg-secondary hover:border-accent/50 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                            >
+                              <div>
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 border border-accent/25 text-accent font-extrabold uppercase tracking-wider">
+                                  SEM {sem.semester}
+                                </span>
+                                <h3 className="font-display font-black text-text-primary text-lg leading-snug mt-3 mb-1">
+                                  Semester {sem.semester}
+                                </h3>
+                                <p className="text-xs font-semibold text-text-secondary mt-1 font-mono uppercase tracking-wider">
+                                  {count} {workspaceMode === 'pending' ? 'Pending' : 'Completed'}
+                                </p>
+                              </div>
+                              
+                              <div className="w-full mt-6 space-y-2">
+                                <div className="h-1.5 w-full rounded-full bg-border-primary/50 overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                    style={{ width: `${completedRatio}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between items-center text-[9px] uppercase tracking-wider font-extrabold font-mono text-text-muted">
+                                  <span>{sem.verifiedCount} / {sem.totalCount} Verified</span>
+                                  <span>{Math.round(completedRatio)}%</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {activeLevel === 'paper' && selectedSemester !== null && selectedBranch && (
+                  <div className="space-y-6 animate-premium-reveal">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-display font-bold">Select Paper</h2>
+                      {renderWorkspaceToggle()}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {(selectedBranch.semesters.find((s: any) => s.semester === selectedSemester)?.papers || [])
+                        .filter((p: any) => (workspaceMode === 'pending' ? p.pendingCount : p.verifiedCount) > 0)
+                        .map((p: any, idx: number) => {
+                          const count = workspaceMode === 'pending' ? p.pendingCount : p.verifiedCount;
+                          const completedRatio = p.totalCount > 0 ? (p.verifiedCount / p.totalCount) * 100 : 0;
+                          return (
+                            <motion.div
+                              whileHover={{ y: -4, scale: 1.01 }}
+                              key={idx}
+                              onClick={() => {
+                                setSelectedPaper(p);
+                                loadQuestionsForPaper(p, workspaceMode === 'pending' ? 'pending' : 'verified');
+                                setActiveLevel('questions');
+                              }}
+                              className="p-6 rounded-2xl border border-border-primary/60 bg-bg-secondary/40 backdrop-blur-md hover:bg-bg-secondary hover:border-accent/50 hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 border border-accent/25 text-accent font-extrabold uppercase tracking-wider">
+                                    {p.subjectCode}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-text-secondary">
+                                    {p.year} • {p.examType}
+                                  </span>
+                                </div>
+                                <h3 className="font-display font-black text-text-primary text-base leading-snug">
+                                  {p.subjectName}
+                                </h3>
+                                <p className="text-xs font-semibold text-text-secondary mt-1 font-mono uppercase tracking-wider">
+                                  {count} {workspaceMode === 'pending' ? 'Pending Questions' : 'Completed Questions'}
+                                </p>
+                              </div>
+                              
+                              <div className="w-full mt-6 space-y-2">
+                                <div className="h-1.5 w-full rounded-full bg-border-primary/50 overflow-hidden">
+                                  <div 
+                                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" 
+                                    style={{ width: `${completedRatio}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between items-center text-[9px] uppercase tracking-wider font-extrabold font-mono text-text-muted">
+                                  <span>{p.verifiedCount} / {p.totalCount} Verified</span>
+                                  <span>{Math.round(completedRatio)}%</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {activeLevel === 'questions' && selectedPaper && (
+                  <div className="space-y-6">
+                    {/* Paper header info */}
+                    <div className="p-6 rounded-3xl border border-border-primary/60 bg-bg-secondary/40 backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center space-x-2 mb-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-accent/15 border border-accent/25 text-accent font-extrabold uppercase tracking-wider">
+                            {selectedPaper.subjectCode}
+                          </span>
+                          <span className="text-xs text-text-secondary font-mono">
+                            {selectedPaper.year} • {selectedPaper.examType}
+                          </span>
+                        </div>
+                        <h2 className="font-display font-black text-xl text-text-primary leading-tight">{selectedPaper.subjectName}</h2>
+                        <p className="text-xs text-text-secondary mt-1 font-medium">
+                          {workspaceMode === 'pending'
+                            ? `${selectedPaper.pendingCount !== undefined ? selectedPaper.pendingCount : (selectedPaper.questionsCount - selectedPaper.verifiedCount)} questions pending verification`
+                            : `${selectedPaper.verifiedCount} questions verified`}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        {/* Toggle Standard / Gamified Mode */}
+                        <div className="flex items-center space-x-1 border border-border-primary bg-bg-primary/50 rounded-xl p-1 text-xs">
+                          <button
+                            onClick={() => setReviewMode('standard')}
+                            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all ${reviewMode === 'standard' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                          >
+                            Standard Mode
+                          </button>
+                          <button
+                            onClick={() => {
+                              setReviewMode('gamified');
+                              setActiveGroupIndex(0);
+                            }}
+                            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all ${reviewMode === 'gamified' ? 'bg-accent text-white shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+                          >
+                            Gamified Mode
+                          </button>
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedPaper(null);
+                            setActiveLevel('paper');
+                          }}
+                          className="px-4 py-2 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-xs font-bold transition-colors"
+                        >
+                          Exit Review
+                        </button>
+                      </div>
+                    </div>
+
+                    {errorMsg && (
+                      <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>{errorMsg}</span>
+                      </div>
+                    )}
+
+                    {loadingQuestions ? (
+                      <div className="py-20 text-center space-y-3">
+                        <Loader2 className="w-8 h-8 text-accent animate-spin mx-auto" />
+                        <p className="text-xs text-text-secondary">Retrieving questions list...</p>
+                      </div>
+                    ) : questions.length === 0 ? (
+                      <div className="py-20 text-center border border-dashed border-border-primary/60 rounded-3xl bg-bg-secondary/10">
+                        <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto mb-3 opacity-60" />
+                        <h3 className="font-display font-bold text-text-primary text-sm">All questions clear!</h3>
+                        <p className="text-xs text-text-secondary max-w-xs mx-auto mt-1">No questions match the selected filter status in this paper.</p>
+                        <button
+                          onClick={() => {
+                            setSelectedPaper(null);
+                            setActiveLevel('paper');
+                          }}
+                          className="mt-4 px-4 py-2 rounded-xl bg-accent text-white text-xs font-bold"
+                        >
+                          Return to Papers List
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {reviewMode === 'standard' ? renderStandardReviewMode() : renderGamifiedReviewMode()}
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         ) : activeTab === 'pipeline' ? (
           /* Document Pipeline Tab — Phase L.1A: Temporarily disabled for beta launch.
