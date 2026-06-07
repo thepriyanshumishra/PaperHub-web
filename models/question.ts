@@ -26,6 +26,11 @@ export interface ICachedSolution {
   generatedAt: Date;
 }
 
+export interface ICachedHints {
+  hints: string[]; // 3 progressive hints
+  generatedAt: Date;
+}
+
 export interface IQuestion extends Document {
   questionId: string;
   subjectId: mongoose.Types.ObjectId;
@@ -37,6 +42,7 @@ export interface IQuestion extends Document {
   marks: number;
   sourcePapers: ISourcePaper[];
   cachedSolution?: ICachedSolution;
+  cachedHints?: ICachedHints;
   humanVerified: boolean;
   verificationStatus: 'pending' | 'verified' | 'flagged' | 'archived';
   verificationComment?: string;
@@ -119,6 +125,10 @@ const QuestionSchema = new Schema<IQuestion>(
     marks: { type: Number, required: true },
     sourcePapers: [SourcePaperSchema],
     cachedSolution: CachedSolutionSchema,
+    cachedHints: {
+      hints: [{ type: String }],
+      generatedAt: { type: Date, default: Date.now }
+    },
     humanVerified: { type: Boolean, default: false },
     verificationStatus: { 
       type: String, 

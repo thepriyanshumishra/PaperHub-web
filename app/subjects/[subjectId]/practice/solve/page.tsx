@@ -168,7 +168,8 @@ function PracticeSolveContent() {
   // Floating Hint states
   const [hintOpen, setHintOpen] = useState(false);
   const [hintLoading, setHintLoading] = useState(false);
-  const [hintContent, setHintContent] = useState<string | null>(null);
+  const [hints, setHints] = useState<string[]>([]);
+  const [activeHintIdx, setActiveHintIdx] = useState(0);
 
   // User attempt states
   const [userAttempt, setUserAttempt] = useState('');
@@ -403,7 +404,8 @@ function PracticeSolveContent() {
     setUserAttempt('');
     setEvaluationResult(null);
     setHasCheckedAnswer(false);
-    setHintContent(null);
+    setHints([]);
+    setActiveHintIdx(0);
     setSolutionTab('verified');
     setShowReportModal(false);
     setReportReasons([]);
@@ -691,28 +693,34 @@ function PracticeSolveContent() {
   const handleOpenHint = async () => {
     setHintOpen(true);
     playSoundEffect('click');
-    if (hintContent) return;
+    if (hints.length > 0) return;
 
     setHintLoading(true);
     try {
       const token = await fbUser?.getIdToken();
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
+      const res = await fetch(`/api/ai/hint?questionId=${currentQuestion._id}`, {
         headers: { 
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          userId: user?._id || 'student',
-          questionId: currentQuestion._id,
-          message: "Please give me a short, highly conceptual hint for this question that helps me solve it on my own without writing down the direct final answer. Format equations in LaTeX.",
-          history: []
-        })
+        }
       });
       const data = await res.json();
-      setHintContent(data.reply || "Think about the properties related to " + currentQuestion.topic);
+      if (data.hints && data.hints.length > 0) {
+        setHints(data.hints);
+      } else {
+        setHints([
+          "Recall the primary definition and core equations of " + currentQuestion.topic,
+          "Set up the boundary constraints or default initial values to begin simplifying.",
+          "Perform the first derivation step or variable substitution to find the base relation."
+        ]);
+      }
+      setActiveHintIdx(0);
     } catch {
-      setHintContent("Analyze the primary formula for " + currentQuestion.topic + " and evaluate boundary constraints.");
+      setHints([
+        "Recall the primary definition and core equations of " + currentQuestion.topic,
+        "Set up the boundary constraints or default initial values to begin simplifying.",
+        "Perform the first derivation step or variable substitution to find the base relation."
+      ]);
+      setActiveHintIdx(0);
     } finally {
       setHintLoading(false);
     }
@@ -1638,23 +1646,52 @@ function PracticeSolveContent() {
                 </button>
               </div>
 
-              <div className="text-xs leading-relaxed text-text-secondary min-h-24 flex items-center justify-center">
+              {/* Progressive Hint Stepper selector */}
+              {!hintLoading && hints.length > 0 && (
+                <div className="flex items-center justify-between bg-bg-primary p-1 rounded-xl border border-border-primary">
+                  {hints.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setActiveHintIdx(index)}
+                      className={`flex-1 py-1.5 rounded-lg font-display text-[10px] font-bold transition-all ${
+                        activeHintIdx === index
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary'
+                      }`}
+                    >
+                      Hint {index + 1}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="text-xs leading-relaxed text-text-secondary min-h-[120px] flex items-center justify-center bg-bg-primary/50 p-4 rounded-xl border border-border-primary/50">
                 {hintLoading ? (
                   <div className="flex flex-col items-center space-y-2 text-text-muted">
                     <Loader2 className="w-5 h-5 text-amber-500 animate-spin" />
                     <span>Consulting syllabus assistant...</span>
                   </div>
                 ) : (
-                  <MathMarkdown content={hintContent || 'No hint available.'} />
+                  <MathMarkdown content={hints[activeHintIdx] || 'No hint available.'} />
                 )}
               </div>
 
-              <button
-                onClick={() => setHintOpen(false)}
-                className="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-md shadow-amber-500/10"
-              >
-                Got it
-              </button>
+              <div className="flex items-center space-x-3 pt-2">
+                <button
+                  onClick={() => setHintOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary text-xs font-bold transition-all"
+                >
+                  Close
+                </button>
+                {!hintLoading && activeHintIdx < hints.length - 1 && (
+                  <button
+                    onClick={() => setActiveHintIdx(prev => prev + 1)}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-md shadow-amber-500/10"
+                  >
+                    Next Hint
+                  </button>
+                )}
+              </div>
             </motion.div>
           </div>
         )}
