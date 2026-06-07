@@ -26,8 +26,8 @@ export function FeedbackButton() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
-  // Don't show on login/onboarding pages
-  if (pathname === '/login' || pathname === '/onboarding') return null;
+  // Don't show on login, onboarding, or sessional solve pages
+  if (pathname === '/login' || pathname === '/onboarding' || pathname.includes('/solve')) return null;
   // Don't show if not authenticated
   if (!fbUser) return null;
 
