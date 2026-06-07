@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { ids } = body;
 
-    let query: any = { userId: user._id };
+    const query: any = { userId: user._id };
 
     if (Array.isArray(ids) && ids.length > 0) {
       const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id));

@@ -474,7 +474,7 @@ async function seed() {
           }
         }
 
-        let subjectCodeClean = subjectCode.toUpperCase().trim();
+        const subjectCodeClean = subjectCode.toUpperCase().trim();
         if (subjectCodeClean.includes('BME-101') || 
             subjectCodeClean.includes('BME-104') || 
             subjectCodeClean.includes('BME-157')) {
@@ -484,7 +484,7 @@ async function seed() {
         const subjectConf = getSubjectConfig(subjectCodeClean, file, semester);
         
         let targetSemester = semester;
-        let branchIds: mongoose.Types.ObjectId[] = [];
+        const branchIds: mongoose.Types.ObjectId[] = [];
         let finalSubjectName = subjectName;
 
         if (subjectConf) {
@@ -565,7 +565,7 @@ async function seed() {
         subjectMap.set(subjectCode.toUpperCase(), subject._id as mongoose.Types.ObjectId);
 
         for (const q of paper.questions) {
-          let existingQ = await Question.findOne({ questionId: q.questionId });
+          const existingQ = await Question.findOne({ questionId: q.questionId });
           if (existingQ) {
             q.sourcePapers.forEach((sp) => {
               const alreadyHasPaper = existingQ!.sourcePapers.some(

@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     let allUnits: number[] = [];
     let allTopics: string[] = [];
-    let orConditions: any[] = [];
+    const orConditions: any[] = [];
 
     if (selections && Array.isArray(selections) && selections.length > 0) {
       allUnits = selections.flatMap((s: any) => s.units || []);
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Shuffle and slice
-      let shuffled = candidates.sort(() => 0.5 - Math.random());
+      const shuffled = candidates.sort(() => 0.5 - Math.random());
       limit = type === 'practice' ? shuffled.length : (questionCount || 5);
       
       // For PYQ mock tests, include all questions if questionCount is not explicitly limited (or set to 'all' internally)
