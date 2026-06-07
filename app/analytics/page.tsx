@@ -851,7 +851,7 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="border-t border-border-primary/40 pt-4">
-                  <a href="/dashboard#practice" className="text-xs font-bold text-accent dark:text-purple-400 hover:underline flex items-center gap-1 justify-center">
+                  <a href="/practice" className="text-xs font-bold text-accent dark:text-purple-400 hover:underline flex items-center gap-1 justify-center">
                     <span>View All Weak Areas</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </a>

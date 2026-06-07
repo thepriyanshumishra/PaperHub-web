@@ -64,7 +64,7 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
   const menuItems = [
     { name: 'Home', icon: Home, path: '/dashboard' },
     { name: 'Subjects', icon: BookOpen, path: '/subjects' },
-    { name: 'Practice', icon: Edit3, path: '/dashboard#practice' },
+    { name: 'Practice', icon: Edit3, path: '/practice' },
     { name: 'Tests', icon: FileText, path: '/tests' },
     { name: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
     { name: 'My Progress', icon: Activity, path: '/analytics' },
