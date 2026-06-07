@@ -67,8 +67,6 @@ export default function BillingPage() {
     if (!authLoading) {
       if (!fbUser) {
         router.push('/login');
-      } else if (fbUser && !fbUser.emailVerified) {
-        router.push('/verify-email');
       } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
         router.push('/onboarding');
       }
@@ -162,7 +160,7 @@ export default function BillingPage() {
               <h2 className="font-display font-black text-2xl">Billing & Usage</h2>
             </div>
             <Link
-              href="/pricing"
+              href="/#pricing"
               className="text-xs font-bold text-accent hover:text-accent-hover transition-colors"
             >
               Compare Plans →

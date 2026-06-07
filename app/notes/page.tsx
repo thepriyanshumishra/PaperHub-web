@@ -139,8 +139,6 @@ export default function NotesPage() {
     if (!authLoading) {
       if (!fbUser) {
         router.push('/login');
-      } else if (fbUser && !fbUser.emailVerified) {
-        router.push('/verify-email');
       } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
         router.push('/onboarding');
       } else {

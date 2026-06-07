@@ -180,7 +180,7 @@ export async function requireAuthorizedUser(
   let user: IUser | null = null;
 
   if (userDocPayload) {
-    user = new User(userDocPayload) as IUser;
+    user = User.hydrate(userDocPayload) as IUser;
   } else {
     // 3. Fallback: Better Auth API call
     try {
@@ -237,13 +237,7 @@ export async function requireAuthorizedUser(
     };
   }
 
-  // 5. Enforce email verification status
-  if (!user.emailVerified) {
-    return {
-      user: null,
-      errorResponse: NextResponse.json({ error: "Forbidden: Email verification is required" }, { status: 403 }),
-    };
-  }
+
 
   // 6. Enforce onboarding completion ONLY for students
   if (!options.allowPendingOnboarding && user.role === "student" && !user.onboardingCompleted) {

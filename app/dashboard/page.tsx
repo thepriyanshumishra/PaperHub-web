@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/auth-provider';
-import { useTheme } from '@/components/theme-provider';
+import { Navbar } from '@/components/navbar';
 import {
-  Search, Bell, Sun, Moon, ChevronDown, ChevronRight,
+  Search, ChevronRight,
   BookOpen, CheckCircle2, XCircle, Clock, ArrowRight, Menu, X,
   Loader2, ArrowUpRight, Sparkles,
   // Subject icons — semantically matched
@@ -41,20 +41,11 @@ import {
   Grid,           // General fallback
 } from 'lucide-react';
 
-export default function Dashboard() {
+function DashboardContent() {
   const router = useRouter();
-  const { user, fbUser, loading: authLoading, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-
-  const handleLogout = async () => {
-    try {
-      if (logout) await logout();
-      router.push('/login');
-    } catch (err) {
-      console.error('Logout failed:', err);
-      router.push('/login');
-    }
-  };
+  const searchParams = useSearchParams();
+  const queryParam = searchParams.get('q') || '';
+  const { user, fbUser, loading: authLoading } = useAuth();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [localCollege, setLocalCollege] = useState<string | null>(null);
@@ -73,18 +64,25 @@ export default function Dashboard() {
   const [searching, setSearching] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
 
-  // Notifications states
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  
-  // Profile dropdown state
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
 
+
+  // Trigger search on mount/change if query parameter is present in URL
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (queryParam.trim() && fbUser) {
+      setSearchQuery(queryParam.trim());
+      setSearching(true);
+      setShowSearchModal(true);
+      fbUser.getIdToken().then((token: string) => {
+        fetch(`/api/questions/search?q=${encodeURIComponent(queryParam.trim())}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+          .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
+          .then((data) => setSearchResults(data.questions || []))
+          .catch((err) => console.error(err))
+          .finally(() => setSearching(false));
+      });
+    }
+  }, [queryParam, fbUser]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -124,9 +122,6 @@ export default function Dashboard() {
       if (!fbUser && !hasLocalParams) {
         // No session at all — send to login
         router.push('/login');
-      } else if (fbUser && !fbUser.emailVerified) {
-        // Session exists but email is unverified — must verify before accessing dashboard
-        router.push('/verify-email');
       } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
         // Verified but onboarding not completed (student only)
         router.push('/onboarding');
@@ -170,53 +165,6 @@ export default function Dashboard() {
       .finally(() => setLoadingAnalytics(false));
   }, [fbUser]);
 
-  // Fetch notifications
-  useEffect(() => {
-    if (!fbUser) return;
-    const fetchNotifications = async () => {
-      try {
-        const idToken = await fbUser.getIdToken();
-        const res = await fetch('/api/notifications', {
-          headers: { Authorization: `Bearer ${idToken}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.notifications?.filter((n: any) => !n.isRead).length || 0);
-        }
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-      }
-    };
-    fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
-  }, [fbUser]);
-
-  const handleMarkAllRead = async () => {
-    if (!fbUser || notifications.length === 0) return;
-    try {
-      const idToken = await fbUser.getIdToken();
-      const unreadIds = notifications.filter(n => !n.isRead).map(n => n._id);
-      if (unreadIds.length === 0) return;
-      
-      const res = await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ ids: unreadIds })
-      });
-      if (res.ok) {
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-        setUnreadCount(0);
-      }
-    } catch (err) {
-      console.error('Failed to mark notifications as read:', err);
-    }
-  };
-
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim() || !fbUser) return;
@@ -239,40 +187,8 @@ export default function Dashboard() {
     }
   };
 
-  // Keyboard shortcut listener for Ctrl + K
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) searchInput.focus();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
-  const ordinal = (n: number) => {
-    const s = ['th','st','nd','rd'];
-    const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
-  };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-7 h-7 text-purple-500 animate-spin mx-auto" />
-          <p className="text-xs text-text-secondary">Loading your workspace…</p>
-        </div>
-      </div>
-    );
-  }
-
-  const activeBranch   = user?.profile?.branch   || localBranch   || '';
-  const activeSemester = user?.profile?.semester || (localSemester ? Number(localSemester) : null);
-  const activeName     = user?.profile?.name     || user?.displayName || '';
-  const userInitials   = activeName ? activeName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : '?';
 
   // Gamification Metrics (Derived from User Profile and Analytics)
   const dailySolved = user?.engagement?.dailyGoalSolved ?? analytics?.metrics?.dailyGoalSolved ?? 0;
@@ -496,7 +412,20 @@ export default function Dashboard() {
     ];
   };
 
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-7 h-7 text-purple-500 animate-spin mx-auto" />
+          <p className="text-xs text-text-secondary">Loading your workspace…</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
+
     <div className="flex h-screen bg-bg-primary text-text-primary overflow-hidden relative">
       {/* Ambient glow — dark mode only */}
       <div className="hidden dark:block fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[550px] rounded-full bg-purple-900/10 blur-[180px] pointer-events-none" />
@@ -513,152 +442,7 @@ export default function Dashboard() {
       <div className="flex-grow flex flex-col h-full overflow-y-auto z-10">
         
         {/* Top Header Bar */}
-        <header className="px-5 sm:px-7 h-16 border-b border-border-primary/50 flex items-center justify-between gap-4 bg-bg-primary sticky top-0 z-30 shrink-0">
-
-          {/* Left: Mobile menu + Search */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button 
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-all shrink-0"
-              aria-label="Open menu"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
-            
-            <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-text-muted absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                id="search-input"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search topics, chapters or questions..."
-                className="w-full pl-10 pr-20 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-[13px] font-medium focus:border-accent/50 focus:ring-2 focus:ring-accent/15 outline-none text-text-primary placeholder:text-text-muted transition-all"
-              />
-              <kbd className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center px-2 py-0.5 rounded-md bg-bg-tertiary border border-border-primary text-[10px] font-semibold text-text-muted select-none pointer-events-none">
-                ⌘K
-              </kbd>
-            </form>
-          </div>
-
-          {/* Right: Actions + Profile */}
-          <div className="flex items-center gap-1 shrink-0">
-
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all"
-              aria-label="Toggle theme"
-            >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </button>
-
-            {/* Notification Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all relative"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent ring-2 ring-bg-primary" />
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setNotificationsOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 z-40 w-80 rounded-2xl border border-border-primary bg-bg-secondary shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-primary">
-                      <h4 className="text-sm font-bold text-text-primary">Notifications</h4>
-                      {unreadCount > 0 && (
-                        <button onClick={handleMarkAllRead} className="text-[11px] font-semibold text-accent hover:opacity-80 transition-opacity">
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-72 overflow-y-auto p-2 space-y-1">
-                      {notifications.length === 0 ? (
-                        <p className="text-[12px] text-text-muted text-center py-8">No notifications yet.</p>
-                      ) : (
-                        notifications.map((n) => (
-                          <div 
-                            key={n._id} 
-                            className={`p-3 rounded-xl transition-all cursor-default ${n.isRead ? 'hover:bg-bg-tertiary' : 'bg-accent/8 border border-accent/20'}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-[12px] font-semibold text-text-primary leading-snug">{n.title}</span>
-                              <span className="text-[10px] text-text-muted shrink-0 mt-0.5">
-                                {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">{n.message}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Divider */}
-            <div className="w-px h-6 bg-border-primary mx-1" />
-
-            {/* Profile Button */}
-            <div className="relative">
-              <button 
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 pl-1 pr-3 py-1.5 rounded-xl hover:bg-bg-tertiary transition-all focus:outline-none group"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-text-primary font-black text-xs shadow-md shrink-0">
-                  {userInitials}
-                </div>
-                <div className="hidden md:flex flex-col items-start select-none min-w-0">
-                  <span className="text-[13px] font-semibold text-text-primary leading-tight truncate max-w-[120px]">
-                    {activeName || 'Account'}
-                  </span>
-                  <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
-                    {!mounted ? 'Student' : (activeBranch && activeSemester
-                      ? `${activeBranch} · ${ordinal(activeSemester)} Sem`
-                      : activeBranch || 'Student')}
-                  </span>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />
-              </button>
-
-              {profileDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-35" onClick={() => setProfileDropdownOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 z-40 w-48 rounded-2xl border border-border-primary bg-bg-secondary p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <Link 
-                      href="/profile"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all"
-                    >
-                      View Profile
-                    </Link>
-                    <Link 
-                      href="/settings"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all"
-                    >
-                      Account Settings
-                    </Link>
-                    <div className="h-px bg-border-primary my-1" />
-                    <button
-                      onClick={handleLogout}
-                      className="w-full flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-red-500 hover:bg-red-500/8 transition-all text-left"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
+        <Navbar onMenuToggle={() => setSidebarOpen(true)} />
 
 
         {/* Dashboard Main Scrollable Body */}
@@ -931,8 +715,22 @@ export default function Dashboard() {
             </div>
           </div>
         )}
-
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-bg-primary text-text-primary">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-7 h-7 text-purple-500 animate-spin mx-auto" />
+          <p className="text-xs text-text-secondary">Loading your workspace…</p>
+        </div>
+      </div>
+    }>
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -12,8 +12,68 @@
     --text-secondary:22 15% 38%;     /* #6B5644 — warm mid-tone */
     --text-muted:    22 10% 58%;     /* #9E8F82 — muted warm grey */
     --border-primary:28 20% 82%;     /* #DDD0C0 — warm cream border */
-    --accent:        24 92% 52%;     /* #F97316 — vibrant warm orange */
-    --accent-hover:  24 92% 43%;     /* #C05A0A — deeper orange */
+    
+    /* Default Purple Accent for Light mode */
+    --accent:        262 80% 50%;
+    --accent-hover:  262 80% 40%;
+    --accent-gradient-start: #6366f1;
+    --accent-gradient-end: #a855f7;
+    --accent-gradient-hover-start: #4f46e5;
+    --accent-gradient-hover-end: #9333ea;
+    --logo-stop-1:   #a78bfa;
+    --logo-stop-2:   #6366f1;
+  }
+
+  /* Theme Overrides - Light Mode */
+  .theme-purple {
+    --accent:        262 80% 50%;
+    --accent-hover:  262 80% 40%;
+    --accent-gradient-start: #6366f1;
+    --accent-gradient-end: #a855f7;
+    --accent-gradient-hover-start: #4f46e5;
+    --accent-gradient-hover-end: #9333ea;
+    --logo-stop-1:   #a78bfa;
+    --logo-stop-2:   #6366f1;
+  }
+  .theme-blue {
+    --accent:        221 83% 53%;
+    --accent-hover:  221 83% 43%;
+    --accent-gradient-start: #3b82f6;
+    --accent-gradient-end: #06b6d4;
+    --accent-gradient-hover-start: #2563eb;
+    --accent-gradient-hover-end: #0891b2;
+    --logo-stop-1:   #60a5fa;
+    --logo-stop-2:   #3b82f6;
+  }
+  .theme-green {
+    --accent:        142 76% 36%;
+    --accent-hover:  142 76% 28%;
+    --accent-gradient-start: #10b981;
+    --accent-gradient-end: #059669;
+    --accent-gradient-hover-start: #059669;
+    --accent-gradient-hover-end: #047857;
+    --logo-stop-1:   #34d399;
+    --logo-stop-2:   #059669;
+  }
+  .theme-orange {
+    --accent:        24 92% 52%;
+    --accent-hover:  24 92% 43%;
+    --accent-gradient-start: #f97316;
+    --accent-gradient-end: #d97706;
+    --accent-gradient-hover-start: #ea580c;
+    --accent-gradient-hover-end: #b45309;
+    --logo-stop-1:   #fb923c;
+    --logo-stop-2:   #ea580c;
+  }
+  .theme-pink {
+    --accent:        322 81% 53%;
+    --accent-hover:  322 81% 43%;
+    --accent-gradient-start: #ec4899;
+    --accent-gradient-end: #db2777;
+    --accent-gradient-hover-start: #db2777;
+    --accent-gradient-hover-end: #c084fc;
+    --logo-stop-1:   #f472b6;
+    --logo-stop-2:   #ec4899;
   }
 
   /* ─── Dark Mode: Deep Midnight Violet ──────────────────────────────────────── */
@@ -25,17 +85,80 @@
     --text-secondary:226 20% 78%;    /* #b9c3d9 — lavender muted */
     --text-muted:    226 12% 58%;    /* #818ba0 — slate purple muted */
     --border-primary:244 25% 15%;    /* #1e1b33 — dark violet border */
+    
+    /* Default Purple Accent for Dark mode */
     --accent:        250 85% 68%;    /* #7c66ff — neon purple */
     --accent-hover:  250 85% 58%;    /* #5a3eff */
+    --accent-gradient-start: #4f46e5;
+    --accent-gradient-end: #9333ea;
+    --accent-gradient-hover-start: #5f52ff;
+    --accent-gradient-hover-end: #a855f7;
+    --logo-stop-1:   #a78bfa;        /* purple-400 */
+    --logo-stop-2:   #6366f1;        /* indigo-500 */
+  }
+
+  /* Theme Overrides - Dark Mode */
+  .dark.theme-purple {
+    --accent:        250 85% 68%;
+    --accent-hover:  250 85% 58%;
+    --accent-gradient-start: #4f46e5;
+    --accent-gradient-end: #9333ea;
+    --accent-gradient-hover-start: #5f52ff;
+    --accent-gradient-hover-end: #a855f7;
+    --logo-stop-1:   #a78bfa;
+    --logo-stop-2:   #6366f1;
+  }
+  .dark.theme-blue {
+    --accent:        217 91% 60%;
+    --accent-hover:  217 91% 50%;
+    --accent-gradient-start: #2563eb;
+    --accent-gradient-end: #06b6d4;
+    --accent-gradient-hover-start: #3b82f6;
+    --accent-gradient-hover-end: #22d3ee;
+    --logo-stop-1:   #60a5fa;
+    --logo-stop-2:   #3b82f6;
+  }
+  .dark.theme-green {
+    --accent:        142 70% 50%;
+    --accent-hover:  142 70% 40%;
+    --accent-gradient-start: #059669;
+    --accent-gradient-end: #10b981;
+    --accent-gradient-hover-start: #10b981;
+    --accent-gradient-hover-end: #34d399;
+    --logo-stop-1:   #34d399;
+    --logo-stop-2:   #10b981;
+  }
+  .dark.theme-orange {
+    --accent:        24 92% 58%;
+    --accent-hover:  24 92% 48%;
+    --accent-gradient-start: #ea580c;
+    --accent-gradient-end: #f59e0b;
+    --accent-gradient-hover-start: #f97316;
+    --accent-gradient-hover-end: #fbbf24;
+    --logo-stop-1:   #fb923c;
+    --logo-stop-2:   #ea580c;
+  }
+  .dark.theme-pink {
+    --accent:        330 85% 65%;
+    --accent-hover:  330 85% 55%;
+    --accent-gradient-start: #db2777;
+    --accent-gradient-end: #e11d48;
+    --accent-gradient-hover-start: #ec4899;
+    --accent-gradient-hover-end: #f43f5e;
+    --logo-stop-1:   #f472b6;
+    --logo-stop-2:   #db2777;
+  }
+
+  /* Smooth theme change transitions */
+  *, *::before, *::after {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, box-shadow;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 400ms;
   }
 
   body {
     background-color: hsl(var(--bg-primary));
     color: hsl(var(--text-primary));
-    transition:
-      background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-      border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
@@ -81,15 +204,15 @@ html:not(.dark) .sidebar-bg {
 
 /* Sidebar active nav item */
 html:not(.dark) .sidebar-active {
-  background-color: hsl(24 92% 52% / 0.12) !important;
-  border-color: hsl(24 92% 52% / 0.30) !important;
-  color: hsl(24 92% 38%) !important;
+  background-color: hsl(var(--accent) / 0.12) !important;
+  border-color: hsl(var(--accent) / 0.30) !important;
+  color: hsl(var(--accent-hover)) !important;
 }
 
 /* Upgrade card in light mode */
 html:not(.dark) .upgrade-card {
   background: linear-gradient(135deg, hsl(30 50% 88%), hsl(28 45% 84%)) !important;
-  border-color: hsl(24 60% 75%) !important;
+  border-color: hsl(var(--accent) / 0.35) !important;
 }
 
 /* Streak card in light mode */
@@ -102,27 +225,27 @@ html:not(.dark) .streak-card {
 .bg-accent {
   background-color: hsl(var(--accent)) !important;
   color: white !important;
-  box-shadow: 0 4px 14px hsl(24 92% 52% / 0.30) !important;
+  box-shadow: 0 4px 14px hsl(var(--accent) / 0.30) !important;
 }
 .bg-accent:hover {
   background-color: hsl(var(--accent-hover)) !important;
-  box-shadow: 0 6px 20px hsl(24 92% 52% / 0.40) !important;
+  box-shadow: 0 6px 20px hsl(var(--accent) / 0.40) !important;
   transform: translateY(-1px);
 }
 
 /* Dark mode: purple gradient buttons */
 .dark .bg-accent {
-  background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%) !important;
+  background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%) !important;
   border: none !important;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.30) !important;
+  box-shadow: 0 4px 14px hsl(var(--accent) / 0.30) !important;
 }
 .dark .bg-accent:hover {
-  background: linear-gradient(135deg, #5f52ff 0%, #a855f7 100%) !important;
-  box-shadow: 0 6px 20px rgba(124, 102, 255, 0.45) !important;
+  background: linear-gradient(135deg, var(--accent-gradient-hover-start) 0%, var(--accent-gradient-hover-end) 100%) !important;
+  box-shadow: 0 6px 20px hsl(var(--accent) / 0.45) !important;
   transform: translateY(-1px);
 }
 .dark .hover\:bg-accent-hover:hover {
-  background: linear-gradient(135deg, #5f52ff 0%, #a855f7 100%) !important;
+  background: linear-gradient(135deg, var(--accent-gradient-hover-start) 0%, var(--accent-gradient-hover-end) 100%) !important;
 }
 
 /* Card backgrounds */
@@ -152,34 +275,34 @@ html:not(.dark) .bg-bg-primary {
 
 /* Badge — light mode warm orange tint */
 .badge-premium {
-  background: hsl(24 92% 52% / 0.10) !important;
-  border: 1px solid hsl(24 92% 52% / 0.28) !important;
-  color: hsl(24 92% 38%) !important;
+  background: hsl(var(--accent) / 0.10) !important;
+  border: 1px solid hsl(var(--accent) / 0.28) !important;
+  color: hsl(var(--accent-hover)) !important;
 }
 .dark .badge-premium {
-  background: rgba(124, 102, 255, 0.08) !important;
-  border: 1px solid rgba(124, 102, 255, 0.25) !important;
-  color: #a855f7 !important;
+  background: hsl(var(--accent) / 0.08) !important;
+  border: 1px solid hsl(var(--accent) / 0.25) !important;
+  color: hsl(var(--accent)) !important;
 }
 
 /* Gradient heading */
 .gradient-heading {
-  background: linear-gradient(135deg, hsl(24 92% 48%) 0%, hsl(14 90% 55%) 100%) !important;
+  background: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--accent-hover)) 100%) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
 .dark .gradient-heading {
-  background: linear-gradient(135deg, #60a5fa 0%, #c084fc 100%) !important;
+  background: linear-gradient(135deg, var(--accent-gradient-start) 0%, var(--accent-gradient-end) 100%) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
 }
 
 /* Glow hover — light mode: warm orange glow */
 .glow-hover:hover {
-  border-color: hsl(24 92% 52% / 0.45) !important;
-  box-shadow: 0 0 15px hsl(24 92% 52% / 0.12) !important;
+  border-color: hsl(var(--accent) / 0.45) !important;
+  box-shadow: 0 0 15px hsl(var(--accent) / 0.12) !important;
 }
 .dark .glow-hover:hover {
-  border-color: rgba(124, 102, 255, 0.5) !important;
-  box-shadow: 0 0 15px rgba(124, 102, 255, 0.15) !important;
+  border-color: hsl(var(--accent) / 0.5) !important;
+  box-shadow: 0 0 15px hsl(var(--accent) / 0.15) !important;
 }

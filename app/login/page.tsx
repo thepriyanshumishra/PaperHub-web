@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/components/auth-provider';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { PaperHubLogo } from '@/components/logo';
 import { 
   Sparkles, 
   Loader2, 
@@ -22,7 +23,9 @@ import {
   ShieldCheck,
   Zap,
   Cloud,
-  GraduationCap
+  GraduationCap,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function Login() {
@@ -38,6 +41,8 @@ export default function Login() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Redirect if logged in & profile loaded
   useEffect(() => {
@@ -116,9 +121,7 @@ export default function Login() {
       {/* Header */}
       <header className="absolute top-0 inset-x-0 z-50 flex items-center justify-between px-6 lg:px-12 py-6">
         <Link href="/" className="flex items-center space-x-3 group">
-          <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center text-text-primary font-bold text-lg shadow-[0_0_20px_rgba(139,92,246,0.4)] group-hover:scale-105 transition-transform duration-300">
-            P
-          </div>
+          <PaperHubLogo className="w-8 h-8" />
           <span className="font-bold text-xl tracking-tight text-text-primary/90 group-hover:text-text-primary transition-colors duration-200">PaperHub</span>
         </Link>
         <ThemeToggle />
@@ -131,13 +134,13 @@ export default function Login() {
         <div className="flex-1 w-full flex flex-col justify-center space-y-10 lg:pl-8 relative z-20 hidden md:flex">
           
           <div className="space-y-6">
-            <div className="inline-flex items-center px-3 py-1 rounded-full bg-accent/10 border border-[#8B5CF6]/20 text-[#A78BFA] text-[10px] font-bold tracking-[0.2em] uppercase">
+            <div className="inline-flex items-center px-3 py-1 rounded-full bg-accent/10 border border-accent/20 text-accent text-[10px] font-bold tracking-[0.2em] uppercase">
               Premium Study Suite
             </div>
             
             <h1 className="text-5xl lg:text-6xl font-extrabold tracking-tight text-text-primary leading-[1.1]">
               Study Smarter.<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A78BFA] to-[#8B5CF6]">Score Higher.</span>
+              <span className="gradient-heading">Score Higher.</span>
             </h1>
             
             <p className="text-lg text-text-muted max-w-lg leading-relaxed">
@@ -147,8 +150,8 @@ export default function Login() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
             <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
-                <BookOpen className="w-5 h-5 text-[#A78BFA]" />
+              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_hsl(var(--accent)/0.15)]">
+                <BookOpen className="w-5 h-5 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-text-primary/90 text-sm">Smart Practice</h3>
@@ -157,8 +160,8 @@ export default function Login() {
             </div>
             
             <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
-                <Bot className="w-5 h-5 text-[#A78BFA]" />
+              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_hsl(var(--accent)/0.15)]">
+                <Bot className="w-5 h-5 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-text-primary/90 text-sm">AI Assistant</h3>
@@ -167,8 +170,8 @@ export default function Login() {
             </div>
 
             <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
-                <LineChart className="w-5 h-5 text-[#A78BFA]" />
+              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_hsl(var(--accent)/0.15)]">
+                <LineChart className="w-5 h-5 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-text-primary/90 text-sm">Track Progress</h3>
@@ -177,8 +180,8 @@ export default function Login() {
             </div>
 
             <div className="flex items-start space-x-4">
-              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
-                <Bookmark className="w-5 h-5 text-[#A78BFA]" />
+              <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-border-primary flex items-center justify-center shrink-0 shadow-[0_0_15px_hsl(var(--accent)/0.15)]">
+                <Bookmark className="w-5 h-5 text-accent" />
               </div>
               <div>
                 <h3 className="font-semibold text-text-primary/90 text-sm">Save & Organize</h3>
@@ -194,47 +197,47 @@ export default function Login() {
               <p className="text-xs text-text-secondary mt-0.5">Secure your early access spot today</p>
             </div>
             <div className="flex items-center -space-x-2">
-              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=1" alt="Student" /></div>
-              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=2" alt="Student" /></div>
-              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=3" alt="Student" /></div>
-              <div className="w-8 h-8 rounded-full border-2 border-[#0a0a0f] bg-accent flex items-center justify-center text-[8px] font-bold tracking-wider">EARLY</div>
+              <div className="w-8 h-8 rounded-full border-2 border-bg-secondary bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=1" alt="Student" /></div>
+              <div className="w-8 h-8 rounded-full border-2 border-bg-secondary bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=2" alt="Student" /></div>
+              <div className="w-8 h-8 rounded-full border-2 border-bg-secondary bg-gray-700 overflow-hidden"><img src="https://i.pravatar.cc/100?img=3" alt="Student" /></div>
+              <div className="w-8 h-8 rounded-full border-2 border-bg-secondary bg-accent flex items-center justify-center text-[8px] font-bold tracking-wider">EARLY</div>
             </div>
           </div>
         </div>
 
         {/* Center Graphic Absolute Positioned */}
         <div className="absolute left-[45%] top-[55%] -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] pointer-events-none hidden lg:block opacity-[0.35] z-0">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.15)_0%,transparent_50%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,hsl(var(--accent)/0.15)_0%,transparent_50%)]" />
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-border-primary rounded-full border-dashed animate-[spin_60s_linear_infinite]" />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-[#8B5CF6]/20 rounded-full border-dashed animate-[spin_90s_linear_infinite_reverse]" />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 bg-gradient-to-br from-[#A78BFA] to-[#6D28D9] rounded-[2rem] rotate-12 flex items-center justify-center shadow-[0_0_80px_rgba(139,92,246,0.8)] border border-white/20">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-accent/20 rounded-full border-dashed animate-[spin_90s_linear_infinite_reverse]" />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 bg-gradient-to-br from-accent to-accent-hover rounded-[2rem] rotate-12 flex items-center justify-center shadow-[0_0_80px_hsl(var(--accent)/0.5)] border border-border-primary">
              <span className="text-text-primary text-6xl font-black -rotate-12 drop-shadow-md">P</span>
           </div>
         </div>
 
         {/* Right Panel: Auth Form */}
         <div className="w-full max-w-[440px] shrink-0 z-30">
-          <div className="bg-[#12121A]/80 backdrop-blur-2xl border border-border-primary rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+          <div className="bg-bg-secondary backdrop-blur-2xl border border-border-primary rounded-3xl p-8 shadow-2xl relative overflow-hidden">
             
             {/* Form Glow Line */}
-            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-[#8B5CF6]/50 to-transparent" />
+            <div className="absolute top-0 inset-x-0 h-[1px] bg-gradient-to-r from-transparent via-accent/50 to-transparent" />
 
             <div className="text-center space-y-2 mb-8">
               <h2 className="text-2xl font-bold text-text-primary">Welcome back!</h2>
-              <p className="text-sm text-text-muted">Sign in to continue your learning journey</p>
+              <p className="text-sm text-text-secondary">Sign in to continue your learning journey</p>
             </div>
 
             {/* Toggle Pill */}
-            <div className="flex bg-black/40 rounded-xl p-1 mb-8 border border-white/5 relative">
+            <div className="flex bg-bg-tertiary/60 rounded-xl p-1 mb-8 border border-border-primary/60 relative">
               <button
                 onClick={() => { setActiveTab('login'); setAuthError(null); }}
-                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all z-10 ${activeTab === 'login' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary/70'}`}
+                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all z-10 ${activeTab === 'login' ? 'text-white font-bold' : 'text-text-secondary hover:text-text-primary/70'}`}
               >
                 Sign In
               </button>
               <button
                 onClick={() => { setActiveTab('register'); setAuthError(null); }}
-                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all z-10 ${activeTab === 'register' ? 'text-text-primary' : 'text-text-secondary hover:text-text-primary/70'}`}
+                className={`flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all z-10 ${activeTab === 'register' ? 'text-white font-bold' : 'text-text-secondary hover:text-text-primary/70'}`}
               >
                 Create Account
               </button>
@@ -282,7 +285,7 @@ export default function Login() {
               {activeTab === 'register' && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-text-muted">Name</label>
+                    <label className="text-xs font-semibold text-text-secondary">Name</label>
                     <div className="relative">
                       <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
                       <input
@@ -290,14 +293,14 @@ export default function Login() {
                         placeholder="Enter your name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-primary bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-text-primary placeholder:text-gray-600 transition-all"
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-primary bg-bg-primary/50 focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none text-sm text-text-primary placeholder:text-text-muted/50 transition-all"
                         required
                       />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-text-muted">Username</label>
+                    <label className="text-xs font-semibold text-text-secondary">Username</label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary text-sm font-bold">@</span>
                       <input
@@ -305,7 +308,7 @@ export default function Login() {
                         placeholder="unique_username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-border-primary bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-text-primary placeholder:text-gray-600 transition-all"
+                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-border-primary bg-bg-primary/50 focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none text-sm text-text-primary placeholder:text-text-muted/50 transition-all"
                         required
                       />
                     </div>
@@ -314,7 +317,7 @@ export default function Login() {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-muted">
+                <label className="text-xs font-semibold text-text-secondary">
                   {activeTab === 'login' ? 'Email Address or Username' : 'Email Address'}
                 </label>
                 <div className="relative">
@@ -324,37 +327,59 @@ export default function Login() {
                     placeholder={activeTab === 'login' ? 'name@university.edu' : 'name@university.edu'}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-primary bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-text-primary placeholder:text-gray-600 transition-all"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-primary bg-bg-primary/50 focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none text-sm text-text-primary placeholder:text-text-muted/50 transition-all"
                     required
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-text-muted">Password</label>
+                <label className="text-xs font-semibold text-text-secondary">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="Min 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-border-primary bg-black/20 focus:border-[#8B5CF6] focus:ring-1 focus:ring-[#8B5CF6] outline-none text-sm text-text-primary placeholder:text-gray-600 transition-all"
+                    className="w-full pl-10 pr-10 py-3 rounded-xl border border-border-primary bg-bg-primary/50 focus:border-accent focus:ring-1 focus:ring-accent/20 outline-none text-sm text-text-primary placeholder:text-text-muted/50 transition-all"
                     minLength={6}
                     required
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors focus:outline-none flex items-center justify-center"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
               {activeTab === 'login' && (
                 <div className="flex items-center justify-between pt-1">
                   <label className="flex items-center space-x-2 cursor-pointer group">
-                    <div className="w-4 h-4 rounded border border-white/20 bg-black/20 group-hover:border-[#8B5CF6] flex items-center justify-center transition-colors">
-                      <div className="w-2 h-2 rounded-sm bg-accent opacity-0 group-has-[:checked]:opacity-100 transition-opacity" />
+                    <input 
+                      type="checkbox" 
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="sr-only" 
+                    />
+                    <div className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${
+                      rememberMe 
+                        ? 'border-accent bg-accent/20' 
+                        : 'border-border-primary bg-bg-primary/50 group-hover:border-accent'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-sm bg-accent transition-opacity ${rememberMe ? 'opacity-100' : 'opacity-0'}`} />
                     </div>
-                    <span className="text-xs text-text-muted group-hover:text-gray-300">Remember me</span>
+                    <span className="text-xs text-text-muted group-hover:text-text-secondary transition-colors">Remember me</span>
                   </label>
-                  <Link href="#" className="text-xs font-semibold text-[#A78BFA] hover:text-[#8B5CF6] transition-colors">
+                  <Link href="#" className="text-xs font-semibold text-accent hover:text-accent-hover transition-colors">
                     Forgot password?
                   </Link>
                 </div>
@@ -363,7 +388,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 mt-4 rounded-xl bg-accent hover:bg-[#7C3AED] text-text-primary text-sm font-bold transition-all shadow-lg shadow-[#8B5CF6]/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:hover:bg-accent group"
+                className="w-full py-3.5 mt-4 rounded-xl bg-accent text-white text-sm font-bold transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50 group"
               >
                 {submitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -382,7 +407,7 @@ export default function Login() {
                 <button 
                   type="button"
                   onClick={() => { setActiveTab(activeTab === 'login' ? 'register' : 'login'); setAuthError(null); }}
-                  className="font-bold text-[#A78BFA] hover:text-[#8B5CF6] transition-colors"
+                  className="font-bold text-accent hover:text-accent-hover transition-colors"
                 >
                   {activeTab === 'login' ? "Create your account" : "Sign In instead"}
                 </button>

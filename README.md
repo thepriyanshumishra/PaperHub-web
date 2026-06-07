@@ -77,6 +77,17 @@ We implemented the following features to prepare PaperHub for 100–500 active b
 ### 10. 📊 System Monitor Dashboard
 - Added a high-level operational monitor panel for platform administrators to track system health, user count trends, DAU metrics, feedback categorizations, audit logs, and performance latency scores.
 
+### 11. 🌗 Premium Theme Toggle & Modular Components
+- Fully integrated `next-themes` for a flicker-free, client-side light/dark mode experience aligned with our brand design tokens.
+- Restructured global components into dedicated modules (e.g., [footer.tsx](file:///Users/thedarkpcm/Desktop/Priyanshu/PaperHub-web/components/footer.tsx), [logo.tsx](file:///Users/thedarkpcm/Desktop/Priyanshu/PaperHub-web/components/logo.tsx), [user-avatar.tsx](file:///Users/thedarkpcm/Desktop/Priyanshu/PaperHub-web/components/user-avatar.tsx)) to avoid code duplication across the marketing landing page and app pages.
+
+### 12. 🗺️ Resilient Onboarding UX
+- Restructured onboarding card footer controls to present a balanced layout: `← Back` (visible on steps 2–7), centered progress dots, and `Next →` buttons.
+- Standardized step indicators and navigation logic to handle branching pathways cleanly (e.g. automatically skipping Step 6 branch selection if the selected course does not require it).
+
+### 13. 📄 Compliant Information & Legal Hubs
+- Created user-facing static and contact routes: `/terms`, `/privacy`, and `/contact` to satisfy policy requirements for beta publication.
+
 ---
 
 ## 🛠️ Technology Stack
@@ -84,7 +95,7 @@ We implemented the following features to prepare PaperHub for 100–500 active b
 | Layer | Technologies |
 |---|---|
 | **Core Framework** | Next.js 14 (App Router, Server Components) |
-| **Styling & Motion** | Tailwind CSS + Framer Motion (Translucent glass overlays & cozy theme colors) |
+| **Styling & Motion** | Tailwind CSS + Next-Themes + Framer Motion (Translucent glass overlays & cozy theme colors) |
 | **Icons** | Lucide React |
 | **Database** | MongoDB Atlas + Mongoose 9 ODM (Singleton DB connection caching) |
 | **AI Integration** | Groq SDK (Llama 3.3 70B & Llama 4 Vision) |

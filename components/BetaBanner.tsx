@@ -4,18 +4,23 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { X, Rocket, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 
 const BANNER_DISMISSED_KEY = 'paperhub_beta_banner_dismissed';
 
 export function BetaBanner() {
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    if (pathname !== '/') return;
     const dismissed = localStorage.getItem(BANNER_DISMISSED_KEY);
     if (!dismissed) {
       setVisible(true);
     }
-  }, []);
+  }, [pathname]);
+
+  if (pathname !== '/') return null;
 
   const dismiss = () => {
     setVisible(false);
@@ -43,7 +48,7 @@ export function BetaBanner() {
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <Link
-                  href="/pricing"
+                  href="/#pricing"
                   className="hidden sm:inline-flex text-[10px] font-bold text-accent hover:text-accent-hover transition-colors"
                 >
                   View Plans

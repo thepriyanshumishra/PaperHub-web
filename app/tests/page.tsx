@@ -150,7 +150,9 @@ const slideVariants = {
 export default function TestsPage() {
   const router = useRouter();
   const { user, fbUser, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme, systemTheme } = useTheme();
+  const currentTheme = theme === 'system' ? systemTheme : theme;
+  const toggleTheme = () => setTheme(currentTheme === 'light' ? 'dark' : 'light');
 
   const handleLogout = async () => {
     try {

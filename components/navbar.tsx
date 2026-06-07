@@ -21,10 +21,14 @@ import {
   X,
   Compass,
   FileText,
-  Bell
+  Bell,
+  Search,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { BetaBadge } from '@/components/BetaBadge';
+import { PaperHubLogo } from './logo';
 
 interface NavbarProps {
   onMenuToggle?: () => void;
@@ -34,15 +38,65 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, fbUser, loading: authLoading, logout } = useAuth();
+  const { theme, setTheme, systemTheme } = useTheme();
   
-  // States for navbar widgets
-  const [streamDropdownOpen, setStreamDropdownOpen] = useState(false);
-  const [leagueModalOpen, setLeagueModalOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
-  const [leaderboardTab, setLeaderboardTab] = useState<'today' | 'week'>('today');
-  
-  const [selectedStream, setSelectedStream] = useState('Engineering');
   const [hasLocalParams, setHasLocalParams] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const currentTheme = theme === 'system' ? systemTheme : theme;
+  const toggleTheme = () => setTheme(currentTheme === 'light' ? 'dark' : 'light');
+
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+
+  // Local Storage parameters
+  const [localBranch, setLocalBranch] = useState<string | null>(null);
+  const [localSemester, setLocalSemester] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setLocalBranch(localStorage.getItem('selectedBranch'));
+      setLocalSemester(localStorage.getItem('selectedSemester'));
+      const college = localStorage.getItem('selectedCollege');
+      const branch = localStorage.getItem('selectedBranch');
+      setHasLocalParams(!!(college && branch));
+    }
+  }, []);
+
+  const activeBranch = user?.profile?.branch || localBranch || '';
+  const activeSemester = user?.profile?.semester || (localSemester ? Number(localSemester) : null);
+  const activeName = user?.profile?.name || user?.displayName || '';
+  const userInitials = activeName 
+    ? activeName.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() 
+    : '?';
+
+  const ordinal = (n: number) => {
+    const s = ['th','st','nd','rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    router.push(`/dashboard?q=${encodeURIComponent(searchQuery.trim())}`);
+  };
+
+  // Keyboard shortcut listener for Ctrl + K
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('search-input-global');
+        if (searchInput) searchInput.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Notifications states
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -97,381 +151,170 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
     }
   };
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const college = localStorage.getItem('selectedCollege');
-      const branch = localStorage.getItem('selectedBranch');
-      const stream = localStorage.getItem('selectedStream') || 'Engineering';
-      setHasLocalParams(!!(college && branch));
-      setSelectedStream(stream);
-    }
-  }, []);
-
   const handleLogout = async () => {
-    await logout();
-    router.push('/');
+    if (logout) await logout();
+    router.push('/login');
   };
 
-  const updateStream = (stream: string) => {
-    setSelectedStream(stream);
-    localStorage.setItem('selectedStream', stream);
-    setStreamDropdownOpen(false);
-    // Refresh page / state
-    router.refresh();
-  };
-
-  const isDashboardPage = pathname !== '/' && pathname !== '/login' && pathname !== '/onboarding';
-
-  // Gamification mock database fallbacks
-  const xp = user?.engagement?.totalXp || 120;
-  const streak = user?.engagement?.streakCount || 2;
-  const dailySolved = user?.engagement?.dailyGoalSolved || 0;
-  const dailyTarget = user?.engagement?.dailyGoalTarget || 30;
-  const currentLeague = user?.engagement?.league || 'beginner';
-
-  // Calculate league progression
-  const leagueTiers = [
-    { name: 'beginner', points: 0, nextPoints: 300, badge: '⭐' },
-    { name: 'bronze', points: 300, nextPoints: 700, badge: '🥉' },
-    { name: 'silver', points: 700, nextPoints: 1200, badge: '🥈' },
-    { name: 'gold', points: 1200, nextPoints: 2000, badge: '🥇' },
-    { name: 'diamond', points: 2000, nextPoints: 3000, badge: '💎' },
-    { name: 'elite', points: 3000, nextPoints: 99999, badge: '🏆' }
-  ];
-
-  const activeLeagueInfo = leagueTiers.find(l => l.name === currentLeague) || leagueTiers[0];
-  const pointsRemaining = activeLeagueInfo.nextPoints - xp;
-  const progressPercent = Math.min(100, Math.max(0, ((xp - activeLeagueInfo.points) / (activeLeagueInfo.nextPoints - activeLeagueInfo.points)) * 100));
-
-  // Mock leaderboard list
-  const mockLeaderboard = [
-    { rank: 1, name: 'ARITRA', xp: 2530, avatar: '👾', isUser: false },
-    { rank: 2, name: 'Mahesh', xp: 2360, avatar: '🦊', isUser: false },
-    { rank: 3, name: 'ABHINAV', xp: 1540, avatar: '🦁', isUser: false },
-    { rank: 4, name: 'heet', xp: 1380, avatar: '🤖', isUser: false },
-    { rank: 5, name: 'jayesh', xp: 1340, avatar: '🐼', isUser: false },
-    { rank: 6, name: 'bhargav', xp: 1305, avatar: '🐨', isUser: false },
-    { rank: 7, name: 'Bhairavi', xp: 1280, avatar: '🐯', isUser: false },
-  ];
+  const nonDashboardPaths = ['/', '/login', '/onboarding', '/contact', '/privacy', '/terms', '/verify-email'];
+  const isDashboardPage = !nonDashboardPaths.includes(pathname);
 
   if (isDashboardPage) {
-    // Post-auth Dashboard Header
     return (
-      <header className="sticky top-0 z-30 border-b border-border-primary/50 bg-bg-primary/80 backdrop-blur-md transition-all duration-300">
-        <div className="mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Mobile Hamburger menu */}
+      <header className="px-5 sm:px-7 h-16 border-b border-border-primary/50 flex items-center justify-between gap-4 bg-bg-primary sticky top-0 z-30 shrink-0 w-full">
+        {/* Left side: Hamburger menu + Search */}
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {onMenuToggle && (
             <button 
               onClick={onMenuToggle}
-              className="lg:hidden p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-colors"
+              className="lg:hidden p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-all shrink-0"
               aria-label="Open sidebar"
             >
               <Menu className="w-4 h-4" />
             </button>
+          )}
 
-            {/* Stream Selector Dropdown */}
-            <div className="relative">
-              <button 
-                onClick={() => setStreamDropdownOpen(!streamDropdownOpen)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-xs font-bold transition-all text-text-primary"
-              >
-                <span>{selectedStream === 'Engineering' ? 'B.Tech Engineering' : 'B.Sc Medical'}</span>
-                <ChevronDown className="w-3 h-3 text-text-muted" />
-              </button>
-
-              {streamDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setStreamDropdownOpen(false)} />
-                  <div className="absolute left-0 mt-2 z-40 w-48 rounded-2xl border border-border-primary bg-bg-secondary p-2.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <h4 className="text-[10px] font-bold text-text-muted uppercase tracking-wider px-3.5 py-1.5">Change field</h4>
-                    <button 
-                      onClick={() => updateStream('Engineering')}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition-all ${selectedStream === 'Engineering' ? 'bg-accent/10 text-accent' : 'hover:bg-bg-tertiary text-text-secondary'}`}
-                    >
-                      <span>Engineering</span>
-                      {selectedStream === 'Engineering' && <span>✓</span>}
-                    </button>
-                    <button 
-                      onClick={() => updateStream('Medical')}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-left transition-all ${selectedStream === 'Medical' ? 'bg-accent/10 text-accent' : 'hover:bg-bg-tertiary text-text-secondary'}`}
-                    >
-                      <span>Medical</span>
-                      {selectedStream === 'Medical' && <span>✓</span>}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Daily Goal Quick Stat */}
-            <div className="hidden md:flex items-center space-x-2 text-xs font-medium text-text-secondary border-l border-border-primary/50 pl-4">
-              <span>Goal:</span>
-              <span className="font-bold text-text-primary">{dailySolved}/{dailyTarget} Qs</span>
-              <div className="w-16 h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-accent transition-all duration-300" 
-                  style={{ width: `${Math.min(100, (dailySolved / dailyTarget) * 100)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            {/* Pricing & Billing Links */}
-            <Link 
-              href="/pricing"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/25 bg-purple-500/5 hover:bg-purple-500/10 text-xs font-bold transition-all text-purple-400"
-              title="View Plans"
-            >
-              <span>Plans</span>
-              <BetaBadge size="sm" />
-            </Link>
-            
-            <Link 
-              href="/billing"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-xs font-bold transition-all text-text-secondary hover:text-text-primary"
-              title="Billing & Usage"
-            >
-              <span>Billing</span>
-            </Link>
-
-            {/* League Star Badge */}
-            <button 
-              onClick={() => setLeagueModalOpen(true)}
-              className="p-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-text-secondary transition-all"
-              title="League Progress"
-            >
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500/20" />
-            </button>
-
-            {/* Leaderboard Trophy Badge */}
-            <button 
-              onClick={() => setLeaderboardOpen(true)}
-              className="p-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-text-secondary transition-all"
-              title="View Leaderboard"
-            >
-              <Trophy className="w-4 h-4 text-purple-500" />
-            </button>
-
-            {/* Notifications Bell */}
-            <div className="relative">
-              <button 
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="relative p-2.5 rounded-xl border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary text-text-secondary transition-all"
-                title="Notifications"
-              >
-                <Bell className="w-4 h-4 text-accent" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <>
-                  <div className="fixed inset-0 z-30" onClick={() => setNotificationsOpen(false)} />
-                  <div className="absolute right-0 mt-2 z-40 w-80 rounded-2xl border border-border-primary bg-bg-secondary p-4 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between border-b border-border-primary pb-2 mb-2">
-                      <h4 className="text-xs font-bold text-text-primary">Notifications</h4>
-                      {unreadCount > 0 && (
-                        <button 
-                          onClick={handleMarkAllRead}
-                          className="text-[10px] font-bold text-accent hover:underline"
-                        >
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="max-h-64 overflow-y-auto space-y-2">
-                      {notifications.length === 0 ? (
-                        <p className="text-[11px] text-text-muted text-center py-4">No notifications yet.</p>
-                      ) : (
-                        notifications.map((n) => (
-                          <div 
-                            key={n._id} 
-                            className={`p-2.5 rounded-xl border text-left transition-all ${n.isRead ? 'bg-bg-primary/20 border-border-primary/50' : 'bg-accent/5 border-accent/20'}`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-text-primary">{n.title}</span>
-                              <span className="text-[8px] text-text-muted">
-                                {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-text-secondary mt-1">{n.message}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Profile Pill */}
-            <Link 
-              href="/profile"
-              className="flex items-center space-x-2 text-xs font-bold px-3.5 py-1.5 rounded-full border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary transition-all"
-            >
-              <UserIcon className="w-3.5 h-3.5 text-accent" />
-              <span className="hidden sm:inline">
-                {user ? (user.profile?.name || user.displayName || 'Explorer') : (fbUser?.displayName || fbUser?.email?.split('@')[0] || 'Explorer')}
-              </span>
-            </Link>
-          </div>
+          <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-text-muted absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="search-input-global"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search topics, chapters or questions..."
+              className="w-full pl-10 pr-20 py-2.5 rounded-xl border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-[13px] font-medium focus:border-accent/50 focus:ring-2 focus:ring-accent/15 outline-none text-text-primary placeholder:text-text-muted transition-all"
+            />
+            <kbd className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 items-center px-2 py-0.5 rounded-md bg-bg-tertiary border border-border-primary text-[10px] font-semibold text-text-muted select-none pointer-events-none">
+              ⌘K
+            </kbd>
+          </form>
         </div>
 
-        {/* ── League Progress Modal ── */}
-        {leagueModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-xs" onClick={() => setLeagueModalOpen(false)} />
-            <div className="relative w-full max-w-md rounded-2xl border border-border-primary bg-bg-secondary p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-center space-y-6">
-              <button 
-                onClick={() => setLeagueModalOpen(false)}
-                className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-bg-tertiary text-text-secondary transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              
-              <div className="space-y-2">
-                <span className="text-4xl">{activeLeagueInfo.badge}</span>
-                <h3 className="font-display font-black text-xl text-text-primary capitalize">{currentLeague} League</h3>
-                <p className="text-xs text-text-secondary">Based on this week's study progress and quiz activity</p>
-              </div>
+        {/* Right side: Theme + Notifications + Profile Dropdown */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Theme Toggle */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all cursor-pointer"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+          </button>
 
-              {/* Progress track */}
-              <div className="space-y-2.5 text-left">
-                <div className="flex justify-between text-[11px] font-bold text-text-secondary">
-                  <span>Progress ({xp} XP)</span>
-                  {currentLeague !== 'elite' && <span>{pointsRemaining} XP to Next Tier</span>}
-                </div>
-                <div className="w-full h-2.5 bg-bg-tertiary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-accent transition-all duration-300"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                {/* Milestone Indicators */}
-                <div className="flex justify-between text-[9px] font-black uppercase text-text-muted mt-1">
-                  <span>Beginner</span>
-                  <span>Bronze (300)</span>
-                  <span>Silver (700)</span>
-                  <span>Gold (1200)</span>
-                </div>
-              </div>
+          {/* Notifications Bell */}
+          <div className="relative">
+            <button 
+              type="button"
+              onClick={() => setNotificationsOpen(!notificationsOpen)}
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all relative cursor-pointer"
+              title="Notifications"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent ring-2 ring-bg-primary" />
+              )}
+            </button>
 
-              <div className="p-4 rounded-xl border border-accent/15 bg-accent/5 text-xs text-accent font-semibold leading-relaxed">
-                {currentLeague !== 'elite' 
-                  ? `Almost there! Solve subjects and practice to gather ${pointsRemaining} more XP points to reach next League.`
-                  : 'You have attained the ultimate tier! Keep studying to maintain your position on the leaderboard.'
-                }
-              </div>
-
-              <div className="flex flex-col gap-2.5 pt-2">
-                <button 
-                  onClick={() => { setLeagueModalOpen(false); setLeaderboardOpen(true); }}
-                  className="w-full py-2.5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-bold transition-all shadow-md"
-                >
-                  View Leaderboard
-                </button>
-                <button 
-                  onClick={() => { setLeagueModalOpen(false); router.push('/profile'); }}
-                  className="w-full py-2.5 rounded-xl border border-border-primary hover:bg-bg-tertiary text-text-secondary text-xs font-semibold transition-all"
-                >
-                  View My Achievements
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Leaderboard Right Drawer ── */}
-        {leaderboardOpen && (
-          <div className="fixed inset-0 z-50 overflow-hidden">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-xs transition-opacity" onClick={() => setLeaderboardOpen(false)} />
-            
-            <div className="absolute inset-y-0 right-0 max-w-full flex">
-              <div className="w-screen max-w-md bg-bg-secondary border-l border-border-primary shadow-2xl p-6 flex flex-col justify-between animate-in slide-in-from-right duration-200">
-                <div className="space-y-6 flex-grow overflow-y-auto">
-                  {/* Drawer Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2.5">
-                      <Trophy className="w-5 h-5 text-purple-500" />
-                      <h3 className="font-display font-black text-lg">Leaderboard</h3>
-                    </div>
-                    <button 
-                      onClick={() => setLeaderboardOpen(false)}
-                      className="p-1.5 rounded-lg hover:bg-bg-tertiary text-text-secondary transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* League Banner */}
-                  <div className="p-4 rounded-2xl border border-border-primary bg-bg-primary/50 text-center space-y-1">
-                    <div className="text-xl">🏆</div>
-                    <h4 className="font-display font-bold text-xs uppercase tracking-widest text-text-primary">Beginner League</h4>
-                    <p className="text-[10px] text-text-secondary">Top performers of this tier. 3 days left this week.</p>
-                  </div>
-
-                  {/* Daily / Weekly Tabs */}
-                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-bg-tertiary/60 border border-border-primary/50">
-                    <button 
-                      onClick={() => setLeaderboardTab('today')}
-                      className={`py-2 rounded-lg text-xs font-bold transition-all ${leaderboardTab === 'today' ? 'bg-bg-secondary text-text-primary shadow-xs' : 'text-text-secondary hover:text-text-primary'}`}
-                    >
-                      Today
-                    </button>
-                    <button 
-                      onClick={() => setLeaderboardTab('week')}
-                      className={`py-2 rounded-lg text-xs font-bold transition-all ${leaderboardTab === 'week' ? 'bg-bg-secondary text-text-primary shadow-xs' : 'text-text-secondary hover:text-text-primary'}`}
-                    >
-                      This Week
-                    </button>
-                  </div>
-
-                  {/* Leaderboard ranking list */}
-                  <div className="space-y-2">
-                    {mockLeaderboard.map((item) => (
-                      <div 
-                        key={item.rank}
-                        className={`
-                          flex items-center justify-between p-3.5 rounded-xl border transition-all duration-200
-                          ${item.rank <= 3 ? 'bg-bg-primary/50 border-purple-500/10' : 'bg-bg-primary/20 border-border-primary/50'}
-                        `}
+            {notificationsOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setNotificationsOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-40 w-80 rounded-2xl border border-border-primary bg-bg-secondary shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-primary">
+                    <h4 className="text-sm font-bold text-text-primary">Notifications</h4>
+                    {unreadCount > 0 && (
+                      <button 
+                        type="button"
+                        onClick={handleMarkAllRead}
+                        className="text-[11px] font-semibold text-accent hover:opacity-80 transition-opacity cursor-pointer"
                       >
-                        <div className="flex items-center space-x-3.5">
-                          <span className={`w-5 font-display font-black text-xs text-center ${item.rank === 1 ? 'text-amber-500' : item.rank === 2 ? 'text-text-muted' : 'text-text-secondary'}`}>
-                            {item.rank}
-                          </span>
-                          <span className="text-base select-none">{item.avatar}</span>
-                          <span className="text-xs font-bold text-text-primary">{item.name}</span>
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="max-h-72 overflow-y-auto p-2 space-y-1">
+                    {notifications.length === 0 ? (
+                      <p className="text-[12px] text-text-muted text-center py-8">No notifications yet.</p>
+                    ) : (
+                      notifications.map((n) => (
+                        <div 
+                          key={n._id} 
+                          className={`p-3 rounded-xl transition-all cursor-default ${n.isRead ? 'hover:bg-bg-tertiary' : 'bg-accent/8 border border-accent/20'}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-[12px] font-semibold text-text-primary leading-snug">{n.title}</span>
+                            <span className="text-[10px] text-text-muted shrink-0 mt-0.5">
+                              {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">{n.message}</p>
                         </div>
-                        <span className="text-xs font-bold text-accent">{item.xp} XP</span>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
-
-                {/* Sticky current user ranking bar */}
-                <div className="border-t border-border-primary pt-4 mt-6">
-                  <div className="flex items-center justify-between p-4 rounded-xl border border-accent/20 bg-accent/5">
-                    <div className="flex items-center space-x-3.5">
-                      <span className="font-display font-black text-xs text-accent">8</span>
-                      <span className="text-base">👾</span>
-                      <div className="flex flex-col text-left">
-                        <span className="text-xs font-bold text-text-primary">You</span>
-                        <span className="text-[9px] text-text-muted">Beginner League</span>
-                      </div>
-                    </div>
-                    <span className="text-xs font-black text-accent">{xp} XP</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
-        )}
+
+          {/* Divider */}
+          <div className="w-px h-6 bg-border-primary mx-1" />
+
+          {/* Profile Dropdown Button */}
+          <div className="relative">
+            <button 
+              type="button"
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className="flex items-center gap-2.5 pl-1 pr-3 py-1.5 rounded-xl hover:bg-bg-tertiary transition-all focus:outline-none group cursor-pointer"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-text-primary font-black text-xs shadow-md shrink-0">
+                {userInitials}
+              </div>
+              <div className="hidden md:flex flex-col items-start select-none min-w-0 text-left">
+                <span className="text-[13px] font-semibold text-text-primary leading-tight truncate max-w-[120px]">
+                  {activeName || 'Account'}
+                </span>
+                <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
+                  {!mounted ? 'Student' : (activeBranch && activeSemester
+                    ? `${activeBranch} · ${ordinal(activeSemester)} Sem`
+                    : activeBranch || 'Student')}
+                </span>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />
+            </button>
+
+            {profileDropdownOpen && (
+              <>
+                <div className="fixed inset-0 z-35" onClick={() => setProfileDropdownOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-40 w-48 rounded-2xl border border-border-primary bg-bg-secondary p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                  <Link 
+                    href="/profile"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all"
+                  >
+                    View Profile
+                  </Link>
+                  <Link 
+                    href="/settings"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all"
+                  >
+                    Account Settings
+                  </Link>
+                  <div className="h-px bg-border-primary my-1" />
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-red-500 hover:bg-red-500/8 transition-all text-left cursor-pointer"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </header>
     );
   }
@@ -480,17 +323,17 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
   return (
     <header className="sticky top-0 z-50 backdrop-blur-md border-b border-border-primary/50 bg-bg-primary/80 transition-all duration-300">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2 flex-shrink-0 group">
-          <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-accent/20 group-hover:scale-105 transition-transform duration-200">
-            P
-          </div>
+        <Link href="/" className="flex items-center space-x-3 flex-shrink-0 group">
+          <PaperHubLogo className="w-8 h-8" />
           <span className="font-display font-bold text-xl tracking-tight group-hover:text-accent transition-colors duration-200">PaperHub</span>
         </Link>
 
         {/* Marketing Navigation Links */}
         <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-text-secondary">
           <Link href="/#features" className="hover:text-text-primary transition-all">Features</Link>
-          <Link href="/pricing" className="hover:text-text-primary transition-all flex items-center gap-1.5">
+          <Link href="/#how-it-works" className="hover:text-text-primary transition-all">How it Works</Link>
+          <Link href="/#ai-solving" className="hover:text-text-primary transition-all">AI Solver</Link>
+          <Link href="/#pricing" className="hover:text-text-primary transition-all flex items-center gap-1.5">
             Pricing <BetaBadge size="sm" />
           </Link>
           {fbUser && (
@@ -520,17 +363,20 @@ export function Navbar({ onMenuToggle }: NavbarProps) {
               {/* Profile Pill */}
               <Link 
                 href="/dashboard"
-                className="flex items-center space-x-2 text-xs font-semibold px-3 py-1.5 rounded-full border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary transition-all"
+                className="flex items-center space-x-2 text-xs font-semibold pl-1.5 pr-3 py-1.5 rounded-full border border-border-primary bg-bg-secondary/40 hover:bg-bg-secondary transition-all"
               >
-                <UserIcon className="w-3.5 h-3.5 text-accent" />
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-text-primary font-black text-[9px] shadow-sm shrink-0">
+                  {userInitials}
+                </div>
                 <span className="hidden sm:inline">
                   {user ? (user.profile?.name || user.displayName || 'Explorer') : (fbUser.displayName || fbUser.email?.split('@')[0] || 'Explorer')}
                 </span>
               </Link>
 
               <button 
+                type="button"
                 onClick={handleLogout}
-                className="p-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors"
+                className="p-1.5 rounded-lg border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-500 transition-colors cursor-pointer"
                 title="Sign Out"
               >
                 <LogOut className="w-3.5 h-3.5" />

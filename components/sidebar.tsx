@@ -16,7 +16,9 @@ import {
   X,
   Crown,
   Flame,
-  Check
+  Check,
+  User,
+  Settings
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -61,12 +63,15 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
 
   const menuItems = [
     { name: 'Home', icon: Home, path: '/dashboard' },
+    { name: 'Subjects', icon: BookOpen, path: '/subjects' },
     { name: 'Practice', icon: Edit3, path: '/dashboard#practice' },
     { name: 'Tests', icon: FileText, path: '/tests' },
     { name: 'Bookmarks', icon: Bookmark, path: '/bookmarks' },
     { name: 'My Progress', icon: Activity, path: '/analytics' },
     { name: 'Notes', icon: FileSignature, path: '/notes' },
-    { name: 'AI Assistant', icon: Sparkles, path: '/dashboard#ai-assistant' },
+    { name: 'AI Assistant', icon: Sparkles, path: '/dashboard#ai-assistant', badge: 'Beta' },
+    { name: 'Settings', icon: Settings, path: '/settings' },
+    { name: 'Profile', icon: User, path: '/profile' },
   ];
 
   if (user && ['verifier', 'moderator', 'admin'].includes(user.role)) {
@@ -139,6 +144,11 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
                 >
                   <Icon className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-accent dark:text-purple-400' : 'text-text-muted group-hover:text-text-primary'}`} />
                   <span>{item.name}</span>
+                  {item.badge && (
+                    <span className="ml-auto px-1.5 py-0.5 text-[9px] font-bold rounded bg-purple-500/20 text-purple-400 uppercase tracking-wider">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -146,60 +156,60 @@ export function Sidebar({ isOpen, onClose, streakCount: streakCountProp, streakD
         </div>
 
         {/* Pinned footer */}
-        <div className="shrink-0 space-y-3 pt-4">
-
-          {/* Upgrade Card */}
-          <div className="upgrade-card p-4 rounded-2xl border space-y-2.5
-            bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20
-            dark:from-[#1b1935] dark:to-[#121022] dark:border-purple-500/15">
-            <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-amber-500 fill-amber-500/20" />
-              <span className="text-xs font-bold text-text-primary">Upgrade to Premium</span>
-            </div>
-            <p className="text-[11px] text-text-muted leading-relaxed">
-              Unlock all features and boost your preparation.
-            </p>
-            <Link 
-              href="/pricing" 
-              className="block w-full py-2 bg-accent hover:bg-accent-hover text-white rounded-xl text-center text-xs font-bold transition-all shadow-sm"
-            >
-              Upgrade Now &gt;
-            </Link>
-          </div>
+        <div className="shrink-0 space-y-3 pt-3">
 
           {/* Streak Card */}
-          <div className="streak-card p-4 rounded-2xl border space-y-2.5
+          <div className="streak-card p-3.5 rounded-2xl border space-y-2
             bg-bg-primary border-border-primary
             dark:bg-[#0e0d22] dark:border-border-primary/40">
             <div className="flex items-center gap-2">
               <Flame className="w-4 h-4 text-orange-500" />
               <span className="text-xs font-bold text-text-primary">Streak</span>
             </div>
-            <div>
-              <h4 className="font-display font-black text-xl text-text-primary leading-none">
-                {streakCount > 0 ? `${streakCount} Days` : '—'}
-              </h4>
-              <p className="text-[10px] text-text-muted mt-0.5">
-                {streakCount > 0 ? 'Keep it up!' : 'Start your streak today!'}
+            <div className="flex items-baseline justify-between">
+              <div>
+                <h4 className="font-display font-black text-lg text-text-primary leading-none">
+                  {streakCount > 0 ? `${streakCount} Days` : '—'}
+                </h4>
+              </div>
+              <p className="text-[9px] text-text-muted">
+                {streakCount > 0 ? 'Keep it up!' : 'Start today!'}
               </p>
             </div>
             {/* Day indicators */}
             <div className="flex items-center justify-between">
               {days.map((day, idx) => (
-                <div key={idx} className="flex flex-col items-center gap-1">
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all
+                <div key={idx} className="flex flex-col items-center gap-0.5">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center border transition-all
                     ${day.active
                       ? 'bg-emerald-500 border-transparent text-white'
                       : 'bg-bg-tertiary border-border-primary text-text-muted'
                     }`}
                   >
-                    {day.active && <Check className="w-2.5 h-2.5 stroke-[3px]" />}
+                    {day.active && <Check className="w-2 h-2 stroke-[3px]" />}
                   </div>
-                  <span className="text-[9px] font-bold text-text-muted">{day.label}</span>
+                  <span className="text-[8px] font-bold text-text-muted">{day.label}</span>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Upgrade Card */}
+          <div className="upgrade-card p-3 rounded-xl border flex items-center justify-between gap-3
+            bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20
+            dark:from-[#1b1935] dark:to-[#121022] dark:border-purple-500/15">
+            <div className="flex items-center gap-2 min-w-0">
+              <Crown className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+              <span className="text-[11px] font-bold text-text-primary truncate">Premium Plan</span>
+            </div>
+            <Link 
+              href="/#pricing" 
+              className="py-1 px-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-[10px] font-bold transition-all shadow-sm whitespace-nowrap shrink-0"
+            >
+              Upgrade &gt;
+            </Link>
+          </div>
+
         </div>
 
       </aside>

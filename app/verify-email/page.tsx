@@ -17,12 +17,12 @@ export default function VerifyEmailPage() {
   const [resendError, setResendError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
-  // If user is already fully verified, redirect to dashboard
+  // If user is logged in, redirect to dashboard
   useEffect(() => {
     if (!loading) {
       if (!fbUser) {
         router.push('/login');
-      } else if (fbUser.emailVerified && user) {
+      } else if (fbUser && user) {
         router.push('/dashboard');
       }
     }

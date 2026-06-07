@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/sidebar';
 import { useAuth } from '@/components/auth-provider';
-import { useTheme } from '@/components/theme-provider';
+import { Navbar } from '@/components/navbar';
 import {
-  Bell, Sun, Moon, ChevronDown, ChevronRight, ChevronLeft,
+  ChevronDown, ChevronRight, ChevronLeft,
   BookOpen, Loader2, Bookmark, FileText, ArrowRight, Menu,
   FileCheck, NotebookPen, RotateCcw, Filter, SortDesc,
 } from 'lucide-react';
@@ -62,15 +62,10 @@ export default function ChapterPage() {
   const params = useParams();
   const router = useRouter();
   const { user, fbUser, loading: authLoading, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const subjectId = params.subjectId as string;
   const chapterId = params.chapterId as string; // unit number
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch notifications
   useEffect(() => {
@@ -332,116 +327,7 @@ export default function ChapterPage() {
       <div className="flex flex-col flex-grow min-w-0 h-screen overflow-hidden">
 
         {/* ── Header ── */}
-        <header className="px-5 sm:px-7 h-16 border-b border-border-primary/50 flex items-center justify-between gap-4 bg-bg-primary sticky top-0 z-30 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-border-primary bg-bg-secondary hover:bg-bg-tertiary text-text-secondary transition-all shrink-0"
-              aria-label="Open menu"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
-            <nav className="flex items-center gap-1.5 text-[11px] font-semibold text-text-muted min-w-0 overflow-hidden">
-              <Link href="/dashboard" className="hover:text-text-primary transition-colors whitespace-nowrap">Home</Link>
-              <ChevronRight className="w-3 h-3 shrink-0" />
-              <Link href={`/subjects/${subjectId}`} className="hover:text-text-primary transition-colors truncate max-w-[80px]">{subjectName}</Link>
-              <ChevronRight className="w-3 h-3 shrink-0" />
-              <span className="whitespace-nowrap hidden sm:inline">Semester {activeSemester}</span>
-              <ChevronRight className="w-3 h-3 shrink-0 hidden sm:inline" />
-              <span className="text-text-secondary truncate max-w-[80px] hidden sm:inline">{unitTitle}</span>
-              <ChevronRight className="w-3 h-3 shrink-0 hidden sm:inline" />
-              <span className="text-text-primary font-bold whitespace-nowrap">Unit {chapterId}</span>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {/* Theme Toggle */}
-            <button onClick={toggleTheme} className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all" aria-label="Toggle theme">
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </button>
-
-            {/* Notification Bell */}
-            <div className="relative">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-bg-tertiary transition-all relative"
-                aria-label="Notifications"
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent ring-2 ring-bg-primary" />
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <>
-                  <div className="fixed inset-0 z-35" onClick={() => setNotificationsOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 z-40 w-80 rounded-2xl border border-border-primary bg-bg-secondary shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border-primary">
-                      <h4 className="text-sm font-bold text-text-primary">Notifications</h4>
-                      {unreadCount > 0 && (
-                        <button onClick={handleMarkAllRead} className="text-[11px] font-semibold text-accent hover:opacity-80 transition-opacity">
-                          Mark all read
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-72 overflow-y-auto p-2 space-y-1">
-                      {notifications.length === 0 ? (
-                        <p className="text-[12px] text-text-muted text-center py-8">No notifications yet.</p>
-                      ) : (
-                        notifications.map((n) => (
-                          <div 
-                            key={n._id} 
-                            className={`p-3 rounded-xl transition-all cursor-default ${n.isRead ? 'hover:bg-bg-tertiary' : 'bg-accent/8 border border-accent/20'}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-[12px] font-semibold text-text-primary leading-snug">{n.title}</span>
-                              <span className="text-[10px] text-text-muted shrink-0 mt-0.5">
-                                {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-text-secondary mt-1 leading-relaxed">{n.message}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="w-px h-6 bg-border-primary mx-1" />
-
-            {/* Profile Button */}
-            <div className="relative">
-              <button
-                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                className="flex items-center gap-2.5 pl-1 pr-3 py-1.5 rounded-xl hover:bg-bg-tertiary transition-all focus:outline-none group"
-              >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-text-primary font-black text-xs shadow-md shrink-0">{userInitials}</div>
-                <div className="hidden md:flex flex-col items-start select-none min-w-0">
-                  <span className="text-[13px] font-semibold text-text-primary leading-tight truncate max-w-[120px]">{activeName || 'Account'}</span>
-                  <span className="text-[10px] text-text-muted leading-tight truncate max-w-[120px]">
-                    {activeBranch && activeSemester ? `${activeBranch} · ${ordinal(activeSemester)} Sem` : activeBranch || 'Student'}
-                  </span>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-text-muted hidden md:block group-hover:text-text-secondary transition-colors shrink-0" />
-              </button>
-
-              {profileDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-35" onClick={() => setProfileDropdownOpen(false)} />
-                  <div className="absolute right-0 top-full mt-2 z-40 w-48 rounded-2xl border border-border-primary bg-bg-secondary p-1.5 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
-                    <Link href="/profile" onClick={() => setProfileDropdownOpen(false)} className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all">View Profile</Link>
-                    <Link href="/settings" onClick={() => setProfileDropdownOpen(false)} className="flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-all">Account Settings</Link>
-                    <div className="h-px bg-border-primary my-1" />
-                    <button onClick={handleLogout} className="w-full flex items-center px-3 py-2.5 rounded-xl text-[13px] font-medium text-red-500 hover:bg-red-500/8 transition-all text-left">Sign Out</button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
+        <Navbar onMenuToggle={() => setSidebarOpen(true)} />
 
         {/* ── Scrollable Body ── */}
         <div className="flex-grow overflow-y-auto">

@@ -16,9 +16,15 @@ import {
   ArrowUpRight,
   TrendingUp,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Map
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Footer } from '@/components/footer';
+import { BetaBadge } from '@/components/BetaBadge';
+import { PLANS, PLAN_ORDER, FEATURE_LABELS, formatFeatureValue } from '@/lib/pricing';
+import { Check, X, ShieldAlert, Zap, Building, HelpCircle, Bot, ChevronDown, ChevronUp } from 'lucide-react';
+
 
 function AnimatedNumber({ value }: { value: number }) {
   const [displayValue, setDisplayValue] = useState(0);
@@ -72,6 +78,24 @@ export default function Home() {
 
   const [localCollege, setLocalCollege] = useState<string | null>(null);
   const [localBranch, setLocalBranch] = useState<string | null>(null);
+
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+
+  const toggleFaq = (index: number) => {
+    setExpandedFaq(expandedFaq === index ? null : index);
+  };
+
+  const getPlanIcon = (planId: string) => {
+    switch (planId) {
+      case 'free': return <Zap className="w-5 h-5 text-text-muted" />;
+      case 'plus': return <TrendingUp className="w-5 h-5 text-blue-500" />;
+      case 'pro': return <Sparkles className="w-5 h-5 text-accent" />;
+      case 'institution': return <Building className="w-5 h-5 text-emerald-500" />;
+      default: return <Sparkles className="w-5 h-5 text-accent" />;
+    }
+  };
+
 
   // Retrieve fallback settings from local storage to check for guest dashboard availability
   useEffect(() => {
@@ -276,7 +300,7 @@ export default function Home() {
               transition={{ duration: 0.4 }}
               className="inline-flex items-center space-x-2 px-3 py-1 rounded-full border border-accent/20 bg-accent/5 text-accent text-xs font-semibold mb-6 tracking-wide shadow-sm"
             >
-              <span>Now Live for MMMUT CSE/IT</span>
+              <span>Public Beta Live for MMMUT — All Features Free</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </motion.div>
 
@@ -295,7 +319,7 @@ export default function Home() {
               transition={{ delay: 0.2, duration: 0.5 }}
               className="text-lg md:text-xl text-text-secondary leading-relaxed mb-10 font-normal"
             >
-              We transform scattered PDF PYQs, WhatsApp drive links, and university papers into syllabus-mapped practice, timed focus exams, and step-by-step academic explanations.
+              All your university PYQs and syllabus-mapped study materials in a single, premium preparation platform.
             </motion.p>
 
             <motion.div
@@ -315,7 +339,7 @@ export default function Home() {
                 href="/onboarding?demo=true"
                 className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm text-text-primary hover:bg-bg-tertiary transition-all flex items-center justify-center space-x-2 hover:scale-[1.02]"
               >
-                <span>Solve Demo Paper</span>
+                <span>Try Guest Sandbox</span>
               </Link>
             </motion.div>
           </div>
@@ -337,7 +361,7 @@ export default function Home() {
           >
             {/* Card 1: Structured PYQs */}
             <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
-              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200 min-h-[160px] flex flex-col justify-center break-words">
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                 <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
@@ -352,7 +376,7 @@ export default function Home() {
 
             {/* Card 2: Exam-like Tests */}
             <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
-              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200 min-h-[160px] flex flex-col justify-center break-words">
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                 <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
@@ -367,7 +391,7 @@ export default function Home() {
 
             {/* Card 3: AI Step Explanations */}
             <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
-              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200 min-h-[160px] flex flex-col justify-center break-words">
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                 <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
@@ -382,7 +406,7 @@ export default function Home() {
 
             {/* Card 4: Topic-wise Practice */}
             <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
-              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200 min-h-[160px] flex flex-col justify-center break-words">
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                 <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
@@ -397,7 +421,7 @@ export default function Home() {
 
             {/* Card 5: Most Repeated Questions */}
             <motion.div variants={itemVariants} whileHover={{ y: -3 }} className="group relative">
-              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
+              <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 flex flex-col gap-5 h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200 min-h-[160px] flex flex-col justify-center break-words">
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <ArrowUpRight className="absolute top-5 right-5 w-3.5 h-3.5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                 <div className="w-10 h-10 rounded-xl bg-accent/8 border border-accent/15 flex items-center justify-center text-accent">
@@ -434,14 +458,46 @@ export default function Home() {
             <h2 className="font-display text-3xl font-bold text-text-primary mb-4">Preparation Blueprint</h2>
             <p className="text-sm text-text-secondary">How PaperHub transforms standard university study material into structural exam readiness in three simple steps.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[{n:1,title:'Personalise Syllabus',desc:'Select your college (e.g. MMMUT), branch, and semester. Our system instantly parses the matching syllabi and units.'},{n:2,title:'Interactive Practice',desc:'Solve past exam questions with step-by-step model solutions. Hover over transitions to see the math breakdown, or ask AI doubts.'},{n:3,title:'Timed Focus Exams',desc:'Attempt mock minor or major tests in a secure fullscreen solver. Track pacing against exam standards with active anti-cheat logging.'}].map(({n,title,desc}) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                n: '01',
+                title: 'Personalise Syllabus',
+                desc: 'Select your college, branch, and semester. Our system instantly parses the matching syllabi and units.',
+                icon: Map,
+                color: 'from-blue-500/10 to-indigo-500/10'
+              },
+              {
+                n: '02',
+                title: 'Interactive Practice',
+                desc: 'Solve past exam questions with step-by-step model solutions. Hover over transitions to see the math breakdown, or ask AI doubts.',
+                icon: BookOpen,
+                color: 'from-accent/10 to-purple-500/10'
+              },
+              {
+                n: '03',
+                title: 'Timed Focus Exams',
+                desc: 'Attempt mock minor or major tests in a secure fullscreen solver. Track pacing against exam standards with active anti-cheat logging.',
+                icon: Clock,
+                color: 'from-emerald-500/10 to-teal-500/10'
+              }
+            ].map(({ n, title, desc, icon: Icon, color }) => (
               <div key={n} className="group relative">
-                <div className="relative rounded-2xl border border-border-primary bg-bg-secondary/50 backdrop-blur-sm p-7 pt-9 overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-lg transition-all duration-200">
-                  <div className="absolute top-0 left-0 right-0 h-[2px] bg-accent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <span className="absolute -top-3 left-6 w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-black text-sm shadow-md shadow-accent/25">{n}</span>
-                  <h3 className="font-display font-bold text-base mb-2 text-text-primary mt-1">{title}</h3>
-                  <p className="text-xs text-text-secondary leading-relaxed">{desc}</p>
+                <div className="relative rounded-[2rem] border border-border-primary bg-bg-secondary/40 backdrop-blur-md p-8 flex flex-col justify-between h-full overflow-hidden hover:border-accent/30 hover:bg-bg-secondary/80 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                  {/* Top-right watermark number */}
+                  <span className="absolute top-4 right-6 font-display font-black text-4xl text-text-muted/10 tracking-tighter select-none transition-colors group-hover:text-accent/10">{n}</span>
+                  
+                  <div className="space-y-6">
+                    {/* Icon container */}
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${color} border border-border-primary/50 flex items-center justify-center text-text-primary group-hover:scale-110 transition-transform duration-300`}>
+                      <Icon className="w-5 h-5 text-accent" />
+                    </div>
+                    
+                    <div className="space-y-2 text-left">
+                      <h3 className="font-display font-extrabold text-lg text-text-primary">{title}</h3>
+                      <p className="text-xs text-text-secondary leading-relaxed font-normal">{desc}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -490,19 +546,230 @@ export default function Home() {
                   <p className="text-text-secondary">To perform linear search, we iterate through the index range $[0, N-1]$...</p>
                 </div>
                 <div className="p-3 rounded-lg bg-accent/5 border border-accent/25 text-xs shadow-sm">
-                  <p className="font-semibold text-accent mb-1">💡 Step 1: Base Case</p>
+                  <p className="font-semibold text-accent mb-1 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Step 1: Base Case</span>
+                  </p>
                   <p className="text-text-secondary">{`If target $T$ matches elements at index $i$, return $i$. Average complexity is $\\mathcal{O}(N)$`}.</p>
                 </div>
                 <div className="p-3 rounded-lg bg-bg-secondary/70 text-xs border border-border-primary shadow-sm">
-                  <p className="font-semibold text-text-primary mb-1">💬 Student Doubt</p>
+                  <p className="font-semibold text-text-primary mb-1 flex items-center gap-1.5">
+                    <HelpCircle className="w-3.5 h-3.5 text-text-muted" />
+                    <span>Student Doubt</span>
+                  </p>
                   <p className="text-text-secondary">&quot;Why is average complexity $O(N)$ and not $O(1)$?&quot;</p>
                 </div>
                 <div className="p-3 rounded-lg bg-accent/10 border border-accent/15 text-xs text-accent shadow-sm">
-                  <p className="font-semibold mb-1">🤖 Assistant Reply</p>
+                  <p className="font-semibold mb-1 flex items-center gap-1.5 text-accent">
+                    <Bot className="w-3.5 h-3.5" />
+                    <span>Assistant Reply</span>
+                  </p>
                   <p className="text-text-secondary">{`"Average complexity accounts for the element being in the middle, requiring $N/2$ checks, which simplifies to $\\mathcal{O}(N)$."`}</p>
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Pricing Section */}
+        <section id="pricing" className="mb-20 md:mb-28 scroll-mt-20">
+          <div className="text-center space-y-6 max-w-3xl mx-auto relative mb-12">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-accent/30 bg-accent/10 text-accent text-xs font-bold tracking-wide uppercase shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+            >
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              <span>Public Beta Launch Offer</span>
+            </motion.div>
+            
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="font-display text-4xl md:text-6xl font-extrabold tracking-tight leading-[1.1] text-text-primary"
+            >
+              Invest in your <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-accent-hover">academic success.</span>
+            </motion.h2>
+            
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="text-sm md:text-base text-text-secondary leading-relaxed max-w-2xl mx-auto"
+            >
+              Unlock university sessional mock exams, AI vision evaluation, and detailed student metrics. Get started today with no credit card required.
+            </motion.p>
+          </div>
+
+          {/* Beta Mode Notice Box */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="p-6 md:p-8 rounded-3xl border border-accent/30 bg-gradient-to-r from-accent/10 via-bg-primary to-accent/10 max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-6 relative overflow-hidden backdrop-blur-xl shadow-2xl mb-12"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-accent/5 to-transparent pointer-events-none" />
+            <div className="p-4 rounded-2xl bg-accent/20 text-accent shrink-0 shadow-[0_0_30px_rgba(139,92,246,0.2)] border border-accent/30">
+              <ShieldAlert className="w-8 h-8" />
+            </div>
+            <div className="text-center md:text-left space-y-2 relative z-10 flex-grow">
+              <h4 className="text-lg font-bold text-text-primary flex items-center justify-center md:justify-start gap-3">
+                All Pro Features are Currently Free <BetaBadge size="sm" />
+              </h4>
+              <p className="text-xs text-text-secondary leading-relaxed">
+                We are in launch-readiness mode. All users are automatically granted <strong className="text-accent">Beta Pro</strong> level quotas. No billing profile or subscription setup is required during the beta period. Enjoy unlimited preparation!
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Billing Toggle (Visual only for now) */}
+          <motion.div 
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.4 }}
+            className="flex justify-center mb-12"
+          >
+            <div className="inline-flex items-center p-1.5 rounded-full bg-bg-secondary border border-border-primary backdrop-blur-md">
+              <button 
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-6 py-2 rounded-full text-xs font-bold transition-all ${billingCycle === 'monthly' ? 'bg-accent text-white shadow-lg' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                Monthly
+              </button>
+              <button 
+                onClick={() => setBillingCycle('yearly')}
+                className={`px-6 py-2 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${billingCycle === 'yearly' ? 'bg-accent text-white shadow-lg' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                Yearly <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-400">Save 20%</span>
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Pricing Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-4 relative z-20 max-w-7xl mx-auto">
+            {PLAN_ORDER.map((planId, index) => {
+              const plan = PLANS[planId];
+              const isPro = planId === 'pro';
+              const isInst = planId === 'institution';
+              const isPlus = planId === 'plus';
+              
+              return (
+                <motion.div
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.2 + (index * 0.1) }}
+                  key={planId}
+                  className={`relative p-6 rounded-[2rem] flex flex-col justify-between transition-all duration-300 group hover:-translate-y-2 backdrop-blur-xl ${
+                    isPro 
+                      ? 'border-2 border-accent bg-accent/5 shadow-[0_0_40px_rgba(139,92,246,0.15)]' 
+                      : isPlus
+                      ? 'border border-blue-500/30 bg-blue-500/5 hover:border-blue-500/50'
+                      : 'border border-border-primary bg-bg-secondary/50 hover:border-border-primary/80 hover:bg-bg-secondary'
+                  }`}
+                >
+                  {isPro && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gradient-to-r from-accent to-accent-hover text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg whitespace-nowrap">
+                      Highly Recommended
+                    </div>
+                  )}
+
+                  <div className="space-y-6">
+                    {/* Icon & Plan details */}
+                    <div className="flex items-center justify-between">
+                      <div className={`p-3 rounded-2xl ${isPro ? 'bg-accent/20' : isPlus ? 'bg-blue-500/20' : 'bg-bg-tertiary'} group-hover:scale-110 transition-transform duration-300`}>
+                        {getPlanIcon(planId)}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 text-left">
+                      <h3 className="text-xl font-bold text-text-primary capitalize">{plan.name}</h3>
+                      <p className="text-xs text-text-secondary leading-relaxed min-h-[40px]">{plan.description}</p>
+                    </div>
+
+                    {/* Price */}
+                    <div className="py-2 text-left">
+                      {plan.price === 0 ? (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-text-primary">₹0</span>
+                          <span className="text-xs text-text-muted font-medium">/ forever</span>
+                        </div>
+                      ) : plan.price === -1 ? (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-black text-text-primary">Custom</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-3xl font-black text-text-primary">
+                            ₹{billingCycle === 'yearly' ? Math.floor(plan.price * 0.8) : plan.price}
+                          </span>
+                          <span className="text-xs text-text-muted font-medium">/ month</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-border-primary pt-6 space-y-4 text-left">
+                      <h5 className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-muted">What's included</h5>
+                      <ul className="space-y-3">
+                        {FEATURE_LABELS.map(({ key, label, format }) => {
+                          const val = plan.features[key];
+                          const hasFeature = typeof val === 'boolean' ? val : val !== 0;
+                          return (
+                            <li key={key} className="flex items-start gap-2.5 text-xs">
+                              {hasFeature ? (
+                                <Check className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                              ) : (
+                                <X className="w-4 h-4 text-text-muted/60 shrink-0 mt-0.5" />
+                              )}
+                              <span className={hasFeature ? 'text-text-primary' : 'text-text-muted'}>
+                                {label}
+                                {format !== 'boolean' && (
+                                  <>: <strong className={hasFeature ? 'text-text-primary font-bold' : 'text-text-muted font-normal'}>{formatFeatureValue(val)}</strong></>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* CTA button */}
+                  <div className="pt-8 mt-auto">
+                    <button
+                      disabled
+                      className={`w-full py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 group-hover:shadow-lg ${
+                        isPro
+                          ? 'bg-accent text-white shadow-[0_0_20px_rgba(139,92,246,0.2)] cursor-not-allowed opacity-90'
+                          : isInst
+                          ? 'bg-text-primary text-bg-primary cursor-not-allowed opacity-90'
+                          : 'bg-bg-tertiary border border-border-primary text-text-primary cursor-not-allowed'
+                      }`}
+                    >
+                      {isInst ? 'Contact Sales' : 'Active (Beta Free)'}
+                      <ArrowRight className="w-4 h-4 opacity-50" />
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Why Plans Exist Notice */}
+          <div className="max-w-4xl mx-auto py-12 text-center space-y-6 mt-8">
+            <div className="w-16 h-1 bg-gradient-to-r from-transparent via-accent to-transparent mx-auto opacity-50" />
+            <h3 className="text-xl font-bold text-text-primary">Why are we introducing paid plans?</h3>
+            <p className="text-text-secondary leading-relaxed text-xs sm:text-sm max-w-3xl mx-auto">
+              At PaperHub, we are committed to providing flawlessly verified academic content. To achieve this, we rely on a massive infrastructure ecosystem. This includes immense computing costs for our AI vision evaluation models, fast databases, and secure document storage. <br/><br/>
+              Most importantly, it supports our dedicated team of human verifiers, subject-matter experts, question uploaders, and moderators who work tirelessly behind the scenes to curate every single PYQ. Paid plans allow us to sustain these operational costs and keep the platform ad-free, fast, and academically rigorous.
+            </p>
           </div>
         </section>
 
@@ -568,13 +835,19 @@ export default function Home() {
           <h2 className="font-display text-3xl font-bold text-text-primary mb-4 relative z-10">Ready to Ace Your Exams?</h2>
           <p className="text-sm text-text-secondary max-w-lg mx-auto mb-8 relative z-10 font-normal">Get instant access to MMMUT past papers, syllabus topic filters, and AI assistance. Start practicing in under 30 seconds.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
-            <Link
-              href="/onboarding?reset=true"
+            <button
+              onClick={() => {
+                if (fbUser) {
+                  router.push('/onboarding?reset=true');
+                } else {
+                  router.push('/login');
+                }
+              }}
               className="w-full sm:w-auto px-8 py-4 rounded-xl bg-accent text-white font-semibold hover:bg-accent-hover transition-all shadow-md hover:scale-[1.02] flex items-center justify-center space-x-2 group"
             >
               <span>Launch Practice Solver</span>
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Link>
+            </button>
             <Link
               href="/onboarding?demo=true"
               className="w-full sm:w-auto px-8 py-4 rounded-xl border border-border-primary bg-bg-primary text-text-primary hover:bg-bg-tertiary transition-all flex items-center justify-center hover:scale-[1.02]"
@@ -585,60 +858,7 @@ export default function Home() {
         </section>
       </main>
 
-      {/* Expanded Multi-Column Footer */}
-      <footer className="border-t border-border-primary bg-bg-secondary/40 backdrop-blur-sm py-12 md:py-16 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
-          <div className="col-span-2 space-y-4">
-            <Link href="/" className="flex items-center space-x-2 group">
-              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-display font-bold text-lg shadow-md shadow-accent/20">
-                P
-              </div>
-              <span className="font-display font-bold text-xl tracking-tight group-hover:text-accent transition-colors duration-200">PaperHub</span>
-            </Link>
-            <p className="text-xs text-text-secondary max-w-sm leading-relaxed">
-              PaperHub is a descriptive university exam preparation platform localized for MMMUT. We organize syllabi, past papers, and provide step-by-step guidance.
-            </p>
-            <div className="text-xs text-text-muted flex items-center space-x-1.5">
-              <span>Made with ❤️ for the MMMUT community.</span>
-            </div>
-          </div>
-          <div>
-            <h5 className="font-display font-semibold text-xs text-text-primary uppercase tracking-wider mb-4">Resources</h5>
-            <ul className="space-y-2.5 text-xs text-text-secondary">
-              <li><Link href="/onboarding" className="hover:text-accent transition-colors">Syllabus Archive</Link></li>
-              <li><Link href="/onboarding?demo=true" className="hover:text-accent transition-colors">Past Exam Papers</Link></li>
-              <li><span className="hover:text-accent transition-colors cursor-pointer">Marking Schemes</span></li>
-              <li><span className="hover:text-accent transition-colors cursor-pointer">Academic Calendar</span></li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-display font-semibold text-xs text-text-primary uppercase tracking-wider mb-4">Features</h5>
-            <ul className="space-y-2.5 text-xs text-text-secondary">
-              <li><a href="#how-it-works" className="hover:text-accent transition-colors">Preparation Blueprint</a></li>
-              <li><a href="#ai-solving" className="hover:text-accent transition-colors">AI Step Solver</a></li>
-              <li><Link href="/onboarding" className="hover:text-accent transition-colors">Custom Practice Builder</Link></li>
-              <li><span className="hover:text-accent transition-colors cursor-pointer">Fullscreen Test Environment</span></li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-display font-semibold text-xs text-text-primary uppercase tracking-wider mb-4">Community</h5>
-            <ul className="space-y-2.5 text-xs text-text-secondary">
-              <li><span className="hover:text-accent transition-colors cursor-pointer">Contribute Papers</span></li>
-              <li><span className="hover:text-accent transition-colors cursor-pointer">Bug Report</span></li>
-              <li><span className="hover:text-accent transition-colors cursor-pointer">Join Student Discord</span></li>
-              <li><span className="hover:text-accent transition-colors cursor-pointer">GitHub Repository</span></li>
-            </ul>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-6 pt-8 border-t border-border-primary/50 flex flex-col md:flex-row items-center justify-between text-xs text-text-secondary">
-          <p>© 2026 PaperHub. All rights reserved.</p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <span className="hover:text-accent transition-colors cursor-pointer">Terms of Service</span>
-            <span className="hover:text-accent transition-colors cursor-pointer">Privacy Policy</span>
-            <span className="hover:text-accent transition-colors cursor-pointer">Honor Code</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

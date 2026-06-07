@@ -329,7 +329,7 @@ export async function GET(req: NextRequest) {
     }
     const overallAccuracy = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
 
-    const isBrandNew = performanceRecords.length === 0 && completedSessions.length === 0;
+    const isBrandNew = false;
 
     return NextResponse.json({
       metrics: {

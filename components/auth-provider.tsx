@@ -5,11 +5,13 @@ import { authClient } from "@/lib/auth-client";
 
 export interface IUserProfile {
   name?: string;
+  gender?: 'male' | 'female' | 'other' | null;
   universityId?: string;
   collegeId?: string;
   courseId?: string;
   branchId?: string;
   semester?: number;
+  university?: string;
   college?: string;
   course?: string;
   branch?: string;
@@ -41,6 +43,12 @@ export interface IDbUser {
     autoTimer: boolean;
     delayAnswer: boolean;
     textSize: "small" | "medium" | "large" | "extra-large";
+    theme: "light" | "dark";
+    themeColor: "purple" | "blue" | "green" | "orange" | "pink";
+    leaderboardVisible: boolean;
+    goalNotificationsEnabled: boolean;
+    streakNotificationsEnabled: boolean;
+    leaderboardNotificationsEnabled: boolean;
   };
   bookmarks: string[];
   incorrectAttempts: string[];
@@ -98,6 +106,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const activeFetchTokenRef = useRef<string | null>(null);
 
   const { data: sessionData, isPending } = authClient.useSession();
+
+  // Sync the theme accent class with document.documentElement
+  useEffect(() => {
+    const activeColor = user?.preferences?.themeColor || (typeof window !== 'undefined' ? localStorage.getItem('themeColor') : null) || 'purple';
+    if (typeof window !== 'undefined') {
+      const root = document.documentElement;
+      ['theme-purple', 'theme-blue', 'theme-green', 'theme-orange', 'theme-pink'].forEach(cls => {
+        root.classList.remove(cls);
+      });
+      root.classList.add(`theme-${activeColor}`);
+      localStorage.setItem('themeColor', activeColor);
+    }
+  }, [user?.preferences?.themeColor]);
 
   const fetchUserProfile = async (token: string) => {
     if (activeFetchTokenRef.current === token) {
@@ -179,14 +200,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (errData.error) msg = errData.error;
         } catch (_) {}
         setUser(null);
-        setError(msg);
-        throw new Error(msg);
+        if (res.status !== 401) {
+          setError(msg);
+        } else {
+          setError(null);
+        }
       }
     } catch (err: any) {
       console.error("Error fetching database user profile:", err);
       setUser(null);
-      setError(err.message || "Error syncing with database profile.");
-      throw err;
+      if (!err.message?.includes("Unauthorized") && !err.message?.includes("401")) {
+        setError(err.message || "Error syncing with database profile.");
+      }
     } finally {
       setTimeout(() => {
         if (activeFetchTokenRef.current === token) {

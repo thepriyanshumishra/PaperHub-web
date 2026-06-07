@@ -6,7 +6,15 @@ import { Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme, systemTheme } = useTheme();
+
+  // Handle SSR mismatches
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="w-10 h-10" />;
+
+  const currentTheme = theme === 'system' ? systemTheme : theme;
+  const toggleTheme = () => setTheme(currentTheme === 'light' ? 'dark' : 'light');
 
   return (
     <button

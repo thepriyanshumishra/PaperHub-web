@@ -38,6 +38,16 @@ next-env.d.ts
 # project notes
 paperhub.md
 
+# scratch / debug scripts (one-off dev utilities)
+/scratch/
+fix_themes.js
+test-resend.ts
+update-page.js
+update_page.js
+update_page.py
+
+# .env files (all variants)
+.env
 # ingestion layer
 /Raw Questions
 

@@ -40,7 +40,7 @@ export const PLANS: Record<PlanId, Plan> = {
       exportReports: false,
       prioritySupport: false,
     },
-    badge: '🆓',
+    badge: '',
   },
   plus: {
     id: 'plus',
@@ -58,7 +58,7 @@ export const PLANS: Record<PlanId, Plan> = {
       exportReports: false,
       prioritySupport: false,
     },
-    badge: '📈',
+    badge: '',
   },
   pro: {
     id: 'pro',
@@ -76,7 +76,7 @@ export const PLANS: Record<PlanId, Plan> = {
       exportReports: true,
       prioritySupport: false,
     },
-    badge: '⚡',
+    badge: '',
     highlighted: true,
   },
   institution: {
@@ -95,7 +95,7 @@ export const PLANS: Record<PlanId, Plan> = {
       exportReports: true,
       prioritySupport: true,
     },
-    badge: '🏛️',
+    badge: '',
   },
   beta_pro: {
     id: 'beta_pro',
@@ -113,7 +113,7 @@ export const PLANS: Record<PlanId, Plan> = {
       exportReports: true,
       prioritySupport: false,
     },
-    badge: '🚀',
+    badge: '',
   },
 };
 

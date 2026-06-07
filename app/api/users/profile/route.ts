@@ -24,16 +24,18 @@ async function populateUserCompat(user: any) {
   }
   userObj.personalNotes = personalNotesMap;
 
-  // 2. Fetch and populate legacy college/branch/course codes for backward compatibility
+  // 2. Fetch and populate legacy university/college/branch/course codes for backward compatibility
   if (user.profile) {
     const profileCompat: any = { ...userObj.profile };
     
-    const [col, course, branch] = await Promise.all([
+    const [univ, col, course, branch] = await Promise.all([
+      user.profile.universityId ? University.findById(user.profile.universityId).lean() : null,
       user.profile.collegeId ? College.findById(user.profile.collegeId).lean() : null,
       user.profile.courseId ? Course.findById(user.profile.courseId).lean() : null,
       user.profile.branchId ? Branch.findById(user.profile.branchId).lean() : null,
     ]);
 
+    profileCompat.university = univ ? univ.code : undefined;
     profileCompat.college = col ? col.code : undefined;
     profileCompat.course = course ? course.code : undefined;
     profileCompat.branch = branch ? branch.code : undefined;
@@ -133,6 +135,7 @@ export async function PUT(req: NextRequest) {
     if (profile !== undefined) {
       user.profile = {
         name: profile.name !== undefined ? profile.name : user.profile?.name,
+        gender: profile.gender !== undefined ? profile.gender : (user.profile as any)?.gender,
         universityId: profile.universityId !== undefined ? profile.universityId : user.profile?.universityId,
         collegeId: profile.collegeId !== undefined ? profile.collegeId : user.profile?.collegeId,
         courseId: profile.courseId !== undefined ? profile.courseId : user.profile?.courseId,
@@ -152,6 +155,7 @@ export async function PUT(req: NextRequest) {
         delayAnswer: preferences.delayAnswer !== undefined ? preferences.delayAnswer : user.preferences.delayAnswer,
         textSize: preferences.textSize !== undefined ? preferences.textSize : user.preferences.textSize,
         theme: preferences.theme !== undefined ? preferences.theme : user.preferences.theme,
+        themeColor: preferences.themeColor !== undefined ? preferences.themeColor : user.preferences.themeColor,
         leaderboardVisible: preferences.leaderboardVisible !== undefined ? preferences.leaderboardVisible : user.preferences.leaderboardVisible,
         goalNotificationsEnabled: preferences.goalNotificationsEnabled !== undefined ? preferences.goalNotificationsEnabled : user.preferences.goalNotificationsEnabled,
         streakNotificationsEnabled: preferences.streakNotificationsEnabled !== undefined ? preferences.streakNotificationsEnabled : user.preferences.streakNotificationsEnabled,

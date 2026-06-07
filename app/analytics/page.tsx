@@ -34,8 +34,6 @@ export default function AnalyticsPage() {
     if (!authLoading) {
       if (!fbUser) {
         router.push('/login');
-      } else if (fbUser && !fbUser.emailVerified) {
-        router.push('/verify-email');
       } else if (fbUser && user && user.role === 'student' && !user.onboardingCompleted) {
         router.push('/onboarding');
       }
@@ -822,28 +820,34 @@ export default function AnalyticsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {areasToImprove.map((item: any, idx: number) => {
-                    const isLow = item.badgeType.toLowerCase().includes('low');
-                    return (
-                      <div key={idx} className="p-3.5 rounded-2xl border border-border-primary bg-bg-primary/20 flex items-center justify-between text-xs">
-                        <div className="space-y-1">
-                          <p className="text-[9px] font-bold text-text-muted uppercase tracking-wider">
-                            {item.subjectName}
-                          </p>
-                          <p className="font-bold text-text-primary max-w-[140px] truncate">
-                            {item.topic}
-                          </p>
-                          <span className={`inline-block text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-md border ${isLow ? 'bg-red-500/5 border-red-500/10 text-red-400' : 'bg-amber-500/5 border-amber-500/10 text-amber-400'}`}>
-                            {item.badgeType}
+                  {areasToImprove.length === 0 ? (
+                    <div className="py-8 px-4 text-center border border-dashed border-border-primary/60 rounded-2xl bg-bg-primary/10">
+                      <p className="text-xs text-text-muted italic font-medium">No areas to improve recorded yet. Keep practicing!</p>
+                    </div>
+                  ) : (
+                    areasToImprove.map((item: any, idx: number) => {
+                      const isLow = item.badgeType.toLowerCase().includes('low');
+                      return (
+                        <div key={idx} className="p-3.5 rounded-2xl border border-border-primary bg-bg-primary/20 flex items-center justify-between text-xs">
+                          <div className="space-y-1">
+                            <p className="text-[9px] font-bold text-text-muted uppercase tracking-wider">
+                              {item.subjectName}
+                            </p>
+                            <p className="font-bold text-text-primary max-w-[140px] truncate">
+                              {item.topic}
+                            </p>
+                            <span className={`inline-block text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-md border ${isLow ? 'bg-red-500/5 border-red-500/10 text-red-400' : 'bg-amber-500/5 border-amber-500/10 text-amber-400'}`}>
+                              {item.badgeType}
+                            </span>
+                          </div>
+
+                          <span className={`font-display font-black text-sm px-2.5 py-1.5 rounded-xl border ${isLow ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                            {item.accuracy}%
                           </span>
                         </div>
-
-                        <span className={`font-display font-black text-sm px-2.5 py-1.5 rounded-xl border ${isLow ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
-                          {item.accuracy}%
-                        </span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
 
                 <div className="border-t border-border-primary/40 pt-4">
@@ -861,67 +865,75 @@ export default function AnalyticsPage() {
                 </h3>
 
                 <div className="flex items-center gap-5">
-                  {/* SVG Donut Chart */}
-                  <div className="relative w-28 h-28 shrink-0">
-                    <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
-                      {/* background track */}
-                      <circle
-                        cx={donutCx}
-                        cy={donutCy}
-                        r={donutR}
-                        fill="transparent"
-                        stroke="currentColor"
-                        className="text-border-primary/20 dark:text-border-primary/45"
-                        strokeWidth="9"
-                      />
-                      {/* slices */}
-                      {donutSlices.map((slice: any, idx: number) => (
-                        <circle
-                          key={idx}
-                          cx={donutCx}
-                          cy={donutCy}
-                          r={donutR}
-                          fill="transparent"
-                          stroke={slice.color}
-                          strokeWidth="9"
-                          strokeDasharray={slice.strokeDasharray}
-                          strokeDashoffset={slice.strokeDashoffset}
-                          strokeLinecap="round"
-                        />
-                      ))}
-                    </svg>
-
-                    {/* Center details */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                      <span className="font-display font-black text-[11px] sm:text-xs leading-none text-text-primary">
-                        {metrics.totalTimeString}
-                      </span>
-                      <span className="text-[7.5px] font-bold text-text-muted mt-0.5 uppercase tracking-wider">
-                        Total Time
-                      </span>
+                  {timeDistribution.length === 0 ? (
+                    <div className="py-8 px-4 text-center border border-dashed border-border-primary/60 rounded-2xl bg-bg-primary/10 w-full">
+                      <p className="text-xs text-text-muted italic font-medium">No study sessions logged yet. Time spent will appear here!</p>
                     </div>
-                  </div>
-
-                  {/* Donut Legend */}
-                  <div className="flex-grow space-y-2.5">
-                    {timeDistribution.map((item: any, idx: number) => {
-                      const color = subjectColors[idx % subjectColors.length];
-                      return (
-                        <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
-                          <div className="flex items-center gap-2 max-w-[90px] truncate">
-                            <span 
-                              className="w-2 h-2 rounded-full shrink-0" 
-                              style={{ backgroundColor: color }}
+                  ) : (
+                    <>
+                      {/* SVG Donut Chart */}
+                      <div className="relative w-28 h-28 shrink-0">
+                        <svg viewBox="0 0 120 120" className="w-full h-full transform -rotate-90">
+                          {/* background track */}
+                          <circle
+                            cx={donutCx}
+                            cy={donutCy}
+                            r={donutR}
+                            fill="transparent"
+                            stroke="currentColor"
+                            className="text-border-primary/20 dark:text-border-primary/45"
+                            strokeWidth="9"
+                          />
+                          {/* slices */}
+                          {donutSlices.map((slice: any, idx: number) => (
+                            <circle
+                              key={idx}
+                              cx={donutCx}
+                              cy={donutCy}
+                              r={donutR}
+                              fill="transparent"
+                              stroke={slice.color}
+                              strokeWidth="9"
+                              strokeDasharray={slice.strokeDasharray}
+                              strokeDashoffset={slice.strokeDashoffset}
+                              strokeLinecap="round"
                             />
-                            <span className="text-text-primary truncate">{item.subjectName}</span>
-                          </div>
-                          <span className="text-text-secondary shrink-0 pl-1">
-                            {item.percentage}% <span className="text-text-muted font-medium">({item.timeString})</span>
+                          ))}
+                        </svg>
+
+                        {/* Center details */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+                          <span className="font-display font-black text-[11px] sm:text-xs leading-none text-text-primary">
+                            {metrics.totalTimeString}
+                          </span>
+                          <span className="text-[7.5px] font-bold text-text-muted mt-0.5 uppercase tracking-wider">
+                            Total Time
                           </span>
                         </div>
-                      );
-                    })}
-                  </div>
+                      </div>
+
+                      {/* Donut Legend */}
+                      <div className="flex-grow space-y-2.5">
+                        {timeDistribution.map((item: any, idx: number) => {
+                          const color = subjectColors[idx % subjectColors.length];
+                          return (
+                            <div key={idx} className="flex items-center justify-between text-[11px] font-bold">
+                              <div className="flex items-center gap-2 max-w-[90px] truncate">
+                                <span 
+                                  className="w-2 h-2 rounded-full shrink-0" 
+                                  style={{ backgroundColor: color }}
+                                />
+                                <span className="text-text-primary truncate">{item.subjectName}</span>
+                              </div>
+                              <span className="text-text-secondary shrink-0 pl-1">
+                                {item.percentage}% <span className="text-text-muted font-medium">({item.timeString})</span>
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

@@ -36,11 +36,13 @@ export interface IBetaAccess {
 
 export interface IUserProfile {
   name?: string;
+  gender?: 'male' | 'female' | 'other';
   universityId?: mongoose.Types.ObjectId; // Reference to University
   collegeId?: mongoose.Types.ObjectId;    // Reference to College
   courseId?: mongoose.Types.ObjectId;     // Reference to Course
   branchId?: mongoose.Types.ObjectId;     // Reference to Branch (optional for MBA)
   semester?: number;
+  university?: string;                    // Dynamic string field for legacy frontend compatibility
   college?: string;                       // Dynamic string field for legacy frontend compatibility
   course?: string;                        // Dynamic string field for legacy frontend compatibility
   branch?: string;                        // Dynamic string field for legacy frontend compatibility
@@ -64,6 +66,7 @@ export interface IUserPreferences {
   delayAnswer: boolean;
   textSize: 'small' | 'medium' | 'large' | 'extra-large';
   theme: 'light' | 'dark';
+  themeColor: 'purple' | 'blue' | 'green' | 'orange' | 'pink';
   leaderboardVisible: boolean;
   goalNotificationsEnabled: boolean;
   streakNotificationsEnabled: boolean;
@@ -71,7 +74,7 @@ export interface IUserPreferences {
 }
 
 export interface IUser extends Omit<mongoose.Document, '_id'> {
-  _id: string; // Unique user identifier
+  _id: any; // Unique user identifier (supports both ObjectId and string legacy IDs)
   email: string;
   name?: string; // Better Auth standard name field
   emailVerified: boolean; // Better Auth verification status
@@ -102,6 +105,7 @@ export interface IUser extends Omit<mongoose.Document, '_id'> {
 
 const UserProfileSchema = new Schema<IUserProfile>({
   name: { type: String },
+  gender: { type: String, enum: ['male', 'female', 'other'] },
   universityId: { type: Schema.Types.ObjectId, ref: 'University' },
   collegeId: { type: Schema.Types.ObjectId, ref: 'College' },
   courseId: { type: Schema.Types.ObjectId, ref: 'Course' },
@@ -135,6 +139,11 @@ const UserPreferencesSchema = new Schema<IUserPreferences>({
     default: 'medium' 
   },
   theme: { type: String, enum: ['light', 'dark'], default: 'dark' },
+  themeColor: { 
+    type: String, 
+    enum: ['purple', 'blue', 'green', 'orange', 'pink'], 
+    default: 'purple' 
+  },
   leaderboardVisible: { type: Boolean, default: true },
   goalNotificationsEnabled: { type: Boolean, default: true },
   streakNotificationsEnabled: { type: Boolean, default: true },
@@ -176,7 +185,7 @@ const BetaAccessSchema = new Schema<IBetaAccess>({
 
 const UserSchema = new Schema<IUser>(
   {
-    _id: { type: String, required: true }, // Unique user identifier
+    _id: { type: Schema.Types.ObjectId, required: true }, // Unique user identifier
     email: { type: String, required: true, unique: true },
     name: { type: String }, // Better Auth name
     emailVerified: { type: Boolean, default: false }, // Better Auth verification status
