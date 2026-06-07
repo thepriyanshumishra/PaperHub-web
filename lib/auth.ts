@@ -60,12 +60,11 @@ export const auth = betterAuth({
     username()
   ],
   rateLimit: {
-    // Enforce login rate limiting to prevent brute-force credential attacks.
-    // After 5 failed attempts within a 15-minute window, the endpoint returns 429.
-    // Rate limit state is stored in a Redis-backed secondaryStorage to share state across instances.
-    window: 15 * 60, // 15-minute sliding window (seconds)
-    max: 5,           // Maximum 5 failed login attempts before lockout
-    enabled: true,
+    // Disabled the overly restrictive global rate limit that was applying to get-session
+    // Better Auth rateLimit applies to all endpoints by default, so max: 5 locked users out immediately.
+    window: 15 * 60,
+    max: 1000,
+    enabled: false,
     storage: "secondary-storage",
   },
   hooks: {
