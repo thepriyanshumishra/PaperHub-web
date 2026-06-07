@@ -63,6 +63,50 @@ export default function Home() {
   const router = useRouter();
   const { user, fbUser, loading: authLoading, logout, refreshProfile, error: authError } = useAuth();
 
+  const [stats, setStats] = useState({
+    totalQuestions: 0,
+    totalSubjects: 0,
+    totalSolvedSteps: 0,
+    totalActiveBranches: 0,
+  });
+
+  const [localCollege, setLocalCollege] = useState<string | null>(null);
+  const [localBranch, setLocalBranch] = useState<string | null>(null);
+
+  // Retrieve fallback settings from local storage to check for guest dashboard availability
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setLocalCollege(localStorage.getItem('selectedCollege'));
+      setLocalBranch(localStorage.getItem('selectedBranch'));
+    }
+  }, []);
+
+  // Fetch real-time ecosystem stats
+  useEffect(() => {
+    const fetchStats = () => {
+      fetch('/api/stats')
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          return res.json();
+        })
+        .then((data) => {
+          setStats({
+            totalQuestions: data.totalQuestions,
+            totalSubjects: data.totalSubjects,
+            totalSolvedSteps: data.totalSolvedSteps,
+            totalActiveBranches: data.totalActiveBranches,
+          });
+        })
+        .catch((err) => console.error('Failed to load real-time stats:', err));
+    };
+
+    fetchStats();
+    
+    // Poll for real-time updates every 10 seconds
+    const interval = setInterval(fetchStats, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Redirect logged-in users to the dashboard or onboarding
   useEffect(() => {
     if (!authLoading && fbUser) {
@@ -120,50 +164,6 @@ export default function Home() {
       </div>
     );
   }
-  
-  const [stats, setStats] = useState({
-    totalQuestions: 0,
-    totalSubjects: 0,
-    totalSolvedSteps: 0,
-    totalActiveBranches: 0,
-  });
-
-  const [localCollege, setLocalCollege] = useState<string | null>(null);
-  const [localBranch, setLocalBranch] = useState<string | null>(null);
-
-  // Retrieve fallback settings from local storage to check for guest dashboard availability
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setLocalCollege(localStorage.getItem('selectedCollege'));
-      setLocalBranch(localStorage.getItem('selectedBranch'));
-    }
-  }, []);
-
-  // Fetch real-time ecosystem stats
-  useEffect(() => {
-    const fetchStats = () => {
-      fetch('/api/stats')
-        .then((res) => {
-          if (!res.ok) throw new Error();
-          return res.json();
-        })
-        .then((data) => {
-          setStats({
-            totalQuestions: data.totalQuestions,
-            totalSubjects: data.totalSubjects,
-            totalSolvedSteps: data.totalSolvedSteps,
-            totalActiveBranches: data.totalActiveBranches,
-          });
-        })
-        .catch((err) => console.error('Failed to load real-time stats:', err));
-    };
-
-    fetchStats();
-    
-    // Poll for real-time updates every 10 seconds
-    const interval = setInterval(fetchStats, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   const hasLocalParams = !!(localCollege && localBranch);
   const isDashboardVisible = (user && user.onboardingCompleted) || (!fbUser && hasLocalParams);
